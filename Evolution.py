@@ -3,14 +3,17 @@
 import numpy as np
 # For typing hints
 import typing as typ
-# calc observables
-import Observables
+# For plotting:
+import matplotlib.pyplot as plt
+# For tools and helpers:
+from Utils import timeit
 
 
 # Constants:
-J = 3 # Use 20
+J = 20
 Gamma = 1
-dt = 1
+dt = 0.5
+nTimes = 20
 
 
 
@@ -24,15 +27,14 @@ def Energy(rho: np.matrix) -> float:
 def Intensity( energyVec, timeVec ) -> np.ndarray:
     L = len(energyVec)
     assert len(timeVec)==L
-    intensityVec = np.zeros((L-1),1)
+    intensityVec = np.ndarray((L-1), dtype=float)
     for i in range(L-1):
-        intensityVec[i] = (-1)*(energyVec(i+1)-energyVec(i))/(timeVec(i+1)-timeVec(i))
+        intensityVec[i] = (-1)*(energyVec[i+1]-energyVec[i])/(timeVec[i+1]-timeVec[i])
     return intensityVec
 
 
 
-
-def _allMVals() -> iter:
+def _allMVals() -> typ.Iterable:
     Iter = range(-J,J+1,1)
     return Iter
 
@@ -69,15 +71,39 @@ def EvolveDensityMatrix(
     return nextRho
     
 
-
-if __name__ == "__main__":
+def main():    
+    # Init:
     rho = InitDensityMatrix()
-
-    timeVec = list(range(0,10,dt))
+    timeVec = np.arange(start=0, stop=nTimes*dt,step=dt)
     rhoList = list()
-    energyVec = np.ndarray((len(timeVec), 1), dtype=float)
+    energyVec = np.zeros((len(timeVec)),dtype=float)   
+
+    # Compute Evolution:
     for i, t in enumerate(timeVec):
         rho = EvolveDensityMatrix(rho, dt)
         rhoList.append(rho)
-        energyVec[i] = Observables.Energy(rho)
-    print("Done.")
+        energyVec[i] = Energy(rho)
+
+    # Compute Intensity:
+    intensityVec = Intensity(energyVec, timeVec)
+
+    # Plot:
+    fig, axes = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
+
+    axes[0].plot(timeVec[0:-1], energyVec[0:-1])    
+    axes[0].grid(which='major')
+    axes[0].set_xlabel('Time [sec] '    , fontdict=dict(size=16) )
+    axes[0].set_ylabel('Energy     '    , fontdict=dict(size=16) )
+    axes[0].set_title('Evolution   '    , fontdict=dict(size=16) )
+
+    axes[1].plot(timeVec[0:-1], intensityVec)    
+    axes[1].grid(which='major')
+    axes[1].set_xlabel('Time [sec] '    , fontdict=dict(size=16) )
+    axes[1].set_ylabel('Intensity  '    , fontdict=dict(size=16) )
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
+    print("Done")
