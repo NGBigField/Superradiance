@@ -6,25 +6,55 @@ import typing as typ
 # For plotting:
 import matplotlib.pyplot as plt
 # For tools and helpers:
-from Utils import timeit
+from Utils import Decorators
 
+# TODO:
+""" 
+1. Rho can be a vector. we only use diagonal values
+2. m <-  0 to N instead of using M
+3. maybe solve in steps as we do, or solve as matrix exponent
+
+"""
+
+     
 
 # Constants:
-J = 20
+N = 6
 Gamma = 1
-dt = 0.5
-nTimes = 20
+tau  = 0 # time of emission =  (1/Gamma*N)
+Tmax = 2
+dt = 0.1
 
+
+# Derived Params:
+J = int(N/2)
+
+
+
+def _CheckConstants() -> None:
+    assert float(N)/2 == int(int(N)/2)
+
+@Decorators.assertType(int)
+def _M2m(M: int) -> int:
+    m = M+int(N/2)
 
 
 def Energy(rho: np.matrix) -> float:
+    """ 
+       E_Vec = rho_vec  \cdot   (0:N)
+    """
     Sum = 0.0
     for i, M in enumerate(_allMVals()):
-        element = rho[i,i]*M
+        m = _M2m(M)
+        element = rho[i,i]*m
         Sum += element
     return Sum
 
 def Intensity( energyVec, timeVec ) -> np.ndarray:
+    """ 
+    - dE/dt  = -sum_M(  drho/dt  * m ) = - (H*rho_vec .*  E_Vec)
+    drho_Vec/dt = H*rho_vec   a matrix representation of the equation (4.7)
+    """
     L = len(energyVec)
     assert len(timeVec)==L
     intensityVec = np.ndarray((L-1), dtype=float)
@@ -64,17 +94,21 @@ def EvolveDensityMatrix(
         else:
             prevRhoMPlus1 = prevRho[i+1,i+1]
         # Calc next rho:
-        nextRhoM = -Gamma*(J+M)*(J-M+1)*prevRhoM + Gamma*(J-M)*(J+M+1)*prevRhoMPlus1
-        nextRhoM *= dt
+        dRho = -Gamma*(J+M)*(J-M+1)*prevRhoM + Gamma*(J-M)*(J+M+1)*prevRhoMPlus1
+        nextRhoM = dt*dRho + prevRhoM
         # Insert Values:
         nextRho[i,i] = nextRhoM
     return nextRho
     
-
+@Decorators.timeit
 def main():    
+
+    # Check:
+    _CheckConstants()
+
     # Init:
     rho = InitDensityMatrix()
-    timeVec = np.arange(start=0, stop=nTimes*dt,step=dt)
+    timeVec = np.arange(start=0, stop=Tmax,step=dt)
     rhoList = list()
     energyVec = np.zeros((len(timeVec)),dtype=float)   
 
