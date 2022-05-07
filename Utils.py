@@ -1,10 +1,9 @@
 import time 
 import typing as typ
-from abc import ABC
 from collections.abc import Iterable
 
 
-class Decorators(ABC):
+class Decorators():
 
     @staticmethod
     def timeit(func: typ.Callable):
@@ -25,28 +24,24 @@ class Decorators(ABC):
     def assertType(Type: type, atInput: bool = True, atOutput: bool = True) -> typ.Callable:
         def decorator(func: typ.Callable):
             def wrapper(*args, **kwargs):
-                
+                # Define Assertion including error message:
                 def _Assertion(arg):
                     assert isinstance(arg, Type), f"Assertion failed. Argument {arg} is not of type '{Type.__name__}'"
-
-                # assert input :
+                # Assert Inputs :
                 if atInput:
                     for arg in args:
                         _Assertion(arg)
                     for key, val in kwargs.items():
                         _Assertion(val)
-
                 # Call func:
                 results = func(*args, **kwargs)
-
-                # assert outputs:
+                # Assert Outputs:
                 if atOutput:
                     if isinstance(results, Iterable):
                         for result in results:
                             _Assertion(result)
                     else:
                         _Assertion(results)
-
                 return results           
             return wrapper
         return decorator
