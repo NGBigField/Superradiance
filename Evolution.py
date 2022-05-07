@@ -8,22 +8,14 @@ import matplotlib.pyplot as plt
 # For tools and helpers:
 from Utils import Decorators
 
-""" 
-# TODO:
-1. Rho can be a vector. we only use diagonal values
-2. m <-  0 to N instead of using M
-3. maybe solve in steps as we do, or solve as matrix exponent
 
-"""
-
-     
 
 # Constants:
-N = 6
+N = 8
 Gamma = 1
-tau  = 0 # time of emission =  (1/Gamma*N)
-tMax = 0.4
-dt = 0.1
+# tau  = 0 # time of emission =  (1/Gamma*N)
+tMax = 2
+dt = 0.01
 
 
 # Derived Params:
@@ -54,38 +46,37 @@ def RhoIterator(rho: np.array) -> typ.Iterator[typ.Tuple[int, float, float]]:
 @Decorators.assertType(int)
 def _M2m(M: int) -> int:
     m = M+int(N/2)
+    return m
 
 @Decorators.assertType(int)
 def _m2M(m: int) -> int:
     M = m-int(N/2)
+    return M
 
-def Energy(rho: np.matrix) -> float:
+def Energy(rho: np.array) -> float:
     """ 
        E_Vec = rho_vec  \cdot   (0:N)
     """
     Sum = 0.0
-    for i, M in enumerate(_allMVals()):
-        m = _M2m(M)
-        element = rho[i,i]*m
-        Sum += element
+    for m, rho_m, _ in RhoIterator(rho):
+        Sum += rho_m*m
     return Sum
 
-def Intensity( energyVec, timeVec ) -> np.ndarray:
+def Intensity( energyVec: list, timeVec: list ) -> np.ndarray:
     """ 
     - dE/dt  = -sum_M(  drho/dt  * m ) = - (H*rho_vec .*  E_Vec)
     drho_Vec/dt = H*rho_vec   a matrix representation of the equation (4.7)
     """
+    # Check Inputs:
     L = len(energyVec)
     assert len(timeVec)==L
+    # Init Outputs:
     intensityVec = np.ndarray((L-1), dtype=float)
+    # Calculate
     for i in range(L-1):
         intensityVec[i] = (-1)*(energyVec[i+1]-energyVec[i])/(timeVec[i+1]-timeVec[i])
     return intensityVec
 
-
-def _allMVals() -> typ.Iterable:
-    Iter = range(-J,J+1,1)
-    return Iter
 
 def _numMVals() -> int:
     return N+1
@@ -111,28 +102,8 @@ def Evolve(
         # Insert Values:
         nextRho[m] = nextRho_m
     return nextRho
-    
-@Decorators.timeit
-def main():    
 
-    # Check:
-    _CheckConstants()
-
-    # Init:
-    rho = InitRho()
-    energyVec = []
-    timeVec   = []
-    
-    # Simulate Evolution:
-    for t in TimeIterator():
-        rho = Evolve(rho, dt)
-        E = Energy(rho)
-        timeVec.append( t )
-        energyVec.append( E )
-
-    # Compute Intensity:
-    intensityVec = Intensity(energyVec, timeVec)
-
+def PlotResults(timeVec, energyVec, intensityVec):
     # Plot:
     fig, axes = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
 
@@ -146,8 +117,33 @@ def main():
     axes[1].grid(which='major')
     axes[1].set_xlabel('Time [sec] '    , fontdict=dict(size=16) )
     axes[1].set_ylabel('Intensity  '    , fontdict=dict(size=16) )
-
     plt.show()
+
+@Decorators.timeit
+def main():    
+
+    # Check:
+    _CheckConstants()
+
+    # Init:
+    rho = InitRho()
+    energyVec = []
+    timeVec   = []
+    
+    # Simulate Evolution:
+    for t in TimeIterator():
+        # Evolve:
+        rho = Evolve(rho, dt)
+        E = Energy(rho)
+        # Keep results in Vectors:
+        timeVec.append( t )
+        energyVec.append( E )
+
+    # Compute Intensity:
+    intensityVec = Intensity(energyVec, timeVec)
+
+    # Plot Results:
+    PlotResults(timeVec, energyVec, intensityVec)
 
 
 if __name__ == "__main__":
