@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 # For tools and helpers:
 from Utils import Decorators
 
-# TODO:
 """ 
+# TODO:
 1. Rho can be a vector. we only use diagonal values
 2. m <-  0 to N instead of using M
 3. maybe solve in steps as we do, or solve as matrix exponent
@@ -22,22 +22,42 @@ from Utils import Decorators
 N = 6
 Gamma = 1
 tau  = 0 # time of emission =  (1/Gamma*N)
-Tmax = 2
+tMax = 0.4
 dt = 0.1
 
 
 # Derived Params:
 J = int(N/2)
 
-
-
 def _CheckConstants() -> None:
-    assert float(N)/2 == int(int(N)/2)
+    assert float(N)/2 == int(int(N)/2) # N is even
+    assert J*2 == N 
+    assert _numMVals() == N + 1
+
+def TimeIterator() -> typ.Iterator:
+    t = 0.00
+    while t <= tMax:
+        yield t
+        t += dt
+
+def RhoIterator(rho: np.array) -> typ.Iterator[typ.Tuple[int, float, float]]:
+    numM = _numMVals()
+    assert numM == len(rho)
+    for m in range(numM):
+        rho_m = rho[m]
+        if m + 1 >= numM:
+            rho_mPlus1 = 0
+        else:
+            rho_mPlus1 = rho[m+1]
+        yield (m, rho_m, rho_mPlus1)
 
 @Decorators.assertType(int)
 def _M2m(M: int) -> int:
     m = M+int(N/2)
 
+@Decorators.assertType(int)
+def _m2M(m: int) -> int:
+    M = m-int(N/2)
 
 def Energy(rho: np.matrix) -> float:
     """ 
@@ -63,41 +83,33 @@ def Intensity( energyVec, timeVec ) -> np.ndarray:
     return intensityVec
 
 
-
 def _allMVals() -> typ.Iterable:
     Iter = range(-J,J+1,1)
     return Iter
 
 def _numMVals() -> int:
-    return 2*J+1
+    return N+1
 
-def InitDensityMatrix() -> np.matrix:
+def InitRho() -> np.array:
     numM = _numMVals()
-    rho = np.zeros([numM, numM])
-    rho[-1,-1] = 1
+    rho = np.zeros([numM])
+    rho[-1] = 1
     return rho
 
-def EvolveDensityMatrix(
-    prevRho : np.matrix, # previous density matrix 
+def Evolve(
+    prevRho : np.array,  # previous density matrix 
     dt      : float,     # size of time steps
-) -> np.matrix:
+) -> np.array:
 
     # init output:
     nextRho = np.zeros(prevRho.shape)
     # Iterate:
-    numM = _numMVals()
-    for i, M in enumerate(_allMVals()):
-        # Get values:
-        prevRhoM = prevRho[i,i]
-        if i==numM-1:
-            prevRhoMPlus1 = 0
-        else:
-            prevRhoMPlus1 = prevRho[i+1,i+1]
-        # Calc next rho:
-        dRho = -Gamma*(J+M)*(J-M+1)*prevRhoM + Gamma*(J-M)*(J+M+1)*prevRhoMPlus1
-        nextRhoM = dt*dRho + prevRhoM
+    for m, prevRho_m, prevRho_mPlus1 in RhoIterator(prevRho):
+        M = _m2M(m)
+        dRho = -Gamma*(J+M)*(J-M+1)*prevRho_m + Gamma*(J-M)*(J+M+1)*prevRho_mPlus1
+        nextRho_m = dt*dRho + prevRho_m
         # Insert Values:
-        nextRho[i,i] = nextRhoM
+        nextRho[m] = nextRho_m
     return nextRho
     
 @Decorators.timeit
@@ -107,16 +119,16 @@ def main():
     _CheckConstants()
 
     # Init:
-    rho = InitDensityMatrix()
-    timeVec = np.arange(start=0, stop=Tmax,step=dt)
-    rhoList = list()
-    energyVec = np.zeros((len(timeVec)),dtype=float)   
-
-    # Compute Evolution:
-    for i, t in enumerate(timeVec):
-        rho = EvolveDensityMatrix(rho, dt)
-        rhoList.append(rho)
-        energyVec[i] = Energy(rho)
+    rho = InitRho()
+    energyVec = []
+    timeVec   = []
+    
+    # Simulate Evolution:
+    for t in TimeIterator():
+        rho = Evolve(rho, dt)
+        E = Energy(rho)
+        timeVec.append( t )
+        energyVec.append( E )
 
     # Compute Intensity:
     intensityVec = Intensity(energyVec, timeVec)
