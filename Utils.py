@@ -1,7 +1,27 @@
 import time 
 import typing as typ
 from collections.abc import Iterable
+from enum import Enum, auto
 
+
+class InputOutput(str, Enum):
+    Input  = auto()
+    Output = auto()
+    Both   = auto()
+
+    def parse(self) -> typ.Tuple[bool, bool] :
+        if self is InputOutput.Input:
+            atInput  = True 
+            atOutput = False
+        elif self is InputOutput.Output:
+            atInput  = False 
+            atOutput = True
+        elif self is InputOutput.Both:
+            atInput  = True 
+            atOutput = True
+        else:
+            raise ValueError(f"Impossible Option")
+        return atInput, atOutput
 
 class Decorators():
 
@@ -21,7 +41,25 @@ class Decorators():
         return wrapper
 
     @staticmethod
-    def assertType(Type: type, atInput: bool = True, atOutput: bool = True) -> typ.Callable:
+    def assertType(Type: type, at: typ.Literal['input', 'output', 'both'] = 'both' ) -> typ.Callable:
+        """assertType 
+
+        Args:
+            Type (type): type needed at input\output of function.
+            at (InputOutput, optional): Defaults to InputOutput.Both.
+        """
+        # Parse options:
+        if at == 'input':
+            atInput  = True 
+            atOutput = False
+        elif at == 'output':
+            atInput  = False 
+            atOutput = True
+        elif at == "both":
+            atInput  = True 
+            atOutput = True
+        else:
+            raise ValueError(f"Impossible Option")
         def decorator(func: typ.Callable):
             def wrapper(*args, **kwargs):
                 # Define Assertion including error message:
@@ -47,13 +85,14 @@ class Decorators():
         return decorator
 
 
-@Decorators.assertType(int, atInput=False, atOutput=True)
-@Decorators.assertType(str, atInput=True , atOutput=False)
+@Decorators.assertType(int, at='output')
+@Decorators.assertType(str, at='input' )
 def _ExampleFunc(a, b, c='Hello', d='Bye'):    
     print(f"a='{a}' , b='{b}' , c='{c}' , d='{d}'")
     res = 3
+    print(f"res={res}")
     return res
 
 if __name__ == "__main__":
     # Run Example Code
-    _ExampleFunc(3, 'Gutman', d="Cio")
+    _ExampleFunc('3', 'Gutman', d="Cio")
