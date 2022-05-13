@@ -1,10 +1,44 @@
 import time 
 import typing as typ
+from typing import Literal
 from collections.abc import Iterable
 from enum import Enum, auto
 
+IS_FLAG = True 
 
-class InputOutput(str, Enum):
+class LiteralEnum(str, Enum):
+
+    @classmethod
+    def string_and_enums(cls) -> Literal:
+        for i, (l, v) in enumerate(zip(cls.strings(), cls.__members__.values())):
+            if i == 0:
+                L = typ.Literal[l, v]
+            else:
+               L = typ.Union[L, typ.Literal[l, v]]
+        return L
+
+    @classmethod
+    def all_literals(cls) -> Literal:
+        for i, l in enumerate(cls.literals()):
+            if i == 0:
+                L = l
+            else:
+               L = typ.Union[L,l]
+        return L
+
+    @classmethod
+    def literals(cls):        
+        for s in cls.strings():            
+            yield Literal[s]
+    
+    @classmethod
+    def strings(cls) -> typ.Iterator[str]:
+        for key in cls.__members__.keys():
+            yield key
+
+
+
+class InputOutput(LiteralEnum):
     Input  = auto()
     Output = auto()
     Both   = auto()
@@ -22,6 +56,33 @@ class InputOutput(str, Enum):
         else:
             raise ValueError(f"Impossible Option")
         return atInput, atOutput
+
+L = InputOutput.all_literals()
+
+def color(l: InputOutput.string_and_enums() ) -> int:
+    return 32
+
+a = color()
+
+l = [ s for s in InputOutput.__members__.keys() ]
+l
+
+class TypeHints():
+
+    @staticmethod
+    def enumToLiteral( enumIn: Enum ) -> typ.Literal :
+        
+        strings : typ.List[str] = []
+        values = []
+        members = enumIn.__members__
+        for key, val in enumIn.__members__.items():
+            print(f"name={key} , val={val}")
+            strings.append( key )
+            values.append( val )
+
+        L = typ.Literal[ 'x', 'y' ]
+        return L
+
 
 class Decorators():
 
@@ -87,12 +148,18 @@ class Decorators():
 
 @Decorators.assertType(int, at='output')
 @Decorators.assertType(str, at='input' )
-def _ExampleFunc(a, b, c='Hello', d='Bye'):    
+def _assertType_Example(a, b, c='Hello', d='Bye'):    
     print(f"a='{a}' , b='{b}' , c='{c}' , d='{d}'")
     res = 3
     print(f"res={res}")
     return res
 
+InputOutputArg : typ.Literal = TypeHints.enumToLiteral( InputOutput )
+def _enumHint_Example( at: InputOutputArg):
+    print(at)
+
+
 if __name__ == "__main__":
-    # Run Example Code
-    _ExampleFunc('3', 'Gutman', d="Cio")
+    # Run Example Codes:
+    # _assertType_Example('3', 'Gutman', d="Cio")
+    _enumHint_Example()
