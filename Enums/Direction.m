@@ -4,6 +4,5 @@ classdef Direction < uint32
         down  (2)
         left  (3)
         right (4)
-    end
-    
+    end    
 end
