@@ -16,11 +16,11 @@
 """
 
 # import example:
-from Evolution import main as EvolutionExample
+from schrodinger_evolution import main as shrodinger_evolution_example
 
 
 
 
 if __name__ == "__main__":
     # run example:
-    EvolutionExample()
+    shrodinger_evolution_example()

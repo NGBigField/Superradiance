@@ -127,8 +127,8 @@ def PlotResults(timeVec, energyVec, intensityVec):
     axes[1].set_ylabel('Intensity  '    , fontdict=dict(size=16) )
     plt.show()
 
-@Decorators.timeit
-def main( params: Params ):    
+# @Decorators.timeit
+def main( params:Params=Params() ):    
 
     # Check:
     params.validate()
