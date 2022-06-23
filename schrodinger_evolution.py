@@ -6,7 +6,7 @@ import typing as typ
 # For plotting:
 import matplotlib.pyplot as plt
 # For tools and helpers:
-from Utils import Decorators
+from utils import Decorators
 from dataclasses import dataclass
 
 
@@ -31,7 +31,9 @@ class Params():
         assert J*2 == N 
         assert _numMVals(self) == N + 1
 
-
+def _numMVals(params: Params) -> int:
+    N = params.N
+    return N+1
 
 def TimeIterator(params: Params) -> typ.Iterator:
     tMax = params.tMax
@@ -83,10 +85,6 @@ def Intensity( energyVec: list, timeVec: list ) -> np.ndarray:
         intensityVec[i] = (-1)*(energyVec[i+1]-energyVec[i])/(timeVec[i+1]-timeVec[i])
     return intensityVec
 
-
-def _numMVals(params: Params) -> int:
-    N = params.N
-    return N+1
 
 def InitRho(params: Params) -> np.array:
     numM = _numMVals(params)
