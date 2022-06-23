@@ -36,54 +36,6 @@ class LiteralEnum(str, Enum):
         for key in cls.__members__.keys():
             yield key
 
-
-
-class InputOutput(LiteralEnum):
-    Input  = auto()
-    Output = auto()
-    Both   = auto()
-
-    def parse(self) -> typ.Tuple[bool, bool] :
-        if self is InputOutput.Input:
-            atInput  = True 
-            atOutput = False
-        elif self is InputOutput.Output:
-            atInput  = False 
-            atOutput = True
-        elif self is InputOutput.Both:
-            atInput  = True 
-            atOutput = True
-        else:
-            raise ValueError(f"Impossible Option")
-        return atInput, atOutput
-
-L = InputOutput.all_literals()
-
-def color(l: InputOutput.string_and_enums() ) -> int:
-    return 32
-
-a = color()
-
-l = [ s for s in InputOutput.__members__.keys() ]
-l
-
-class TypeHints():
-
-    @staticmethod
-    def enumToLiteral( enumIn: Enum ) -> typ.Literal :
-        
-        strings : typ.List[str] = []
-        values = []
-        members = enumIn.__members__
-        for key, val in enumIn.__members__.items():
-            print(f"name={key} , val={val}")
-            strings.append( key )
-            values.append( val )
-
-        L = typ.Literal[ 'x', 'y' ]
-        return L
-
-
 class Decorators():
 
     @staticmethod
@@ -154,12 +106,7 @@ def _assertType_Example(a, b, c='Hello', d='Bye'):
     print(f"res={res}")
     return res
 
-InputOutputArg : typ.Literal = TypeHints.enumToLiteral( InputOutput )
-def _enumHint_Example( at: InputOutputArg):
-    print(at)
-
-
 if __name__ == "__main__":
     # Run Example Codes:
-    # _assertType_Example('3', 'Gutman', d="Cio")
-    _enumHint_Example()
+    _assertType_Example('3', 'Gutman', d="Cio")
+

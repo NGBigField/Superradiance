@@ -3,9 +3,9 @@
 #TODO:
 1. read equation 6.36
 
-2. d/dt  D^{+ cl}     6.49
+2. 6.45, 6.46 statistics
 
-3. 6.45, 6.46 statistics
+3. d/dt  D^{+ cl}     6.49
 
 4. Plot average intensity for many that_i values
 
