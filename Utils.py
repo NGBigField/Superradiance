@@ -1,40 +1,6 @@
 import time 
 import typing as typ
-from typing import Literal
 from collections.abc import Iterable
-from enum import Enum, auto
-
-IS_FLAG = True 
-
-class LiteralEnum(str, Enum):
-
-    @classmethod
-    def string_and_enums(cls) -> Literal:
-        for i, (l, v) in enumerate(zip(cls.strings(), cls.__members__.values())):
-            if i == 0:
-                L = typ.Literal[l, v]
-            else:
-               L = typ.Union[L, typ.Literal[l, v]]
-        return L
-
-    @classmethod
-    def all_literals(cls) -> Literal:
-        for i, l in enumerate(cls.literals()):
-            if i == 0:
-                L = l
-            else:
-               L = typ.Union[L,l]
-        return L
-
-    @classmethod
-    def literals(cls):        
-        for s in cls.strings():            
-            yield Literal[s]
-    
-    @classmethod
-    def strings(cls) -> typ.Iterator[str]:
-        for key in cls.__members__.keys():
-            yield key
 
 class Decorators():
 
