@@ -85,7 +85,6 @@ def Intensity( energyVec: list, timeVec: list ) -> np.ndarray:
         intensityVec[i] = (-1)*(energyVec[i+1]-energyVec[i])/(timeVec[i+1]-timeVec[i])
     return intensityVec
 
-
 def InitRho(params: Params) -> np.array:
     numM = _numMVals(params)
     rho = np.zeros([numM])

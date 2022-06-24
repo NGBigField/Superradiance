@@ -69,11 +69,10 @@ def _initial_conditions(alpha:float, params:Params=Params()):
 
 def _intensity( theta:float, params:Params=Params() ) -> float :
     # Parse Values:
-    h_bar = params.h_bar
     omega_0 = params.omega_0
     N = params.N
     Tr = params.Tr
-    intensity = (h_bar*omega_0/2)*(N/Tr)*np.square(np.sin(theta))
+    intensity = (omega_0/2)*(N/Tr)*np.square(np.sin(theta)) # times h_bar
     return intensity 
 
 def _theta_evolution( theta_i:float, t:float, params:Params=Params() ) -> float:
