@@ -1,6 +1,29 @@
 import time 
 import typing as typ
 from collections.abc import Iterable
+import matlab.engine
+
+# For type hints:
+MatlabEngineType = matlab.engine.matlabengine.MatlabEngine
+
+class Matlab():
+
+    @staticmethod
+    def init(add_sub_paths:bool=True) -> MatlabEngineType:
+        eng = matlab.engine.start_matlab()
+        if add_sub_paths:
+            Matlab.add_all_sub_paths(eng)
+        return eng
+
+    @staticmethod
+    def example() -> None:
+        eng = Matlab.init()
+        eng.life(nargout=0)
+        time.sleep(1)
+
+    @staticmethod
+    def add_all_sub_paths(eng:MatlabEngineType) -> None:
+        eng.addpath(eng.genpath(eng.pwd()),nargout=0)
 
 
 class Decorators():
@@ -21,7 +44,25 @@ class Decorators():
         return wrapper
 
     @staticmethod
-    def assertType(Type: type, atInput: bool = True, atOutput: bool = True) -> typ.Callable:
+    def assertType(Type: type, at: typ.Literal['input', 'output', 'both'] = 'both' ) -> typ.Callable:
+        """assertType 
+
+        Args:
+            Type (type): type needed at input\output of function.
+            at (InputOutput, optional): Defaults to InputOutput.Both.
+        """
+        # Parse options:
+        if at == 'input':
+            atInput  = True 
+            atOutput = False
+        elif at == 'output':
+            atInput  = False 
+            atOutput = True
+        elif at == "both":
+            atInput  = True 
+            atOutput = True
+        else:
+            raise ValueError(f"Impossible Option")
         def decorator(func: typ.Callable):
             def wrapper(*args, **kwargs):
                 # Define Assertion including error message:
@@ -47,13 +88,24 @@ class Decorators():
         return decorator
 
 
-@Decorators.assertType(int, atInput=False, atOutput=True)
-@Decorators.assertType(str, atInput=True , atOutput=False)
-def _ExampleFunc(a, b, c='Hello', d='Bye'):    
+@Decorators.assertType(int, at='output')
+@Decorators.assertType(str, at='input' )
+def _assertType_Example(a, b, c='Hello', d='Bye'):    
     print(f"a='{a}' , b='{b}' , c='{c}' , d='{d}'")
     res = 3
+    print(f"res={res}")
     return res
 
 if __name__ == "__main__":
-    # Run Example Code
-    _ExampleFunc(3, 'Gutman', d="Cio")
+    # Run Example Codes:    
+    # Matlab.example()
+
+    mat = Matlab.init()
+
+    print("a is prime?")
+    a = mat.isprime(3)
+    mat.my_test(3)
+    print(a)
+    print("Done.")
+
+
