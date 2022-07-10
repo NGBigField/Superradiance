@@ -1,6 +1,30 @@
 import time 
 import typing as typ
 from collections.abc import Iterable
+import matlab.engine
+
+# For type hints:
+MatlabEngineType = matlab.engine.matlabengine.MatlabEngine
+
+class Matlab():
+
+    @staticmethod
+    def init(add_sub_paths:bool=True) -> MatlabEngineType:
+        eng = matlab.engine.start_matlab()
+        if add_sub_paths:
+            Matlab.add_all_sub_paths(eng)
+        return eng
+
+    @staticmethod
+    def example() -> None:
+        eng = Matlab.init()
+        eng.life(nargout=0)
+        time.sleep(1)
+
+    @staticmethod
+    def add_all_sub_paths(eng:MatlabEngineType) -> None:
+        eng.addpath(eng.genpath(eng.pwd()),nargout=0)
+
 
 class Decorators():
 
@@ -73,6 +97,15 @@ def _assertType_Example(a, b, c='Hello', d='Bye'):
     return res
 
 if __name__ == "__main__":
-    # Run Example Codes:
-    _assertType_Example('3', 'Gutman', d="Cio")
+    # Run Example Codes:    
+    # Matlab.example()
+
+    mat = Matlab.init()
+
+    print("a is prime?")
+    a = mat.isprime(3)
+    mat.my_test(3)
+    print(a)
+    print("Done.")
+
 
