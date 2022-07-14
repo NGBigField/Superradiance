@@ -6,7 +6,7 @@ import typing as typ
 # For plotting:
 import matplotlib.pyplot as plt
 # For tools and helpers:
-from utils import Decorators
+from utils import Decorators, Visuals
 from dataclasses import dataclass
 
 
@@ -35,7 +35,7 @@ def _numMVals(params: Params) -> int:
     N = params.N
     return N+1
 
-def TimeIterator(params: Params) -> typ.Iterator:
+def iterate_time(params: Params) -> typ.Iterator:
     tMax = params.tMax
     dt   = params.dt
     t = 0.00
@@ -43,7 +43,7 @@ def TimeIterator(params: Params) -> typ.Iterator:
         yield t
         t += dt
 
-def RhoIterator(params: Params, rho: np.array) -> typ.Iterator[typ.Tuple[int, float, float]]:
+def iterate_rho(params: Params, rho: np.array) -> typ.Iterator[typ.Tuple[int, float, float]]:
     numM = _numMVals(params)
     assert numM == len(rho)
     for m in range(numM):
@@ -61,16 +61,16 @@ def _m2M(params: Params, m: int) -> int:
     M = m-int(N/2)
     return M
 
-def Energy(params: Params, rho: np.array) -> float:
+def calc_energy(params: Params, rho: np.array) -> float:
     """ 
        E_Vec = rho_vec  \cdot   (0:N)
     """
     Sum = 0.0
-    for m, rho_m, _ in RhoIterator(params, rho):
+    for m, rho_m, _ in iterate_rho(params, rho):
         Sum += rho_m*m
     return Sum
 
-def Intensity( energyVec: list, timeVec: list ) -> np.ndarray:
+def calc_intensity( energyVec: list, timeVec: list ) -> np.ndarray:
     """ 
     - dE/dt  = -sum_M(  drho/dt  * m ) = - (H*rho_vec .*  E_Vec)
     drho_Vec/dt = H*rho_vec   a matrix representation of the equation (4.7)
@@ -85,13 +85,13 @@ def Intensity( energyVec: list, timeVec: list ) -> np.ndarray:
         intensityVec[i] = (-1)*(energyVec[i+1]-energyVec[i])/(timeVec[i+1]-timeVec[i])
     return intensityVec
 
-def InitRho(params: Params) -> np.array:
+def init_rho(params: Params) -> np.array:
     numM = _numMVals(params)
     rho = np.zeros([numM])
     rho[-1] = 1
     return rho
 
-def Evolve(
+def evolve(
     params  : Params,
     prevRho : np.array,  # previous density matrix 
 ) -> np.array:
@@ -102,7 +102,7 @@ def Evolve(
     # init output:
     nextRho = np.zeros(prevRho.shape)
     # Iterate:
-    for m, prevRho_m, prevRho_mPlus1 in RhoIterator(params, prevRho):
+    for m, prevRho_m, prevRho_mPlus1 in iterate_rho(params, prevRho):
         M = _m2M(params, m)
         dRho = -Gamma*(J+M)*(J-M+1)*prevRho_m + Gamma*(J-M)*(J+M+1)*prevRho_mPlus1
         nextRho_m = dt*dRho + prevRho_m
@@ -110,7 +110,7 @@ def Evolve(
         nextRho[m] = nextRho_m
     return nextRho
 
-def PlotResults(timeVec, energyVec, intensityVec):
+def plot_results(timeVec, energyVec, intensityVec):
     # Plot:
     fig, axes = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
 
@@ -124,6 +124,7 @@ def PlotResults(timeVec, energyVec, intensityVec):
     axes[1].grid(which='major')
     axes[1].set_xlabel('Time [sec] '    , fontdict=dict(size=16) )
     axes[1].set_ylabel('Intensity  '    , fontdict=dict(size=16) )
+    Visuals.save_figure()
     plt.show()
 
 # @Decorators.timeit
@@ -133,24 +134,24 @@ def main( params:Params=Params() ):
     params.validate()
 
     # Init:
-    rho = InitRho(params)
-    energyVec = []
-    timeVec   = []
+    rho = init_rho(params)
+    energies = []
+    times   = []
     
     # Simulate Evolution:
-    for t in TimeIterator(params):
+    for t in iterate_time(params):
         # Evolve:
-        rho = Evolve(params, rho)
-        E = Energy(params, rho)
+        rho = evolve(params, rho)
+        E = calc_energy(params, rho)
         # Keep results in Vectors:
-        timeVec.append( t )
-        energyVec.append( E )
+        times.append( t )
+        energies.append( E )
 
     # Compute Intensity:
-    intensityVec = Intensity(energyVec, timeVec)
+    intensities = calc_intensity(energies, times)
 
     # Plot Results:
-    PlotResults(timeVec, energyVec, intensityVec)
+    plot_results(times, energies, intensities)
 
 
 if __name__ == "__main__":

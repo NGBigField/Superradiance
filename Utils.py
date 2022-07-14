@@ -1,10 +1,45 @@
 import time 
+
+# For type hints:
 import typing as typ
+from typing import (
+    Optional,
+)
+
+# Operating System and files:
+from pathlib import Path
+import os
+
 from collections.abc import Iterable
 import matlab.engine
 
+# Visuals:
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure as FigureType
+
 # For type hints:
 MatlabEngineType = matlab.engine.matlabengine.MatlabEngine
+
+class Visuals:
+
+    @staticmethod
+    def save_figure(fig:Optional[FigureType]=None, title:Optional[str]=None ) -> None:
+        # Figure:
+        if fig is None:
+            fig = plt.gcf()
+        # Title:
+        if title is None:
+            title = Strings.time_stamp()
+        # Figures folder:
+        folder = fullpath = Path().cwd().joinpath('figures')
+        if not folder.is_dir():
+            os.mkdir(str(folder.resolve()))
+        # Full path:
+        fullpath = folder.joinpath(title)
+        fullpath_str = str(fullpath.resolve())+".png"
+        # Save:
+        fig.savefig(fullpath_str)
+        return 
 
 class Matlab():
 
@@ -87,6 +122,28 @@ class Decorators():
             return wrapper
         return decorator
 
+
+# = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = #
+#                                                 Strings                                                               #
+# = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = #
+class Strings():
+    def formatted(s:typ.Any, fill:str=' ', alignment:typ.Literal['<','^','>']='>', width:typ.Optional[int]=None, decimals:typ.Optional[int]=None) -> str:
+        if width is None:
+            width = len(f"{s}")
+        if decimals is None:
+            s_out = f"{s:{fill}{alignment}{width}}"  
+        else:
+            s_out = f"{s:{fill}{alignment}{width}.{decimals}f}"  
+        return s_out
+    
+    def num_out_of_num(num1, num2):
+        width = len(str(num2))
+        formatted = lambda num: Strings.formatted(num, fill=' ', alignment='>', width=width )
+        return formatted(num1)+"/"+formatted(num2)
+
+    def time_stamp():
+        t = time.localtime()
+        return f"{t.tm_year}.{t.tm_mon:02}.{t.tm_mday:02}_{t.tm_hour:02}.{t.tm_min:02}.{t.tm_sec:02}"
 
 @Decorators.assertType(int, at='output')
 @Decorators.assertType(str, at='input' )
