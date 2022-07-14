@@ -1,14 +1,21 @@
-
-# Everyone needs numpy in their life:
+# Everyone needs numpy and scipy in their life:
 import numpy as np
+from scipy.linalg import expm as matrix_exp
+
 # For typing hints
 import typing as typ
-# For plotting:
-import matplotlib.pyplot as plt
-# For tools and helpers:
-from utils import Decorators, Visuals
 from dataclasses import dataclass
+from enum import Enum, auto
 
+# our modules, tools and helpers:
+from visuals import (
+    plot_superradiance_evolution
+)
+
+
+# ==================================================================================== #
+#                                   config                                             #
+# ==================================================================================== #
 
 @dataclass
 class Params():
@@ -35,6 +42,10 @@ def _numMVals(params: Params) -> int:
     N = params.N
     return N+1
 
+# ==================================================================================== #
+#                                 helper functions                                     #
+# ==================================================================================== #
+
 def iterate_time(params: Params) -> typ.Iterator:
     tMax = params.tMax
     dt   = params.dt
@@ -53,8 +64,6 @@ def iterate_rho(params: Params, rho: np.array) -> typ.Iterator[typ.Tuple[int, fl
         else:
             rho_mPlus1 = rho[m+1]
         yield (m, rho_m, rho_mPlus1)
-
-
 
 def _m2M(params: Params, m: int) -> int:
     N = params.N
@@ -85,10 +94,17 @@ def calc_intensity( energyVec: list, timeVec: list ) -> np.ndarray:
         intensityVec[i] = (-1)*(energyVec[i+1]-energyVec[i])/(timeVec[i+1]-timeVec[i])
     return intensityVec
 
-def init_rho(params: Params) -> np.array:
+class CommonStates(Enum):
+    Ground = auto()
+    FullyExcited = auto()
+
+def init_state(params:Params, initial_state:CommonStates=CommonStates.FullyExcited) -> np.array:
     numM = _numMVals(params)
     rho = np.zeros([numM])
-    rho[-1] = 1
+    if initial_state==CommonStates.FullyExcited:
+        rho[-1] = 1
+    elif initial_state==CommonStates.Ground:
+        rho[0] = 1
     return rho
 
 def evolve(
@@ -110,31 +126,36 @@ def evolve(
         nextRho[m] = nextRho_m
     return nextRho
 
-def plot_results(timeVec, energyVec, intensityVec):
-    # Plot:
-    fig, axes = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
+def coherent_pulse(params:Params=Params()):
+    # Inputs:
 
-    axes[0].plot(timeVec[0:-1], energyVec[0:-1])    
-    axes[0].grid(which='major')
-    axes[0].set_xlabel('Time [sec] '    , fontdict=dict(size=16) )
-    axes[0].set_ylabel('Energy     '    , fontdict=dict(size=16) )
-    axes[0].set_title('Evolution   '    , fontdict=dict(size=16) )
+    # Constants:
+    hbar = 1
+    Sx = np.matrix([[0,1],[1,0]])
 
-    axes[1].plot(timeVec[0:-1], intensityVec)    
-    axes[1].grid(which='major')
-    axes[1].set_xlabel('Time [sec] '    , fontdict=dict(size=16) )
-    axes[1].set_ylabel('Intensity  '    , fontdict=dict(size=16) )
-    Visuals.save_figure()
-    plt.show()
+    # Omega:
+    Omega = 1
 
-# @Decorators.timeit
+    # Create the mat:
+    mat = (1j/hbar)*Omega*Sx
+    op = matrix_exp(mat)
+
+    # Operator on state
+    numM = _numMVals(params)
+    psi_i = init_state(params, CommonStates.Ground)
+    psi_f = op@psi_i
+
+# ==================================================================================== #
+#                                   main()                                             #
+# ==================================================================================== #
+
 def main( params:Params=Params() ):    
 
     # Check:
     params.validate()
 
     # Init:
-    rho = init_rho(params)
+    rho = init_state(params)
     energies = []
     times   = []
     
@@ -151,9 +172,10 @@ def main( params:Params=Params() ):
     intensities = calc_intensity(energies, times)
 
     # Plot Results:
-    plot_results(times, energies, intensities)
+    plot_superradiance_evolution(times, energies, intensities)
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    coherent_pulse()
     print("Done")
