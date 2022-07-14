@@ -154,6 +154,5 @@ def main( params:Params=Params() ):
 
 
 if __name__ == "__main__":
-    params = Params()
-    main(params)
+    main()
     print("Done")

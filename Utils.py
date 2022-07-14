@@ -103,9 +103,9 @@ if __name__ == "__main__":
     mat = Matlab.init()
 
     print("a is prime?")
-    a = mat.isprime(3)
-    mat.my_test(3)
-    print(a)
+    print( mat.isprime(3) )
+    res = mat.my_test(3)
+    print(res)
     print("Done.")
 
 
