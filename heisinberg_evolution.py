@@ -41,15 +41,15 @@ class Params():
     def Tr(self) -> float:        
         """Tr Characteristics superradiance time
         """
-        Tr = 1/(self.N*self.Gamma*self.mu)
-        return Tr
+        res = 1/(self.N*self.Gamma*self.mu)
+        return res
 
     @property
     def avr_tD(self) -> float:         
         """avr_tD average pulse delay
         """
-        Tr = 1/(self.N*self.Gamma*self.mu)
-        return Tr
+        res = 1/(self.N*self.Gamma*self.mu)
+        return res
 
     def validate(self) -> None:
         N = self.N
