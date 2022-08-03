@@ -36,9 +36,9 @@ class Params():
         J = self.J
         assert float(N)/2 == int(int(N)/2) # N is even
         assert J*2 == N 
-        assert _numMVals(self) == N + 1
+        assert _num_M_vals(self) == N + 1
 
-def _numMVals(params: Params) -> int:
+def _num_M_vals(params: Params) -> int:
     N = params.N
     return N+1
 
@@ -55,7 +55,7 @@ def iterate_time(params: Params) -> typ.Iterator:
         t += dt
 
 def iterate_rho(params: Params, rho: np.array) -> typ.Iterator[typ.Tuple[int, float, float]]:
-    numM = _numMVals(params)
+    numM = _num_M_vals(params)
     assert numM == len(rho)
     for m in range(numM):
         rho_m = rho[m]
@@ -99,7 +99,7 @@ class CommonStates(Enum):
     FullyExcited = auto()
 
 def init_state(params:Params, initial_state:CommonStates=CommonStates.FullyExcited) -> np.array:
-    numM = _numMVals(params)
+    numM = _num_M_vals(params)
     rho = np.zeros([numM])
     if initial_state==CommonStates.FullyExcited:
         rho[-1] = 1
@@ -141,7 +141,7 @@ def coherent_pulse(params:Params=Params()):
     op = matrix_exp(mat)
 
     # Operator on state
-    numM = _numMVals(params)
+    numM = _num_M_vals(params)
     psi_i = init_state(params, CommonStates.Ground)
     psi_f = op@psi_i
 
