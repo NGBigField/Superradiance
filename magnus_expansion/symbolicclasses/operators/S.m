@@ -29,7 +29,7 @@ classdef S < BaseSymbolicClass
         function res = multiply(obj, other)
             if isa(other, 'S')
                 res = S.multiply_s_by_s(obj, other);
-            elseif isa(other, 'sym')
+            elseif isa(other, 'sym') || isa(other, 'numeric')
                 res = S.multiply_s_by_coef(obj, other);
             else
                 error("SymbolicClass:UnsupportedCase","Not a legit case");    

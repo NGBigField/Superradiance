@@ -33,8 +33,7 @@ classdef Sum < SuperOperator
             end
             for i = 1 : length(obj.subs)
                 op_sub = obj.subs{i};
-                similar_operators = op_sub | op_in ; 
-                if similar_operators
+                if )op_sub|op_in  % if they are simmialr
                     op_reduced = op_sub / op_in ; % reduce
                     obj.subs{i} = op_reduced;  % Replace
                     return

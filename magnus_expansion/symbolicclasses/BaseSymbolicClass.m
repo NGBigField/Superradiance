@@ -53,12 +53,22 @@ classdef (Abstract) BaseSymbolicClass < handle
         function res = plus(A,B)  % Override A + B 
             res = add_ops(A,B);
         end 
-        function res = or(A,B)  % override A|B 
+        function res = or(A,B)  % override A | B 
             res = A.simmilar(B);
         end
-        function res = minus(A,B)  % Override A - B  (not the space is obligated)
+        function res = mrdivide(A,B)  % Override A / B  (not the space is obligated)
             res = reduce(A,B);
         end 
     end
+    %% Setters and Getters:
+    methods  % Getter and Setters:
+        function set.coef(obj,val)
+            if isa(obj, 'Sum')
+                error("SymbolicClass:LockedProperty", "Can't change `coef` of Sum object");
+            else
+                obj.coef = val;
+            end
+        end
+    end % getters and setters
 end
 

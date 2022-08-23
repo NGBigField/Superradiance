@@ -4,10 +4,9 @@ classdef SuperOperator < BaseSymbolicClass
         subs (:,1) cell
     end
 
-    properties (Abstract, Constant)
+    properties (Abstract, Constant, Hidden)
         connector  (1,1)  %  * or +
-        base_value (1,1) 
-        base_op    (1,1) BaseSymbolicClass
+        neutral_op (1,1) BaseSymbolicClass        
     end
 
     methods 

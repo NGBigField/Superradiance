@@ -20,10 +20,10 @@ classdef Product < SuperOperator
             for i = 1 : length(operators)
                 coef = coef * operators{i}.coef;
                 operators{i}.coef = 1;
-            end            
-            % apply super constructor:
-            obj@SuperOperator(operators{:});
+            end
             obj.coef = coef;            
+            % apply super constructor:
+            obj@SuperOperator(operators);
         end
         %%
         function res = multiply(A,B)
@@ -35,6 +35,11 @@ classdef Product < SuperOperator
         end
     end % methods
 
+    methods % Setters and Getters
+        function [] = set_coef(obj, val)
+            obj.coef = val;
+        end
+    end % methods:  Setters and Getters
 end
 
 %% Supress messages:

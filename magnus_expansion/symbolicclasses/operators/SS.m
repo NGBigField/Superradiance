@@ -1,18 +1,13 @@
-classdef SS < BaseSymbolicClass
-    properties
-        S1 (1,1)  
-        S2 (1,1)  
-    end
-    
+classdef SS < Product
+
     methods
         %%
-        function obj = SS(S1, S2)
+        function obj = SS(s1, s2)
             arguments
-                S1 (1,1) S
-                S2 (1,1) S
+                s1 (1,1) S
+                s2 (1,1) S
             end
-            obj.S1 = S1;
-            obj.S2 = S2;
+            obj@Product(s1, s2)
         end       
         %%
         function res = unpack(obj)
@@ -34,16 +29,11 @@ classdef SS < BaseSymbolicClass
         %%
         function res = get(obj, i)
             % Return as requested:
-            switch i
-                case 1
-                    res = obj.S1;
-                case 2                    
-                    res = obj.S2;
-                otherwise
-                    error("SymbolicClass:UnsupportedCase","Not a legit case");
-            end
+            assert(i<=2 || i>=1)
+            res = obj.subs{i};
         end
         %% 
+        
     end
 end
 
