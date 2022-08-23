@@ -11,5 +11,11 @@ classdef ZeroOperator < BaseSymbolicClass
         function res = multiply(obj, other)
             res = ZeroOperator();
         end
+        function res = simmilar(obj, other)
+            res = true;
+        end
+        function res = reduce(obj, other)
+            res = other;
+        end
     end
 end

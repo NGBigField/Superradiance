@@ -12,16 +12,22 @@ classdef Sum < SuperOperator
         end
     end
     methods      
+        %%
         function obj = Sum(operators)           
             arguments (Repeating)
                 operators (1,1) BaseSymbolicClass
             end
+            % Construct sum part by part, allow reduction of similiar expressions
             for i = 1 : length(operators)
                 op = operators{i};
                 obj.reducing_similars_terms_or_add(op);
             end
         end
-
+        %%
+        function res = simmilar(obj, other)
+            error("SymbolicClass:NotImplemented", "This function is not implemented");
+        end
+        %%
         function [] = reducing_similars_terms_or_add(obj, op_in)
             arguments
                 obj   (1,1) Sum
@@ -29,41 +35,63 @@ classdef Sum < SuperOperator
             end
             for i = 1 : length(obj.subs)
                 op_sub = obj.subs{i};
-                if op_sub == op_in
-                    op_reduced = op_sub + op_in;
+                if op_sub.simmilar( op_in )
+                    op_reduced = op_sub - op_in ; % reduce
                     obj.subs{i} = op_reduced;  % Replace
                     return
                 end
             end
             obj.subs{end+1,1} = op_in;
         end
-
-        function res = multiply(A,B)
+        %%
+        function res = multiply(a,b)
             arguments
-                A (1,1) Sum
-                B (1,1) Sum
+                a (1,1) 
+                b (1,1) 
             end
             % Check type:         
-            
-            % Iterate inner types to deduce final expression
-            cumulative = Sum.base_op;
-            operators = {};
-            for i = 1 : length(A.subs)
-                a = A.subs{i};
-                for j = 1 : length(B.subs)
-                    b = B.subs{j};
+            if isa(b, 'Sum')
+                res = Sum.multiply_sum_by_sum(a,b);
+            elseif isa(b, 'sym')
+                res = Sum.multiply_sum_by_coef(a,b);
+            else
+                error("SymbolicClass:UnsupportedCase","Not a legit case");    
+            end
+
+        end
+        %%
+    end % methods
+
+    methods (Static)
+        function res = multiply_sum_by_sum(sum_a,sum_b)
+            arguments
+                sum_a (1,1) Sum
+                sum_b (1,1) Sum
+            end
+            res = Sum.base_op;
+            for i = 1 : sum_a.num_subs()
+                a = sum_a.subs{i};
+                for j = 1 : sum_b.num_subs()
+                    b = sum_b.subs{j};
                     
                     % new operator
                     crnt = a*b;
-                    cumulative = cumulative + crnt ;
+                    res = res + crnt ;
 
                 end % for j
-            end % for i
-
+            end % for i            
         end
-
-        
-    end % methods
+        %%
+        function s = multiply_sum_by_coef(s, c)
+            arguments
+                s (1,1) Sum
+                c (1,1) sym
+            end
+            for i = 1 : s.num_subs()
+                s.subs{i} = s.subs{i} * c;
+            end
+        end
+    end
 end
 
 %% Supress messages:

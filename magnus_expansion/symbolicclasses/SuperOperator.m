@@ -17,9 +17,7 @@ classdef SuperOperator < BaseSymbolicClass
             end
             obj.subs = operators;
         end
-
-        
-
+        %%
         function sym_expression = unpack(obj)
             sym_expression = obj.base_value;            
             for i = 1 : length(obj.subs)
@@ -27,6 +25,10 @@ classdef SuperOperator < BaseSymbolicClass
                 sym_expression = obj.connect(sym_expression, ~op);
             end
             sym_expression = sym_expression * obj.coef;
+        end
+        %%
+        function res = num_subs(obj)
+            res = length(obj.subs);
         end
     end
 

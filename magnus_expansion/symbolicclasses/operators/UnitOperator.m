@@ -10,5 +10,8 @@ classdef UnitOperator < BaseSymbolicClass
         function res = multiply(obj, other)
             res = other();
         end
+        function res = simmilar(obj, other)
+            error("SymbolicClass:NotImplemented", "This function is not implemented");
+        end
     end
 end
