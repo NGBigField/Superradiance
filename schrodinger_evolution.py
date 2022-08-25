@@ -36,9 +36,9 @@ class Params():
         J = self.J
         assert float(N)/2 == int(int(N)/2) # N is even
         assert J*2 == N 
-        assert _numMVals(self) == N + 1
+        assert _num_M_vals(self) == N + 1
 
-def _numMVals(params: Params) -> int:
+def _num_M_vals(params: Params) -> int:
     N = params.N
     return N+1
 
@@ -54,16 +54,19 @@ def iterate_time(params: Params) -> typ.Iterator:
         yield t
         t += dt
 
-def iterate_rho(params: Params, rho: np.array) -> typ.Iterator[typ.Tuple[int, float, float]]:
-    numM = _numMVals(params)
-    assert numM == len(rho)
-    for m in range(numM):
-        rho_m = rho[m]
-        if m + 1 >= numM:
-            rho_mPlus1 = 0
+def iterate_rho(params: Params, rho: np.matrix) -> typ.Generator[ typ.Tuple[int, float, float], None, None]:
+    # Check Inputs:
+    num_M = _num_M_vals(params)
+    assert num_M == rho.shape[0]
+    assert num_M == rho.shape[1]
+    # Iterate on following m indices:
+    for m in range(num_M):
+        rho_m = rho[m, m]
+        if m + 1 >= num_M:
+            rho_m_plus_1 = 0
         else:
-            rho_mPlus1 = rho[m+1]
-        yield (m, rho_m, rho_mPlus1)
+            rho_m_plus_1 = rho[m+1, m+1]
+        yield m, rho_m, rho_m_plus_1
 
 def _m2M(params: Params, m: int) -> int:
     N = params.N
@@ -99,7 +102,7 @@ class CommonStates(Enum):
     FullyExcited = auto()
 
 def init_state(params:Params, initial_state:CommonStates=CommonStates.FullyExcited) -> np.array:
-    numM = _numMVals(params)
+    numM = _num_M_vals(params)
     rho = np.zeros([numM])
     if initial_state==CommonStates.FullyExcited:
         rho[-1] = 1
@@ -109,22 +112,41 @@ def init_state(params:Params, initial_state:CommonStates=CommonStates.FullyExcit
 
 def evolve(
     params  : Params,
-    prevRho : np.array,  # previous density matrix 
+    rho_prev : np.matrix,  # previous density matrix 
+) -> np.matrix:
+    # Parse params:
+    Gamma   = params.Gamma
+    J       = params.J
+    dt      = params.dt
+    # init output:
+    rho_next = np.zeros(rho_prev.shape)
+    # Iterate:
+    for m, rho_prev_m, rho_prev_mp1 in iterate_rho(params, rho_prev):
+        M = _m2M(params, m)
+        d_rho = -Gamma*(J+M)*(J-M+1)*rho_prev_m + Gamma*(J-M)*(J+M+1)*rho_prev_mp1
+        rho_next_m = dt*d_rho + rho_prev_m
+        # Insert Values:
+        rho_next[m] = rho_next_m
+    return rho_next
+
+def evolve(
+    params  : Params,
+    rho_prev : np.array,  # previous density matrix 
 ) -> np.array:
     # Parse params:
     Gamma   = params.Gamma
     J       = params.J
     dt      = params.dt
     # init output:
-    nextRho = np.zeros(prevRho.shape)
+    rho_next = np.zeros(rho_prev.shape)
     # Iterate:
-    for m, prevRho_m, prevRho_mPlus1 in iterate_rho(params, prevRho):
+    for m, rho_prev_m, rho_prev_mp1 in iterate_rho(params, rho_prev):
         M = _m2M(params, m)
-        dRho = -Gamma*(J+M)*(J-M+1)*prevRho_m + Gamma*(J-M)*(J+M+1)*prevRho_mPlus1
-        nextRho_m = dt*dRho + prevRho_m
+        d_rho = -Gamma*(J+M)*(J-M+1)*rho_prev_m + Gamma*(J-M)*(J+M+1)*rho_prev_mp1
+        rho_next_m = dt*d_rho + rho_prev_m
         # Insert Values:
-        nextRho[m] = nextRho_m
-    return nextRho
+        rho_next[m] = rho_next_m
+    return rho_next
 
 def coherent_pulse(params:Params=Params()):
     # Inputs:
@@ -141,7 +163,7 @@ def coherent_pulse(params:Params=Params()):
     op = matrix_exp(mat)
 
     # Operator on state
-    numM = _numMVals(params)
+    numM = _num_M_vals(params)
     psi_i = init_state(params, CommonStates.Ground)
     psi_f = op@psi_i
 
@@ -176,6 +198,6 @@ def main( params:Params=Params() ):
 
 
 if __name__ == "__main__":
-    # main()
-    coherent_pulse()
+    main()
+    # coherent_pulse()
     print("Done")
