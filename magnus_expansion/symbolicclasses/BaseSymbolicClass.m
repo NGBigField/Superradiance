@@ -50,6 +50,9 @@ classdef (Abstract) BaseSymbolicClass < handle
         function res = plus(A,B)  % Override A + B 
             res = add_ops(A,B);
         end 
+        function res = minus(A,B)  % Override A - B 
+            res = add_ops(A,B*(-1));
+        end 
         function res = or(A,B)  % override A | B 
             res = A.simmilar(B);
         end

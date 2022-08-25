@@ -3,9 +3,6 @@ classdef SPair < Product
 % Supresss messsages:
 %#ok<*OR2> 
 
-    properties (Constant, Hidden)
-        standard_order (1,:) = ["z", "+", "-"];
-    end
     properties
         s1 (1,1) string 
         s2 (1,1) string 
@@ -24,13 +21,57 @@ classdef SPair < Product
         end       
         %%
         function res = multiply(obj, other)
-            error("SymbolicClass:Multiplication:NotSupported","Multiplication of S1S2 with another operation is not supported");    
+            if isa(other, 'sym') || isnumeric(other)
+                obj.coef = obj.coef * other;
+            else
+                error("SymbolicClass:Multiplication:NotSupported","Multiplication of S1S2 with another operation is not supported");
+            end
+            res = obj;
+        end
+        %%
+        function res = reduce(a,b)
+            arguments 
+                a (1,1) SPair
+                b (1,1) SPair
+            end
+            % assert reducable
+            [is_similar, similarity_order] = permutations_similar(a,b);
+            assert(is_similar);
+            % reduce:
+            if similarity_order==PairOrder.Given
+                new = a;
+                new.coef = a.coef + b.coef;
+                if new.coef == 0
+                    res = 0;
+                else
+                    res = new;
+                end
+            elseif similarity_order==PairOrder.Commuted
+                [ b_commuted, residue ] = b.commute();
+                reduced = a;
+                reduced.coef = a.coef + b_commuted.coef;
+                res = {reduced, residue};
+            else
+                error("SymbolicClass:Bug:UnexpectedCase", "Code should not have reached this point");
+            end
+        end
+        %%
+        function [commuted, rest] = commute(obj)       
+            % Prepare s1 and s2:
+            S1 = S(obj.s1);
+            S2 = S(obj.s2);
+            % Switch places:
+            commuted = SPair( S2, S1 ) * obj.coef;              
+            % Find rest:
+            rest = [ S1, S2 ] * obj.coef;
+
         end
         %%
         function is_similar = simmilar(a, b)            
             % Assert both are of S1S2 type:
             if ~isa(b, 'SPair')
-                error("SymbolicClass:NotImplemented", "This function is not implemented");
+                is_similar = false;
+                return 
             end
             %% Check all versions:
             [is_similar, ~] = permutations_similar(a, b);

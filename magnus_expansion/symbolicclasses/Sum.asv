@@ -20,8 +20,16 @@ classdef Sum < SuperOperator
             for i = 1 : length(operators_in)
                 op = operators_in{i};
                 if isa(op,'Sum')
-                    ops = op.s
-                    obj.reducing_similars_terms_or_add(op);                
+                    ops = op.subs;
+                    for j = 1 : length(ops)
+                        op = ops{j};
+                        obj.reducing_similars_terms_or_add(op);
+                    end
+                elseif isa(op,'BaseSymbolicClass')
+                    obj.reducing_similars_terms_or_add(op);
+                else
+                    error("SymbolicClass:UnsupportedCase","Not a legit case");  
+                end
             end
         end
         %%
@@ -38,8 +46,16 @@ classdef Sum < SuperOperator
                 op_sub = obj.subs{i};
                 similar_operators = op_sub | op_in ; 
                 if similar_operators
-                    op_reduced = op_sub / op_in ; % reduce
-                    obj.subs{i} = op_reduced;  % Replace
+                    reduced = op_sub / op_in ; % reduce
+                    if iscell(reduced) % Meaning that we got a replacement and a residue
+                        replacement = reduced{1};
+                        residue = reduced{2};
+                    else
+                        replacement = reduced;
+                        residue = [];
+                    end
+                    obj.subs{i} = replacement;  % Replace
+                    
                     return
                 end
             end

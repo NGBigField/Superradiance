@@ -23,10 +23,10 @@ classdef Sum < SuperOperator
                     ops = op.subs;
                     for j = 1 : length(ops)
                         op = ops{j};
-                        obj.reducing_similars_terms_or_add(op);
+                        obj.reduce_similars_terms_or_add(op);
                     end
                 elseif isa(op,'BaseSymbolicClass')
-                    obj.reducing_similars_terms_or_add(op);
+                    obj.reduce_similars_terms_or_add(op);
                 else
                     error("SymbolicClass:UnsupportedCase","Not a legit case");  
                 end
@@ -37,7 +37,7 @@ classdef Sum < SuperOperator
             error("SymbolicClass:NotImplemented", "This function is not implemented");
         end
         %%
-        function [] = reducing_similars_terms_or_add(obj, op_in)
+        function [] = reduce_similars_terms_or_add(obj, op_in)
             arguments
                 obj   (1,1) Sum
                 op_in (1,1) BaseSymbolicClass
@@ -46,8 +46,18 @@ classdef Sum < SuperOperator
                 op_sub = obj.subs{i};
                 similar_operators = op_sub | op_in ; 
                 if similar_operators
-                    op_reduced = op_sub / op_in ; % reduce
-                    obj.subs{i} = op_reduced;  % Replace
+                    reduced = op_sub / op_in ; % reduce
+                    if iscell(reduced) % Meaning that we got a replacement and a residue
+                        replacement = reduced{1};
+                        residue = reduced{2};
+                    else
+                        replacement = reduced;
+                        residue = [];
+                    end
+                    obj.subs{i} = replacement;  % Replace
+                    if ~isempty(residue)
+                        obj.reduce_similars_terms_or_add(residue);
+                    end
                     return
                 end
             end
@@ -62,7 +72,7 @@ classdef Sum < SuperOperator
             % Check type:         
             if isa(b, 'Sum')
                 res = Sum.multiply_sum_by_sum(a,b);
-            elseif isa(b, 'sym')
+            elseif isa(b, 'sym') || isnumeric(b)
                 res = Sum.multiply_sum_by_coef(a,b);
             else
                 error("SymbolicClass:UnsupportedCase","Not a legit case");    
@@ -95,7 +105,7 @@ classdef Sum < SuperOperator
         function s = multiply_sum_by_coef(s, c)
             arguments
                 s (1,1) Sum
-                c (1,1) sym
+                c (1,1) 
             end
             for i = 1 : s.num_subs()
                 s.subs{i} = s.subs{i} * c;

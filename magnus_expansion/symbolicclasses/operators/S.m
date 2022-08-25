@@ -3,6 +3,9 @@ classdef S < BaseSymbolicClass
     properties (SetAccess=immutable)
         script (1,1) string % {mustBeMember(script,["z","p","m"])}         
     end
+    properties (Constant, Hidden)
+        standard_order (1,:) = ["z", "+", "-"];
+    end
 
     methods
         %%
@@ -43,6 +46,22 @@ classdef S < BaseSymbolicClass
                 res = true;
             else
                 res = false;
+            end
+        end
+        %%
+        function res = commutations(s1, s2)
+            arguments
+                s1 (1,1) S 
+                s2 (1,1) S
+            end
+            if     s1.is("z") && s2.is("+"), res = S("+")*(+1);
+            elseif s1.is("z") && s2.is("-"), res = S("-")*(-1);
+            elseif s1.is("+") && s2.is("-"), res = S("z")*(+2);
+            elseif s1.is("+") && s2.is("z"), res = S("+")*(-1);
+            elseif s1.is("-") && s2.is("z"), res = S("-")*(+1);
+            elseif s1.is("-") && s2.is("+"), res = S("z")*(-2);                
+            else
+                error("SymbolicClass:UnsupportedCase","Not a legit case");    
             end
         end
         %%
