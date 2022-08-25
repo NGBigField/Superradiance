@@ -63,12 +63,17 @@ classdef (Abstract) BaseSymbolicClass < handle
     %% Setters and Getters:
     methods  % Getter and Setters:
         function set.coef(obj,val)
-            if isa(obj, 'Sum')
-                error("SymbolicClass:LockedProperty", "Can't change `coef` of Sum object");
-            else
-                obj.coef = val;
-            end
+            obj.coef = obj.set_coef_validation(val);
+        end
+        function val = get.coef(obj)
+            val = obj.coef;
         end
     end % getters and setters
+    %% Static Operators
+    methods (Static)
+        function val = set_coef_validation(val)
+            % Do Nothing
+        end
+    end
 end
 

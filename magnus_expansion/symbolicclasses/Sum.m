@@ -4,11 +4,12 @@ classdef Sum < SuperOperator
         connector  = "+"
         neutral_op = ZeroOperator()
     end
-    properties (SetAccess=immutable)
-        coef
-    end
 
- 
+    methods (Static)
+        function res = connect(A,B)
+            res = A*B;
+        end    
+    end
     methods      
         %%
         function obj = Sum(operators)           
@@ -91,7 +92,13 @@ classdef Sum < SuperOperator
             end
         end
     end % static methods
-
+    
+    %% Getters and Setters:
+    methods (Static)
+        function val  = set_coef_validation(val)
+            error("SymbolicClass:LockedProperty", "Changing `coef` is not supported for class `Sum`");
+        end
+    end
 
 end
 
