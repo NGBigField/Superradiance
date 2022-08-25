@@ -1,4 +1,4 @@
-classdef SuperOperator < BaseSymbolicClass
+classdef SuperOperator < BaseSymbolicClass & Callable
 
     properties
         subs (:,1) cell
@@ -15,6 +15,10 @@ classdef SuperOperator < BaseSymbolicClass
                 operators (1,1) BaseSymbolicClass
             end
             obj.subs = operators;
+        end
+        %% 
+        function out = call(obj, in)
+            out = obj.subs{in};
         end
         %%
         function obj = simplify(obj)        

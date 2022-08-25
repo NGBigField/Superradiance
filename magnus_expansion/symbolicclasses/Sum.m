@@ -109,7 +109,10 @@ classdef Sum < SuperOperator
             else
                 error("SymbolicClass:UnsupportedCase","Not a legit case");    
             end
-
+        end
+        %%
+        function obj = collect_common_elements(obj)
+            % 
         end
         %%
     end % methods
@@ -174,8 +177,14 @@ classdef Sum < SuperOperator
     
     %% Getters and Setters:
     methods (Static)
-        function val  = set_coef_validation(val)
-            error("SymbolicClass:LockedProperty", "Changing `coef` is not supported for class `Sum`");
+        function val  = set_coef_validation(val, options)
+            arguments
+                val (1,1)
+                options.locked (1,1) logical = false
+            end
+            if options.locked
+                error("SymbolicClass:LockedProperty", "Changing `coef` is not supported for class `Sum`");
+            end            
         end
     end
 
