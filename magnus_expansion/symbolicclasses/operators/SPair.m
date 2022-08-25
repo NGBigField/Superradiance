@@ -42,7 +42,7 @@ classdef SPair < Product
                 new = a;
                 new.coef = a.coef + b.coef;
                 if new.coef == 0
-                    res = 0;
+                    res = ZeroOperator;
                 else
                     res = new;
                 end

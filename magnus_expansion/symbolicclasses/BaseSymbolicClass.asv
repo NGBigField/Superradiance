@@ -12,21 +12,15 @@ classdef (Abstract) BaseSymbolicClass
     end
     %%
     methods 
-        function a = simplify(a)
-            a.coef = simplify(a.coef);
-            if a.coef == 0
-                a = ZeroOperator;
-            end
-        end
         function c = commutations(a, b)
-            c = a*b - b*a;
-            c = c.simplify();
+            part1 = a*b;
+            part2 = b*a * (-1);
+            c = part1+part2;
         end
         function res = add_ops(A,B)
             res = Sum(A,B);
             % if a reduction of expressions occurred. return it the single op (instead of a Sum of ops)
             if res.num_subs == 1
-                assert(res.coef==1)
                 res = res.subs{1};
             end
         end

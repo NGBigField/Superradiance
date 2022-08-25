@@ -23,10 +23,10 @@ classdef Sum < SuperOperator
                     ops = op.subs;
                     for j = 1 : length(ops)
                         op = ops{j};
-                        obj.reduce_similars_terms_or_add(op);
+                        obj = obj.reduce_similars_terms_or_add(op);
                     end
                 elseif isa(op,'BaseSymbolicClass')
-                    obj.reduce_similars_terms_or_add(op);
+                    obj = obj.reduce_similars_terms_or_add(op);
                 else
                     error("SymbolicClass:UnsupportedCase","Not a legit case");  
                 end
@@ -37,16 +37,21 @@ classdef Sum < SuperOperator
             error("SymbolicClass:NotImplemented", "This function is not implemented");
         end
         %%
-        function [] = reduce_similars_terms_or_add(obj, op_in)
+        function [obj] = reduce_similars_terms_or_add(obj, op_in)
             arguments
                 obj   (1,1) Sum
                 op_in (1,1) BaseSymbolicClass
             end
+            % Assume:
+            replacement_occurred = false;
+            % Go over all existing sub-operators:
             for i = 1 : length(obj.subs)
                 op_sub = obj.subs{i};
+                % Check similiarity between operators:
                 similar_operators = op_sub | op_in ; 
                 if similar_operators
-                    reduced = op_sub / op_in ; % reduce
+                    % Reduce
+                    reduced = op_sub / op_in ; 
                     if iscell(reduced) % Meaning that we got a replacement and a residue
                         replacement = reduced{1};
                         residue = reduced{2};
@@ -54,14 +59,38 @@ classdef Sum < SuperOperator
                         replacement = reduced;
                         residue = [];
                     end
+                    % Execute replacement of old op:
                     obj.subs{i} = replacement;  % Replace
+                    replacement_occurred = true;
+                    % Manage residue, if exists
                     if ~isempty(residue)
-                        obj.reduce_similars_terms_or_add(residue);
+                        obj = obj.reduce_similars_terms_or_add(residue);
                     end
-                    return
+                    break
                 end
             end
-            obj.subs{end+1,1} = op_in;
+            % If didn't find any similar, just add it:
+            if ~replacement_occurred
+                obj.subs{end+1,1} = op_in;
+            end
+            % perform clean-up:
+            obj = obj.cleanup();
+        end
+        %%
+        function obj = cleanup(obj)
+            % Find zero operators:
+            zero_indices = [];
+            for i = 1 : obj.num_subs()
+                op = obj.subs{i};
+                if isa(op, 'ZeroOperator')
+                    zero_indices = [zero_indices, i];
+                end
+            end            
+            % remove zero operators:
+            if isempty(zero_indices) 
+                return
+            end
+            obj.subs(zero_indices) = [];
         end
         %%
         function res = multiply(a,b)

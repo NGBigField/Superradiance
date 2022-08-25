@@ -1,4 +1,4 @@
-function obj = A(i)
+function a = A(i)
     arguments
         i (1,1) {mustBeInteger, mustBePositive}
     end
@@ -10,7 +10,7 @@ function obj = A(i)
     w     = sym_.w;
     h_bar = sym_.h_bar;
     % Define obj
-    obj = ( ...
+    a = ( ...
           S("+") * exp(  1i * w * t_i ) ...
         + S("-") * exp( -1i * w * t_i ) ...
     ) * (-1i/h_bar)*d * E_i ;
