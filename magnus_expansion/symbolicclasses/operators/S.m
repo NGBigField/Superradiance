@@ -14,16 +14,18 @@ classdef S < BaseSymbolicClass
         end       
         %%
         function res = unpack(obj)
+            syms_ = CommonSymbols;
             switch obj.script
                 case "z"
-                    res = obj.global_symbols.Sz;
+                    res = syms_.Sz;
                 case "+"
-                    res = obj.global_symbols.Sp;
+                    res = syms_.Sp;
                 case "-"
-                    res = obj.global_symbols.Sm;
+                    res = syms_.Sm;
                 otherwise
                     error("SymbolicClass:UnsupportedCase","Not a legit case");    
             end
+            res = res * obj.coef;
         end
         %%
         function res = multiply(obj, other)

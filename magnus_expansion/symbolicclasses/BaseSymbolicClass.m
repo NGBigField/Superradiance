@@ -1,11 +1,8 @@
 classdef (Abstract) BaseSymbolicClass < handle
-    
-    properties (Constant, Hidden)
-        global_symbols (1,1) CommonSymbols = CommonSymbols()
-    end
-    %%
+        
     properties
         coef (1,1) = 1  % can be symbolic
+        expression = []
     end
     %%
     methods (Abstract)
@@ -68,6 +65,12 @@ classdef (Abstract) BaseSymbolicClass < handle
         function val = get.coef(obj)
             val = obj.coef;
         end
+        function val = get.expression(obj)
+            val = ~obj;
+        end
+        function set.expression(obj,val)
+            error("SymbolicClass:LockedProperty", "Expression can't be changed explicitly.");
+        end        
     end % getters and setters
     %% Static Operators
     methods (Static)

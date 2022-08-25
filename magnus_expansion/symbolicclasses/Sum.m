@@ -7,7 +7,7 @@ classdef Sum < SuperOperator
 
     methods (Static)
         function res = connect(A,B)
-            res = A*B;
+            res = A+B;
         end    
     end
     methods      
@@ -68,7 +68,7 @@ classdef Sum < SuperOperator
                 sum_a (1,1) Sum
                 sum_b (1,1) Sum
             end
-            res = Sum.base_op;
+            res = Sum.neutral_op;
             for i = 1 : sum_a.num_subs()
                 a = sum_a.subs{i};
                 for j = 1 : sum_b.num_subs()

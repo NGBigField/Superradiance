@@ -10,10 +10,6 @@ classdef SS < Product
             obj@Product(s1, s2)
         end       
         %%
-        function res = unpack(obj)
-            res = ~obj.S1 * ~ obj.S2 ;     
-        end
-        %%
         function res = multiply(obj, other)
             error("SymbolicClass:Multiplication:NotSupported","Multiplication of S1S2 with another operation is not supported");    
         end
