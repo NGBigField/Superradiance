@@ -63,7 +63,7 @@ classdef S < BaseSymbolicClass
                 s1 (1,1) S
                 s2 (1,1) S
             end
-            res = SS(s1,s2);
+            res = SPair(s1,s2);
         end
         %%
         function res = multiply_s_by_coef(s, c)
