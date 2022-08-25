@@ -17,14 +17,30 @@ classdef SuperOperator < BaseSymbolicClass
             obj.subs = operators;
         end
         %%
+        function obj = simplify(obj)
+            if isa(obj.coef,'sym')
+                
+            obj.coef = simplify(obj.coef);
+            for i = 1 : obj.num_subs
+               obj.subs{i} = obj.subs{i}.simplify();
+            end
+        end
+        %%
         function super_express = unpack(obj)
+            % initial value:
             super_express = ~obj.neutral_op;            
+            % accumulate sub operators:
             for i = 1 : length(obj.subs)
-                op = 
-                op_express = 
+                op = obj.subs{i};
+                op_express = ~op;
                 super_express = obj.connect(super_express, op_express);
             end
+            % Apply global coef (if applicable)
             super_express = super_express * obj.coef;
+            % Simplify:
+            if Config().simplify
+                super_express = simplify(super_express);
+            end
         end
         %%
         function res = num_subs(obj)

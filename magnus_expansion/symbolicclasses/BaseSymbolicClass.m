@@ -13,14 +13,16 @@ classdef (Abstract) BaseSymbolicClass
     %%
     methods 
         function a = simplify(a)
-            a.coef = simplify(a.coef);
+            a.coef = BaseSymbolicClass.simplify_coef( a.coef );
             if a.coef == 0
                 a = ZeroOperator;
             end
         end
         function c = commutations(a, b)
             c = a*b - b*a;
-            c = c.simplify();
+            if Config().simplify
+                c = c.simplify();
+            end
         end
         function res = add_ops(A,B)
             res = Sum(A,B);
@@ -85,8 +87,27 @@ classdef (Abstract) BaseSymbolicClass
     end % getters and setters
     %% Static Operators
     methods (Static)
+        % Used when locked property is needed
         function val = set_coef_validation(val)
             % Do Nothing
+        end
+        
+        function coef = simplify_coef(coef)
+            if isa(coef,'sym')
+                coef = simplify(coef);
+            end
+        end
+        function res = is_zero(a)
+            if isa(a, 'ZeroOperator')
+                res = true;
+            elseif isa(a, 'BaseSymbolicClass') && a.coef==0
+                res = true;
+            elseif isnumeric(a) && length(a)==1 && a==0
+                res = true;
+            else
+                res = false;
+            end
+            
         end
     end
 end

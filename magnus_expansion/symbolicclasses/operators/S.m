@@ -33,9 +33,11 @@ classdef S < BaseSymbolicClass
         %%
         function res = multiply(obj, other)
             if isa(other, 'S')
-                res = S.multiply_s_by_s(obj, other);
+                res = S.multiply_by_s(obj, other);
             elseif isa(other, 'sym') || isa(other, 'numeric')
-                res = S.multiply_s_by_coef(obj, other);
+                res = S.multiply_by_coef(obj, other);
+            elseif isa(other, 'Sum')
+                res = Sum.multiply_by_operator(other, obj, "op_from","Left");
             else
                 error("SymbolicClass:UnsupportedCase","Not a legit case");    
             end
@@ -77,7 +79,7 @@ classdef S < BaseSymbolicClass
 
     methods (Static)
                 %%
-        function res = multiply_s_by_s(s1, s2)
+        function res = multiply_by_s(s1, s2)
             arguments
                 s1 (1,1) S
                 s2 (1,1) S
@@ -85,7 +87,7 @@ classdef S < BaseSymbolicClass
             res = SPair(s1,s2);
         end
         %%
-        function res = multiply_s_by_coef(s, c)
+        function res = multiply_by_coef(s, c)
             arguments
                 s (1,1) S
                 c (1,1) sym

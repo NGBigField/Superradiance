@@ -6,11 +6,11 @@ classdef CommonSymbols
         E            (:,1)
         t            (:,1)
         d            (1,1)
-        h_bar        (1,1)
         w            (1,1)
         Sp           (1,1)
         Sm           (1,1)
         Sz           (1,1)
+        d_h          (1,1) % d over h_bar
     end
 
     methods
@@ -19,21 +19,19 @@ classdef CommonSymbols
             % Define symbols:
             syms('E',[num_elements, 1]);
             syms('t',[num_elements, 1]);
-            syms('d') ;
-            syms('h_bar');
             syms('w');
             syms('Sp');
             syms('Sm');
             syms('Sz');
+            syms('d_h');  % d over h_bar
             % Assign symbols:
             obj.E = E;
             obj.t = t;
-            obj.d       = d;  
-            obj.h_bar   = h_bar;  
             obj.w       = w;      
             obj.Sp      = Sp;     
             obj.Sm      = Sm;     
             obj.Sz      = Sz;                 
+            obj.d_h     = d_h;
         end
     end
 

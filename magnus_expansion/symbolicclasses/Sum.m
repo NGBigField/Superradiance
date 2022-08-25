@@ -82,7 +82,7 @@ classdef Sum < SuperOperator
             zero_indices = [];
             for i = 1 : obj.num_subs()
                 op = obj.subs{i};
-                if isa(op, 'ZeroOperator')
+                if BaseSymbolicClass.is_zero(op)
                     zero_indices = [zero_indices, i];
                 end
             end            
@@ -90,6 +90,7 @@ classdef Sum < SuperOperator
             if isempty(zero_indices) 
                 return
             end
+
             obj.subs(zero_indices) = [];
         end
         %%
@@ -100,9 +101,11 @@ classdef Sum < SuperOperator
             end
             % Check type:         
             if isa(b, 'Sum')
-                res = Sum.multiply_sum_by_sum(a,b);
+                res = Sum.multiply_by_sum(a,b);
             elseif isa(b, 'sym') || isnumeric(b)
-                res = Sum.multiply_sum_by_coef(a,b);
+                res = Sum.multiply_by_coef(a,b);
+            elseif isa(b, 'BaseSymbolicClass') 
+                res = Sum.multiply_by_operator(a,b);                
             else
                 error("SymbolicClass:UnsupportedCase","Not a legit case");    
             end
@@ -112,7 +115,7 @@ classdef Sum < SuperOperator
     end % methods
 
     methods (Static)
-        function res = multiply_sum_by_sum(sum_a,sum_b)
+        function res = multiply_by_sum(sum_a,sum_b)
             arguments
                 sum_a (1,1) Sum
                 sum_b (1,1) Sum
@@ -131,7 +134,7 @@ classdef Sum < SuperOperator
             end % for i            
         end
         %%
-        function s = multiply_sum_by_coef(s, c)
+        function s = multiply_by_coef(s, c)
             arguments
                 s (1,1) Sum
                 c (1,1) 
@@ -139,6 +142,33 @@ classdef Sum < SuperOperator
             for i = 1 : s.num_subs()
                 s.subs{i} = s.subs{i} * c;
             end
+        end
+        %%
+        function res = multiply_by_operator(su, op, options)
+            arguments
+                su (1,1) Sum
+                op (1,1) BaseSymbolicClass
+                options.op_from (1,1) Direction = Direction.Right;
+            end
+            operators = {};
+            for i = 1 : su.num_subs()
+                a = su.subs{i};              
+                    
+                % multiply by operator:
+                if options.op_from == Direction.Right
+                    crnt = a*op;
+                elseif options.op_from == Direction.Left
+                    crnt = op*a;
+                else
+                    error("SymbolicClass:UnsupportedCase","Not a legit case");
+                end
+
+                % Check and add:
+                if ~BaseSymbolicClass.is_zero(crnt)
+                    operators{end+1,1} = crnt;
+                end
+            end % for i            
+            res = Sum(operators{:});
         end
     end % static methods
     

@@ -2,8 +2,13 @@ clear all; close all; clc;
 addpath(genpath(pwd));
 
 %%
-a1 = A(1);
-a2 = A(2);
-res = [a1, a2]
+disp("A1=");
+disp(~A(1));
+disp("[A1,A2]:=");
+disp(~[A(1), A(2)]);
+disp("[A1, [A2,A3]] + [A3, [A2,A1]]:"); 
+res3 = [A(1), [A(2), A(3)] ] + [A(3), [A(2), A(1)] ] ;
+%%
+
 %%
 

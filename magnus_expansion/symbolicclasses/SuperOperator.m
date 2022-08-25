@@ -17,7 +17,28 @@ classdef SuperOperator < BaseSymbolicClass
             obj.subs = operators;
         end
         %%
+        function obj = simplify(obj)        
+            % simplify global coef:
+            try
+                obj.coef = BaseSymbolicClass.simplify_coef(obj.coef);
+            catch ME
+                if string(ME.identifier) ~= "SymbolicClass:LockedProperty"  % This is expected in Sum object
+                    rethrow(ME)
+                end
+            end
+            
+            % Simplify each of the inner operators:
+            for i = 1 : obj.num_subs
+               obj.subs{i} = obj.subs{i}.simplify();
+            end
+
+        end
+        %%
         function super_express = unpack(obj)
+            % Simplify:
+            if Config().simplify
+                obj = obj.simplify();
+            end
             % initial value:
             super_express = ~obj.neutral_op;            
             % accumulate sub operators:
@@ -28,7 +49,7 @@ classdef SuperOperator < BaseSymbolicClass
             end
             % Apply global coef (if applicable)
             super_express = super_express * obj.coef;
-            % Simplify:
+            % Simplify again:
             if Config().simplify
                 super_express = simplify(super_express);
             end
