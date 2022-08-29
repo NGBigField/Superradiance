@@ -2,6 +2,7 @@ classdef SuperOperator < BaseSymbolicClass & Callable
 
     properties
         subs (:,1) cell
+        num_subs (1,1) {mustBeInteger}
     end
 
     properties (Abstract, Constant, Hidden)
@@ -40,7 +41,7 @@ classdef SuperOperator < BaseSymbolicClass & Callable
         %%
         function super_express = unpack(obj)
             % Simplify:
-            if Config().simplify
+            if Config().simplify_expressions
                 obj = obj.simplify();
             end
             % initial value:
@@ -54,16 +55,26 @@ classdef SuperOperator < BaseSymbolicClass & Callable
             % Apply global coef (if applicable)
             super_express = super_express * obj.coef;
             % Simplify again:
-            if Config().simplify
+            if Config().simplify_expressions
                 super_express = simplify(super_express);
             end
         end
         %%
-        function res = num_subs(obj)
+
+    end
+
+    %%  Getter\Setters
+    methods
+        function res = get.num_subs(obj)
             res = length(obj.subs);
+        end                
+        function [] = set.num_subs(obj,val)
+            error("SymbolicClass:LockedProperty", "Changing `num_subs` can't be done explicitly. ");
         end
     end
 
+
+    %% Abstract static methods:
 
     methods (Abstract, Static)
         res = connect(A,B)  % join expressions

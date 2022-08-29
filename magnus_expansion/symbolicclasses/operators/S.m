@@ -3,9 +3,9 @@ classdef S < BaseSymbolicClass
     properties (SetAccess=immutable)
         script (1,1) string % {mustBeMember(script,["z","p","m"])}         
     end
-    properties (Constant, Hidden)
-        standard_order (1,:) = ["z", "+", "-"];
-    end
+%     properties (Constant, Hidden)
+%         standard_order (1,:) = ["z", "+", "-"];
+%     end
 
     methods
         %%
@@ -31,6 +31,25 @@ classdef S < BaseSymbolicClass
             res = res * obj.coef;
         end
         %%
+        function [x,y,z] = xyz(obj)
+            c = obj.coef;
+            if obj.is("z")
+                x = 0;
+                y = 0;
+                z = c;
+            elseif obj.is("+")
+                x = (1/2)*c;
+                y = (1/(2*1i))*c;
+                z = 0;
+            elseif obj.is("-")
+                x = (1/2)*c;
+                y = -(1/(2*1i))*c;
+                z = 0;
+            else
+                error("SymbolicClass:UnsupportedCase","Not a legit case");    
+            end
+        end
+        %%
         function res = multiply(obj, other)
             if isa(other, 'S')
                 res = S.multiply_by_s(obj, other);
@@ -54,8 +73,14 @@ classdef S < BaseSymbolicClass
         function res = commutations(s1, s2)
             arguments
                 s1 (1,1) S 
-                s2 (1,1) S
+                s2 (1,1) 
             end
+            % Special case for when s2 is something else
+            if ~isa(s2, "S")
+                res = operators.default_commutation(s1,s2);
+                return
+            end
+            % if both are S tpe:
             if     s1.is("z") && s2.is("+"), res = S("+")*(+1);
             elseif s1.is("z") && s2.is("-"), res = S("-")*(-1);
             elseif s1.is("+") && s2.is("-"), res = S("z")*(+2);
@@ -90,7 +115,7 @@ classdef S < BaseSymbolicClass
         function res = multiply_by_coef(s, c)
             arguments
                 s (1,1) S
-                c (1,1) sym
+                c (1,1)
             end
             s.coef = s.coef * c;
             res = s;

@@ -10,7 +10,7 @@ classdef Sum < SuperOperator
             res = A+B;
         end    
     end
-    methods      
+    methods  % public methods
         %%
         function obj = Sum(operators_in)           
             arguments (Repeating)
@@ -30,12 +30,49 @@ classdef Sum < SuperOperator
                 else
                     error("SymbolicClass:UnsupportedCase","Not a legit case");  
                 end
+            end % for i
+        end % function 
+        %%
+        function res = multiply(a,b)
+            arguments
+                a (1,1) 
+                b (1,1) 
+            end
+            % Check type:         
+            if isa(b, 'Sum')
+                res = Sum.multiply_by_sum(a,b);
+            elseif isa(b, 'sym') || isnumeric(b)
+                res = Sum.multiply_by_coef(a,b);
+            elseif isa(b, 'BaseSymbolicClass') 
+                res = Sum.multiply_by_operator(a,b);                
+            else
+                error("SymbolicClass:UnsupportedCase","Not a legit case");    
             end
         end
         %%
+        function [X,Y,Z] = xyz(obj)
+            % Init:
+            X=0;Y=0;Z=0;
+            % Splot in parts:
+            for i = 1 : obj.num_subs
+                op = obj.subs{i};
+                assert( isa(op, "S") );
+                [x,y,z] = op.xyz();
+                % Accumulate:
+                X = X + x;
+                Y = Y + y;
+                Z = Z + z;
+            end
+        end % function 
+    end % public methods
+    %%
+    methods  % NotImplemented
         function res = simmilar(obj, other)
             error("SymbolicClass:NotImplemented", "This function is not implemented");
         end
+    end
+    %%
+    methods (Access=protected)
         %%
         function [obj] = reduce_similars_terms_or_add(obj, op_in)
             arguments
@@ -94,28 +131,7 @@ classdef Sum < SuperOperator
             obj.subs(zero_indices) = [];
         end
         %%
-        function res = multiply(a,b)
-            arguments
-                a (1,1) 
-                b (1,1) 
-            end
-            % Check type:         
-            if isa(b, 'Sum')
-                res = Sum.multiply_by_sum(a,b);
-            elseif isa(b, 'sym') || isnumeric(b)
-                res = Sum.multiply_by_coef(a,b);
-            elseif isa(b, 'BaseSymbolicClass') 
-                res = Sum.multiply_by_operator(a,b);                
-            else
-                error("SymbolicClass:UnsupportedCase","Not a legit case");    
-            end
-        end
-        %%
-        function obj = collect_common_elements(obj)
-            % 
-        end
-        %%
-    end % methods
+    end % (Access=protected)
 
     methods (Static)
         function res = multiply_by_sum(sum_a,sum_b)

@@ -1,8 +1,8 @@
-classdef (Abstract) BaseSymbolicClass 
+classdef (Abstract, InferiorClasses={?sym} ) BaseSymbolicClass
         
     properties
-        coef (1,1) = 1  % can be symbolic
-        expression = []
+        coef (1,1) = 1   % can be symbolic
+        expression (1,1)  % used to for default `repr` of class, via the getter methods
     end
     %%
     methods (Abstract)
@@ -18,11 +18,12 @@ classdef (Abstract) BaseSymbolicClass
                 a = ZeroOperator;
             end
         end
+        function [x,y,z] = xyz(obj)
+            % Classes which support splitting operator into x,y,z should implement this method.
+            error("SymbolicClass:IncompatibleMethod", "This method does not exist for class '"+string(class(obj))+"'."); 
+        end
         function c = commutations(a, b)
-            c = a*b - b*a;
-            if Config().simplify
-                c = c.simplify();
-            end
+            c = operators.default_commutation(a,b);
         end
         function res = add_ops(A,B)
             res = Sum(A,B);
@@ -112,3 +113,5 @@ classdef (Abstract) BaseSymbolicClass
     end
 end
 
+
+%% Helper functions:
