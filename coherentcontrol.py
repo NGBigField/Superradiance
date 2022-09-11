@@ -5,6 +5,9 @@
 # Everyone needs numpy:
 import numpy as np
 
+# For matrix exponential: 
+from scipy.linalg import expm
+
 # For typing hints:
 from typing import (
     Tuple,
@@ -90,7 +93,6 @@ def _Sz_mat(N:int) -> np.matrix :
 # |                            Declared Functions                                    | #
 # ==================================================================================== #
 
-
 def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
     # Check input:
     _assert_N(N)
@@ -102,6 +104,20 @@ def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
     Sz = _Sz_mat(N)
     # Return:
     return Sx, Sy, Sz
+
+def pulse(
+    x  : float, 
+    y  : float, 
+    z  : float, 
+    Sx : np.matrix, 
+    Sy : np.matrix, 
+    Sz : np.matrix,
+    c  : float = 1.0  # Scaling param
+) -> np.matrix :
+    exponent = 1j*(x*Sx + y*Sy + z*Sz)*c
+    return expm(exponent)  # e^exponent
+
+
 
 # ==================================================================================== #
 # |                                  main                                            | #
@@ -158,8 +174,28 @@ def _test_M_of_m():
     plt.ylabel("M")
     plt.show()
 
+def _test_pi_pulse():
+    # Define:
+    N = 2
+    Sx, Sy, Sz = S_mats(N)
+    _pulse = lambda x, y, z, c : pulse( x,y,z, Sx,Sy,Sz, c )
+    _x_pulse = lambda c : _pulse(1,0,0,c)    
+
+    # init:
+    from schrodinger_evolution import init_state, Params, CommonStates
+    params = Params(N=N)
+    rho_initial = init_state(params, CommonStates.Ground)
+
+    # calc:
+    c = 1.0
+    p = np.matrix( _x_pulse(c) )
+
+    rho_final = p * rho_initial * p.getH()
+
+
 if __name__ == "__main__":
     np_utils.fix_print_length()
     # _test_M_of_m()
-    _test_s_mats()
+    # _test_s_mats()
+    _test_pi_pulse()
     print("Done.")
