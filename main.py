@@ -15,12 +15,15 @@
 
 """
 
-# import example:
-from schrodinger_evolution import main as shrodinger_evolution_example
 
+
+def main():
+# import example:
+    from schrodinger_evolution import main as shrodinger_evolution_example
+    shrodinger_evolution_example()
 
 
 
 if __name__ == "__main__":
     # run example:
-    shrodinger_evolution_example()
+    main()

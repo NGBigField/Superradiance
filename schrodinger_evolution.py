@@ -101,13 +101,13 @@ class CommonStates(Enum):
     Ground = auto()
     FullyExcited = auto()
 
-def init_state(params:Params, initial_state:CommonStates=CommonStates.FullyExcited) -> np.array:
+def init_state(params:Params, initial_state:CommonStates=CommonStates.FullyExcited) -> np.matrix:
     numM = _num_M_vals(params)
-    rho = np.zeros([numM])
+    rho = np.zeros([numM, numM])
     if initial_state==CommonStates.FullyExcited:
-        rho[-1] = 1
+        rho[-1,-1] = 1
     elif initial_state==CommonStates.Ground:
-        rho[0] = 1
+        rho[0,0] = 1
     return rho
 
 def evolve(
@@ -145,7 +145,7 @@ def evolve(
         d_rho = -Gamma*(J+M)*(J-M+1)*rho_prev_m + Gamma*(J-M)*(J+M+1)*rho_prev_mp1
         rho_next_m = dt*d_rho + rho_prev_m
         # Insert Values:
-        rho_next[m] = rho_next_m
+        rho_next[m,m] = rho_next_m
     return rho_next
 
 def coherent_pulse(params:Params=Params()):
