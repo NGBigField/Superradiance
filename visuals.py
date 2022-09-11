@@ -3,7 +3,7 @@ import typing as typ
 # For plotting:
 import matplotlib.pyplot as plt
 # For tools and helpers:
-from utils import Decorators, Visuals
+from utils import decorators, visuals
 
 def plot_superradiance_evolution(times, energies, intensities):
     # Plot:
@@ -19,5 +19,5 @@ def plot_superradiance_evolution(times, energies, intensities):
     axes[1].grid(which='major')
     axes[1].set_xlabel('Time [sec] '    , fontdict=dict(size=16) )
     axes[1].set_ylabel('Intensity  '    , fontdict=dict(size=16) )
-    Visuals.save_figure()
+    visuals.save_figure()
     plt.show()

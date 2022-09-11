@@ -11,17 +11,29 @@ from typing import (
     List,
 )
 
+# import our helper modules
+from utils import (
+    assertions,
+    numpy as np_utils
+)
+
+# For plotting test results:
+import matplotlib.pyplot as plt
+
 
 # ==================================================================================== #
 # |                            Inner Functions                                       | #
 # ==================================================================================== #
 
 def _assert_N(N:int) -> None:
-    assert float(N)/2 == int(int(N)/2) # N must be even    
+    assertions.even(N) # N must be even    
 
 def _J(N:int) -> int : 
     _assert_N(N)
     return N//2
+
+def _M(m:int, J:int) :
+    return m-J
 
 def _mat_size(N: int) -> Tuple[int, int]:
     return (N+1, N+1)
@@ -41,39 +53,55 @@ def _d_plus_minus(M:int, J:int, pm:int) -> float:
     )
     return d
 
-def _d_plus_or_minus_mat(N:int, pm:int) -> np.matrix :    
-    D = np.zeros(_mat_size(N))
+def _D_plus_minus_mats(N:int) -> Tuple[np.matrix, np.matrix] :
+    # Derive sizes:
+    mat_size = _mat_size(N)
     J = _J(N)
-    for M in range(0, N+1):
-        print(M)
-        i = M
-        j = M + pm
-        if j>=N+1 or j<0:
-            continue
-        d = _d_plus_minus(M, J, pm)
-        D[i,j] = d
-    return D
+    # Init outputs:    
+    D = {}
+    D[+1] = np.zeros(mat_size)
+    D[-1] = np.zeros(mat_size)
+    # Iterate over diagonals:
+    for m in range(mat_size[0]):
+        M = _M(m, J)
+        i = m
 
+        for pm in [-1, +1]:
+            # derive matrix indices:
+            j = m + pm
+            if j>=N+1 or j<0:
+                continue
+            # compute and assign to matrix
+            d = _d_plus_minus(M, J, pm)
+            D[pm][i,j] = d
 
+    return D[+1], D[-1]
+
+def _Sz_mat(N:int) -> np.matrix :
+    mat_size = _mat_size(N)
+    J = _J(N)
+    Sz = np.zeros(mat_size)
+    for m in range(mat_size[0]):
+        M = _M(m, J)
+        Sz[m,m] = M
+    return Sz
+        
 # ==================================================================================== #
 # |                            Declared Functions                                    | #
 # ==================================================================================== #
 
-def d_plus_mat(N:int) -> np.matrix:
-    return _d_plus_or_minus_mat(N, +1)
 
-def d_minus_mat(N:int) -> np.matrix:
-    return _d_plus_or_minus_mat(N, -1)
-
-
-def sx_mat(N:int) -> np.matrix:
+def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
+    # Check input:
     _assert_N(N)
-    d_plus = d_plus_mat(N)
-    d_minus = d_minus_mat(N)
-    sx = d_plus+d_minus
-    return sx
-
-
+    # Prepare Base Matrices:
+    D_plus, D_minus = _D_plus_minus_mats(N)
+    # Derive X, Y, Z Matrices
+    Sx = D_plus + D_minus 
+    Sy = -1j*D_plus + 1j*D_minus 
+    Sz = _Sz_mat(N)
+    # Return:
+    return Sx, Sy, Sz
 
 # ==================================================================================== #
 # |                                  main                                            | #
@@ -98,10 +126,40 @@ S_Z = ( 1   0 )
       ( 0  -1 )
 """
 
-def _sx_test():
-    N = 2
-    sx = sx_mat(N)
-    print(sx)
+def _test_s_mats():
+    _print = np_utils.print_mat
+    for N in [2,4]:
+        Sx, Sy, Sz = S_mats(N)
+        print(f"N={N}")
+        print("\nSx:")
+        _print(Sx)
+        print("\nSy:")
+        _print(Sy)
+        print("\nSz:")
+        _print(Sz)
+        print( "\n\n" )
+
+def _test_M_of_m():
+    # Init:
+    N = 6
+    M_vec = []
+    m_vec = []
+    # Compute:
+    J = _J(N)
+    for m in range(N+1):
+        M = _M(m,J)
+        M_vec.append(M)
+        m_vec.append(m)
+    # plot:
+    plt.plot(m_vec, M_vec)
+    plt.title(f"N={N}, J={J}")
+    plt.grid(True)
+    plt.xlabel("m")
+    plt.ylabel("M")
+    plt.show()
 
 if __name__ == "__main__":
-    _sx_test()
+    np_utils.fix_print_length()
+    # _test_M_of_m()
+    _test_s_mats()
+    print("Done.")

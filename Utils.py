@@ -4,6 +4,9 @@ import time
 import typing as typ
 from typing import (
     Optional,
+    Any,
+    Tuple,
+    List,    
 )
 
 # Operating System and files:
@@ -13,6 +16,9 @@ import os
 from collections.abc import Iterable
 import matlab.engine
 
+# For controlling numpy behavior:
+import numpy as np
+
 # Visuals:
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure as FigureType
@@ -20,7 +26,12 @@ from matplotlib.figure import Figure as FigureType
 # For type hints:
 MatlabEngineType = matlab.engine.matlabengine.MatlabEngine
 
-class Visuals:
+# ============================================================================ #
+#                               Static Classes                                 #
+# ============================================================================ #
+
+# ============================= visuals ====================================== #
+class visuals:
 
     @staticmethod
     def save_figure(fig:Optional[FigureType]=None, title:Optional[str]=None ) -> None:
@@ -29,7 +40,7 @@ class Visuals:
             fig = plt.gcf()
         # Title:
         if title is None:
-            title = Strings.time_stamp()
+            title = strings.time_stamp()
         # Figures folder:
         folder = fullpath = Path().cwd().joinpath('figures')
         if not folder.is_dir():
@@ -41,18 +52,19 @@ class Visuals:
         fig.savefig(fullpath_str)
         return 
 
-class Matlab():
+# ============================= matlab ====================================== #
+class matlab():
 
     @staticmethod
     def init(add_sub_paths:bool=True) -> MatlabEngineType:
         eng = matlab.engine.start_matlab()
         if add_sub_paths:
-            Matlab.add_all_sub_paths(eng)
+            matlab.add_all_sub_paths(eng)
         return eng
 
     @staticmethod
     def example() -> None:
-        eng = Matlab.init()
+        eng = matlab.init()
         eng.life(nargout=0)
         time.sleep(1)
 
@@ -60,8 +72,8 @@ class Matlab():
     def add_all_sub_paths(eng:MatlabEngineType) -> None:
         eng.addpath(eng.genpath(eng.pwd()),nargout=0)
 
-
-class Decorators():
+# ============================= decorators ====================================== #
+class decorators():
 
     @staticmethod
     def timeit(func: typ.Callable):
@@ -79,7 +91,7 @@ class Decorators():
         return wrapper
 
     @staticmethod
-    def assertType(Type: type, at: typ.Literal['input', 'output', 'both'] = 'both' ) -> typ.Callable:
+    def assert_type(Type: type, at: typ.Literal['input', 'output', 'both'] = 'both' ) -> typ.Callable:
         """assertType 
 
         Args:
@@ -123,10 +135,8 @@ class Decorators():
         return decorator
 
 
-# = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = #
-#                                                 Strings                                                               #
-# = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = #
-class Strings():
+# ============================= strings ====================================== #
+class strings():
     def formatted(s:typ.Any, fill:str=' ', alignment:typ.Literal['<','^','>']='>', width:typ.Optional[int]=None, decimals:typ.Optional[int]=None) -> str:
         if width is None:
             width = len(f"{s}")
@@ -138,15 +148,50 @@ class Strings():
     
     def num_out_of_num(num1, num2):
         width = len(str(num2))
-        formatted = lambda num: Strings.formatted(num, fill=' ', alignment='>', width=width )
+        formatted = lambda num: strings.formatted(num, fill=' ', alignment='>', width=width )
         return formatted(num1)+"/"+formatted(num2)
 
     def time_stamp():
         t = time.localtime()
         return f"{t.tm_year}.{t.tm_mon:02}.{t.tm_mday:02}_{t.tm_hour:02}.{t.tm_min:02}.{t.tm_sec:02}"
 
-@Decorators.assertType(int, at='output')
-@Decorators.assertType(str, at='input' )
+
+# ============================= assertions ====================================== #
+class assertions():
+    @staticmethod
+    def integer(x:Any)->None:
+        assert round(x) == x
+
+    @staticmethod
+    def even(x:Any)->None:
+        assertions.integer(x)
+        assert float(x)/2 == int(int(x)/2)
+
+# ============================= numpy ====================================== #
+class numpy:
+    @staticmethod
+    def fix_print_length(linewidth:int=10000, precision:int=2) -> None:
+        np.set_printoptions(linewidth=linewidth)
+        np.set_printoptions(precision=precision)
+
+    @staticmethod
+    def print_mat(m:np.matrix) -> None:
+        if np.all( np.isreal(m*1j) ):  # if all matrix is imaginary
+            real_mat = np.real( m*1j )
+            print(f"{real_mat} * 1j")
+        else:
+            print(m)
+
+
+
+
+
+# ============================================================================ #
+#                                    Tests                                     #
+# ============================================================================ #
+
+@decorators.assert_type(int, at='output')
+@decorators.assert_type(str, at='input' )
 def _assertType_Example(a, b, c='Hello', d='Bye'):    
     print(f"a='{a}' , b='{b}' , c='{c}' , d='{d}'")
     res = 3
@@ -157,7 +202,7 @@ if __name__ == "__main__":
     # Run Example Codes:    
     # Matlab.example()
 
-    mat = Matlab.init()
+    mat = matlab.init()
 
     print("a is prime?")
     print( mat.isprime(3) )
