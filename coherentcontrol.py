@@ -20,8 +20,13 @@ from utils import (
     numpy as np_utils
 )
 
-# For plotting test results:
-import matplotlib.pyplot as plt
+
+
+# ==================================================================================== #
+# |                                  Constants                                       | #
+# ==================================================================================== #
+MAX_ITER  =  40
+OPT_METHOD = 'COBYLA'
 
 
 # ==================================================================================== #
@@ -115,7 +120,7 @@ def pulse(
     c  : float = 1.0  # Scaling param
 ) -> np.matrix :
     exponent = 1j*(x*Sx + y*Sy + z*Sz)*c
-    return expm(exponent)  # e^exponent
+    return np.matrix( expm(exponent) )  # e^exponent
 
 
 
@@ -175,6 +180,9 @@ def _test_M_of_m():
     plt.show()
 
 def _test_pi_pulse():
+
+    from schrodinger_evolution import init_state, Params, CommonStates
+
     # Define:
     N = 2
     Sx, Sy, Sz = S_mats(N)
@@ -182,18 +190,54 @@ def _test_pi_pulse():
     _x_pulse = lambda c : _pulse(1,0,0,c)    
 
     # init:
-    from schrodinger_evolution import init_state, Params, CommonStates
     params = Params(N=N)
     rho_initial = init_state(params, CommonStates.Ground)
+    rho_target  = init_state(params, CommonStates.FullyExcited)
 
-    # calc:
-    c = 1.0
-    p = np.matrix( _x_pulse(c) )
+    # Helper functions:
+    def _apply_pulse_on_initial_state(c:float) -> np.matrix: 
+        p = _x_pulse(c)
+        rho_final = p * rho_initial * p.getH()
+        return rho_final
 
-    rho_final = p * rho_initial * p.getH()
+    def _derive_cost_function(c:float) -> float :  
+        rho_final = _apply_pulse_on_initial_state(c)
+        diff = np.linalg.norm(rho_final-rho_target)
+        cost = diff**2
+        return cost
+
+    def _find_optimum():
+        initial_point = 0.00
+        options = dict(
+            maxiter = MAX_ITER
+        )            
+        # Run optimization:
+        start_time = time.time()
+        minimum = minimize(_derive_cost_function, initial_point, method=OPT_METHOD, options=options)
+        finish_time = time.time()
+
+        # Unpack results:
+        run_time = finish_time-start_time
+        print(f"run_time={run_time} [sec]")
+        return minimum
+
+    # Minimize:
+    opt = _find_optimum()
+
+    # Unpack results:    
+    c = opt.x
+    assert len(c)==1
+    assert np.isreal(c)[0]
+    
+    rho_final = _apply_pulse_on_initial_state(c)
+    np_utils.print_mat(rho_final)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
+    import matplotlib.pyplot as plt  # for plotting test results:    
+    from scipy.optimize import minimize  # for optimization:    
+    import time  # for measuring time:
+
     np_utils.fix_print_length()
     # _test_M_of_m()
     # _test_s_mats()

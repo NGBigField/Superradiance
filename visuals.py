@@ -2,8 +2,25 @@
 import typing as typ
 # For plotting:
 import matplotlib.pyplot as plt
+import qutip
 # For tools and helpers:
 from utils import decorators, visuals
+
+
+def plot_city(state):
+    mat = state.data
+    labels = all_qubits_strings(num_qubits=2)
+    title = f"Tomography on \n'{run_type.name}' \nfor circuit '{circ_func.__name__}'"
+    fig, ax = qutip.matrix_histogram_complex(
+        mat, 
+        xlabels=labels, 
+        ylabels=labels,
+        title=title
+    )
+    x, y = 0.40, 0.85
+    plt.figtext(x, y, title, fontsize=16) 
+
+    return fig
 
 def plot_superradiance_evolution(times, energies, intensities):
     # Plot:
