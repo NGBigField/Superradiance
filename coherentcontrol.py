@@ -20,12 +20,19 @@ from utils import (
     numpy as np_utils
 )
 
+# For plotting:
+from visuals import plot_city
+
+# For timing execution:
+import time
+
+# For optimization:
+from scipy.optimize import minimize
 
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-MAX_ITER  =  40
 OPT_METHOD = 'COBYLA'
 
 
@@ -161,16 +168,19 @@ def _test_s_mats():
         print( "\n\n" )
 
 def _test_M_of_m():
-    # Init:
     N = 6
+
+    # Init:
     M_vec = []
     m_vec = []
+
     # Compute:
     J = _J(N)
     for m in range(N+1):
         M = _M(m,J)
         M_vec.append(M)
         m_vec.append(m)
+        
     # plot:
     plt.plot(m_vec, M_vec)
     plt.title(f"N={N}, J={J}")
@@ -179,12 +189,11 @@ def _test_M_of_m():
     plt.ylabel("M")
     plt.show()
 
-def _test_pi_pulse():
-
+def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
+    # Specific imports:
     from schrodinger_evolution import init_state, Params, CommonStates
 
-    # Define:
-    N = 2
+    # Define pulse:
     Sx, Sy, Sz = S_mats(N)
     _pulse = lambda x, y, z, c : pulse( x,y,z, Sx,Sy,Sz, c )
     _x_pulse = lambda c : _pulse(1,0,0,c)    
@@ -231,6 +240,10 @@ def _test_pi_pulse():
     
     rho_final = _apply_pulse_on_initial_state(c)
     np_utils.print_mat(rho_final)
+
+    # Plot results:
+    plot_city(rho_final)
+    
 
 
 if __name__ == "__main__":    
