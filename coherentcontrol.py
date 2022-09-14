@@ -20,12 +20,14 @@ from utils import (
     numpy as np_utils
 )
 
+from light_wigner.main import visualize_light_from_atomic_density_matrix
+from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
 
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-MAX_ITER  =  40
+MAX_ITER  =  2
 OPT_METHOD = 'COBYLA'
 
 
@@ -206,6 +208,19 @@ def _test_pi_pulse():
         cost = diff**2
         return cost
 
+    """ _summary_
+
+    cost functions:
+
+    * Even\odd cat states (atomic density matrix)  (poisonic dist. pure state as a |ket><bra| )
+
+    * purity measure:  trace(rho^2)
+        1 - if pure
+        1/N - maximally not pure 
+
+    * BSV light
+    """
+
     def _find_optimum():
         initial_point = 0.00
         options = dict(
@@ -228,9 +243,20 @@ def _test_pi_pulse():
     c = opt.x
     assert len(c)==1
     assert np.isreal(c)[0]
-    
+
     rho_final = _apply_pulse_on_initial_state(c)
     np_utils.print_mat(rho_final)
+
+    # visualizing light:
+    rho_final = np.array( rho_final.tolist() )
+    visualize_light_from_atomic_density_matrix(rho_final, N)
+
+    # visualizing matter:
+    Atomic_state_on_bloch_sphere.Wigner_BlochSphere()  # use this. this is better.
+
+
+
+    
 
 
 if __name__ == "__main__":    
@@ -243,3 +269,7 @@ if __name__ == "__main__":
     # _test_s_mats()
     _test_pi_pulse()
     print("Done.")
+
+
+    visualize_light_from_atomic_density_matrix(1,2)
+    
