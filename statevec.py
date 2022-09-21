@@ -2,6 +2,18 @@ from dataclasses import dataclass
 import typing as typ
 import numpy as np
 
+
+from utils import (
+    errors,
+)
+
+# For type hintings:
+from typing import (
+    Any,
+    Optional,
+)
+
+
 # Global Constants:
 EPSILON = 0.00000001
 
@@ -109,14 +121,54 @@ class Ket():
         pass
 
 
+def _dec2binary(n: int, length: Optional[int] = None ): 
+    # Transform integer to binary string:
+    if length is None:
+        binary_str = f"{n:0b}" 
+    else:
+        binary_str = f"{n:0{length}b}" 
+    # Transform binary string to list:
+    binary_list = [int(c) for c in binary_str]  
+    return binary_list
+
+class Fock(Ket):
+    def __init__(self, n:int, num_bits:Optional[int]=None) -> None:
+        bits = _dec2binary(n, length=num_bits)
+        super().__init__(bits)
+
+class FockSpace():
+    def __init__(self, max_num:int) -> None:
+        self.max_num = max_num
+
+    @property
+    def num_bits(self) -> int:
+        bits = _dec2binary(self.max_num)
+        return len(bits)
+    @num_bits.setter
+    def num_bits(self, val:Any) -> None:
+        raise errors.ProtectedPropertyError("Can't change property `num_bits`")
+    
+    def state(self, n:int) -> Fock:
+        return Fock(n, num_bits=self.num_bits)
 
 
-def main():
+def _main_test():
     k0 = Ket(0,0)
     k1 = Ket(1,1)
     k : Ket = (k0+k1)*(1/np.sqrt(2))
     print(f"is_normalized = '{k.is_normalized}'")
     print(k)
 
+def _fock_test():
+    fock_space = FockSpace(4)
+
+    f0 = fock_space.state(0)
+    f2 = fock_space.state(2)
+    f = ( f0 + f2 )*(1/np.sqrt(2))
+    print(f"is_normalized = '{f.is_normalized}'")
+    print(f)
+
+
 if __name__ == "__main__":
-    main()
+    _fock_test()
+    _main_test()

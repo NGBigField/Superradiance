@@ -9,8 +9,8 @@ import numpy as np
 
 # For states
 from schrodinger_evolution import init_state, Params, CommonStates    
-import densitymats
-import statevec
+from densitymats import DensityMatrix
+from statevec import FockSpace
 
 # For coherent control
 from coherentcontrol import (
@@ -42,6 +42,8 @@ import time
 import matplotlib.pyplot as plt  # for plotting test results:
 from visuals import plot_city
 
+# For OOP:
+from dataclasses import dataclass
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
@@ -49,8 +51,76 @@ from visuals import plot_city
 OPT_METHOD = 'COBYLA'
 
 # ==================================================================================== #
+# |                                    Classes                                       | #
+# ==================================================================================== #
+@dataclass
+class LearnedResults():
+    params : np.array
+    state : np.matrix
+
+
+# ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
+
+
+def learn_specific_state(target_state:np.matrix, max_iter:int=4, plot_on:bool=True) -> LearnedResults:
+    # Check inputs:
+    assert len(target_state.shape)==2
+    assert target_state.shape[0] == target_state.shape[1]
+
+    # Derive state size:
+    N = 0
+    coherent_control = CoherentControl(N)
+
+    # init:
+    params = Params(N=N)
+    rho_initial = init_state(params, CommonStates.Ground)
+    rho_target  = init_state(params, CommonStates.FullyExcited)
+
+    # Helper functions:
+    def _apply_pulse_on_initial_state(theta:np.array) -> np.matrix: 
+        x = theta[0]
+        y = theta[1]
+        z = theta[2]
+        return coherent_control.pulse_on_state(rho_initial, x, y, z)
+
+    def _derive_cost_function(theta:np.array) -> float :  
+        rho_final = _apply_pulse_on_initial_state(theta)
+        diff = np.linalg.norm(rho_final-rho_target)
+        cost = diff**2
+        return cost
+
+    def _find_optimum():
+        initial_point = np.array([0.0]*3)
+        options = dict(
+            maxiter = max_iter
+        )            
+        # Run optimization:
+        start_time = time.time()
+        minimum = minimize(_derive_cost_function, initial_point, method=OPT_METHOD, options=options)
+        finish_time = time.time()
+
+        # Unpack results:
+        run_time = finish_time-start_time
+        print(f"run_time={run_time} [sec]")
+        return minimum
+
+    # Minimize:
+    opt = _find_optimum()
+
+    # Unpack results:    
+    theta = opt.x
+    assert len(theta)==3
+
+    rho_final = _apply_pulse_on_initial_state(theta)
+    np_utils.print_mat(rho_final)
+
+    # visualizing light:
+    if plot_on:
+        title = f"MAX_ITER={max_iter} \n{theta} "
+        plot_city(rho_final, title=title)
+
 
 
 def learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=True):
@@ -191,7 +261,15 @@ def _test_learn_pi_pulse():
         learn_pi_pulse(num_iter=num_iter, plot_on=True)
         visuals.save_figure(file_name=f"learn_pi_pulse num_iter {num_iter}")
 
+def _test_learn_state():
+    fock_space = FockSpace(3)
+    state = ( fock_space.state(0) + fock_space.state(2) ) * (1/np.sqrt(2))
+    target_state = DensityMatrix.from_ket(state)
+    np_utils.print_mat(target_state)
+    learn_specific_state(target_state, max_iter=10)
+
 if __name__ == "__main__":
     # _test_learn_pi_pulse_only_x()
-    _test_learn_pi_pulse()
+    # _test_learn_pi_pulse()
+    _test_learn_state()
     print("Done.")

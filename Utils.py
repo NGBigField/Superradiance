@@ -49,6 +49,12 @@ else:
 #                               Static Classes                                 #
 # ============================================================================ #
 
+
+
+# ============================= Errors ====================================== #
+class errors:
+    class ProtectedPropertyError(Exception): ...
+
 # ============================= visuals ====================================== #
 class visuals:
 
@@ -177,14 +183,29 @@ class strings():
 
 # ============================= assertions ====================================== #
 class assertions():
-    @staticmethod
-    def integer(x:Any)->None:
-        assert round(x) == x
 
     @staticmethod
-    def even(x:Any)->None:
+    def integer(x:Any)->Any:
+        assert round(x) == x
+        return x
+
+    @staticmethod
+    def index(x:Any)->Any:
+        assertions.integer(x)
+        assert x>=0
+        return x
+
+    @staticmethod
+    def bit(x:Any)->Any:
+        assertions.integer(x)
+        assert x in [0, 1]
+        return x
+
+    @staticmethod
+    def even(x:Any)->Any:
         assertions.integer(x)
         assert float(x)/2 == int(int(x)/2)
+        return x
 
 # ============================= numpy ====================================== #
 class numpy:

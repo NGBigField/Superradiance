@@ -10,6 +10,9 @@ from statevec import Ket
 from dataclasses import dataclass, field
 from qiskit.quantum_info import random_density_matrix
 
+from utils import (
+    assertions,
+)
 
 EPSILON = 0.1
 
@@ -38,7 +41,7 @@ def _middle_index(mat: DensityMatrix) -> int:
 def _ceil_of_half(x: int) -> int:
     """_ceil_of_half A quicker operation than int(np.ceil(x/2))
     """
-    x = Assertion.int(x) 
+    x = assertions.integer(x) 
     floored_half = x//2
     double_of_floored_half = floored_half*2
     if double_of_floored_half == x:
@@ -215,7 +218,7 @@ class DensityMatrix(SquareMatrix):
         mat_dim:typ.Optional[int] = None, 
         method:typ.Literal["qiskit", "numpy"] = "qiskit",
         validate:bool = True
-    ) -> _DensityMatrixType:
+    ) -> DensityMatrix:
         # Derive input:
         mat_dim = _matrix_dimension_from_optional_num_qubits(num_qubits, mat_dim)
         # create matrix:
@@ -249,7 +252,7 @@ class DensityMatrix(SquareMatrix):
 
     def validate(self) -> None:
         assert _is_square(self), "Density Matrix must be a square matrix"  
-        Assertion.int(np.log2(self.shape[0]))  # Must have indices of 2 to the power of the qubits
+        assertions.integer(np.log2(self.shape[0]))  # Must have indices of 2 to the power of the qubits
         assert abs(self.trace()-1)<EPSILON, "Density Matrix must have trace==1"
         assert _is_hermitian(self, EPSILON), "Density Matrix must be hermitian"
         assert _is_positive_semidefinite(self, EPSILON), "Density Matrix must be positive semidefinite"
@@ -268,14 +271,14 @@ class DensityMatrix(SquareMatrix):
 
     @property 
     def num_qubits(self) -> int:
-        return Assertion.int( np.log2(self.dim) )
+        return assertions.integer( np.log2(self.dim) )
 
-    def new_empty(self) -> _DensityMatrixType:
+    def new_empty(self) -> DensityMatrix:
         new_ndarray = np.empty(self.shape)
         new_mat = DensityMatrix(new_ndarray)
         return new_mat
 
-    def dagger(self) -> _DensityMatrixType:
+    def dagger(self) -> DensityMatrix:
         out = self.getH()
         return out
 
@@ -295,13 +298,13 @@ class DensityMatrix(SquareMatrix):
         def _set_values(self, index: int, binary: _BitsType) -> None:
             self.__index = index
             self.__binary = binary
-        def __init__(self, mat: _DensityMatrixType, input: typ.Union[int, _BitsType]) -> None:
+        def __init__(self, mat: DensityMatrix, input: typ.Union[int, _BitsType]) -> None:
             self.length = mat.num_qubits
             if isinstance(input, int):
-                input = Assertion.index(input)
+                input = assertions.index(input)
                 self._set_values(index=input, binary=_dec2binary(input, length=self.length))
             elif isinstance(input, list):
-                input = [Assertion.bit(x) for x in input]
+                input = [assertions.bit(x) for x in input]
                 self._set_values(index=_binary2dec(input), binary=input)
         @property
         def binary(self) -> _BitsType:
@@ -310,11 +313,11 @@ class DensityMatrix(SquareMatrix):
         def binary(self, bits: _BitsType) -> None:
             self._set_values(index=_binary2dec(bits), binary=bits)
         def __getitem__(self, key: int) -> _BitType:
-            key = Assertion.index(key)
+            key = assertions.index(key)
             return self.binary[key]
         def __setitem__(self, key: int, val: _BitType) -> None:
-            key = Assertion.index(key)
-            val = Assertion.bit(val)
+            key = assertions.index(key)
+            val = assertions.bit(val)
             binary = self.__binary
             binary[key] = val
             self._set_values(index=_binary2dec(binary), binary=binary)
@@ -325,7 +328,7 @@ class DensityMatrix(SquareMatrix):
             return self.__index
         @index.setter
         def index(self, ind: int):
-            ind = Assertion.index(ind)
+            ind = assertions.index(ind)
             self._set_values(index=ind, binary=_dec2binary(ind, length=self.length))
         def __call__(self) -> int:
             return self.index
