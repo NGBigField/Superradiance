@@ -26,6 +26,7 @@ from typing import (
 )
 _QobjType = qutip.qobj.Qobj
 from qiskit.quantum_info.states.densitymatrix import DensityMatrix
+from matplotlib.axes import Axes
 
 # For function version detection:
 from packaging.version import parse as parse_version
@@ -49,7 +50,9 @@ else:
 # ==================================================================================== #
 
 
-def plot_city(M:np.matrix, title:Optional[str]=None, ax=None):
+def plot_city(M:np.matrix, title:Optional[str]=None, ax:Axes=None):
+
+    from matplotlib.cm import ScalarMappable
 
     # Define common symbols:
     pi = np.pi
@@ -67,21 +70,18 @@ def plot_city(M:np.matrix, title:Optional[str]=None, ax=None):
     idx, _ = np.where(abs(Mvec) < 0.001)
     Mvec[idx] = abs(Mvec[idx])
 
+    # Define colors:
     phase_min = -pi
     phase_max = pi
-
     norm = mpl.colors.Normalize(phase_min, phase_max)
     cmap = complex_phase_cmap()
-
-    colors = cmap(norm(np.angle(Mvec)))
-    colors_l = colors[0]
+    colors = cmap(norm(np.angle(Mvec)))[0]
 
     if ax is None:
         fig = plt.figure()
         ax = _axes3D(fig, azim=-35, elev=35)
 
     ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors)
-    # ax.bar3d(xpos, ypos, zpos, dx, dy, dz)
 
     if title:
         ax.set_title(title)
@@ -89,39 +89,28 @@ def plot_city(M:np.matrix, title:Optional[str]=None, ax=None):
     # x axis
     xtics = -0.5 + np.arange(M.shape[0])
     ax.axes.w_xaxis.set_major_locator(plt.FixedLocator(xtics))
-    if xlabels:
-        nxlabels = len(xlabels)
-        if nxlabels != len(xtics):
-            raise ValueError(f"got {nxlabels} xlabels but needed {len(xtics)}")
-        ax.set_xticklabels(xlabels)
     ax.tick_params(axis='x', labelsize=12)
 
     # y axis
     ytics = -0.5 + np.arange(M.shape[1])
     ax.axes.w_yaxis.set_major_locator(plt.FixedLocator(ytics))
-    if ylabels:
-        nylabels = len(ylabels)
-        if nylabels != len(ytics):
-            raise ValueError(f"got {nylabels} ylabels but needed {len(ytics)}")
-        ax.set_yticklabels(ylabels)
     ax.tick_params(axis='y', labelsize=12)
 
     # z axis
-    if limits and isinstance(limits, list):
-        ax.set_zlim3d(limits)
-    else:
-        ax.set_zlim3d([0, 1])  # use min/max
-    # ax.set_zlabel('abs')
+    ax.set_zlim3d([0, 1])  # use min/max
 
-    # color axis
-    if colorbar:
-        cax, kw = mpl.colorbar.make_axes(ax, shrink=.75, pad=.0)
-        cb = mpl.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm)
-        cb.set_ticks([-pi, -pi / 2, 0, pi / 2, pi])
-        cb.set_ticklabels(
-            (r'$-\pi$', r'$-\pi/2$', r'$0$', r'$\pi/2$', r'$\pi$'))
-        cb.set_label('arg')
+    # Labels:
+    n = M.shape[0]
+    plt.xticks( range(n), [ f"|{m}>" for m in range(n)] )
+    plt.yticks( range(n), [ f"<{m}|" for m in range(n)] )
 
+    # Colorbar:
+    cax = plt.axes([0.85, 0.1, 0.075, 0.8])
+    mappable = ScalarMappable(norm=norm, cmap=cmap)
+    clr_bar = plt.colorbar(ax=ax, cax=cax, mappable=mappable )
+    clr_bar.set_ticks([-pi, -pi/2, 0, pi/2, pi])
+    clr_bar.set_ticklabels( [r'$-\pi$', r'$-\pi/2$', 0, r'$\pi/2$', r'$\pi$'] )
+    
     return fig, ax
 
 def _plot_city(state:np.matrix, title:Optional[str]=None):

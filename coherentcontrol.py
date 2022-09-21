@@ -20,8 +20,13 @@ from utils import (
     numpy as np_utils
 )
 
+# For measuring time:
+import time
+
+# For visualizations:
 from light_wigner.main import visualize_light_from_atomic_density_matrix
 from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
+from visuals import plot_city
 
 
 # ==================================================================================== #
@@ -186,6 +191,8 @@ def _test_M_of_m():
 def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
     # Specific imports:
     from schrodinger_evolution import init_state, Params, CommonStates
+    import matplotlib.pyplot as plt  # for plotting test results:    
+    from scipy.optimize import minimize  # for optimization:    
 
     # Define pulse:
     Sx, Sy, Sz = S_mats(N)
@@ -249,6 +256,9 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
     np_utils.print_mat(rho_final)
 
     # visualizing light:
+    title = f" rho "
+    plot_city(rho_final, title=title)
+    plt.show()
     rho_final = np.array( rho_final.tolist() )
     visualize_light_from_atomic_density_matrix(rho_final, N)
 
@@ -261,9 +271,6 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
 
 
 if __name__ == "__main__":    
-    import matplotlib.pyplot as plt  # for plotting test results:    
-    from scipy.optimize import minimize  # for optimization:    
-    import time  # for measuring time:
 
     np_utils.fix_print_length()
     # _test_M_of_m()
