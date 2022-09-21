@@ -10,6 +10,7 @@ from scipy.linalg import expm
 
 # For typing hints:
 from typing import (
+    Any,
     Tuple,
     List,
 )
@@ -24,19 +25,27 @@ from utils import (
 import time
 
 # For visualizations:
+import matplotlib.pyplot as plt  # for plotting test results:
 from light_wigner.main import visualize_light_from_atomic_density_matrix
 from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
 from visuals import plot_city
 
+# For OOP:
+from dataclasses import dataclass
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
 OPT_METHOD = 'COBYLA'
 
+# ==================================================================================== #
+# |                                    Errors                                        | #
+# ==================================================================================== #
+class ProtectedPropertyError(Exception): ...
+
 
 # ==================================================================================== #
-# |                            Inner Functions                                       | #
+# |                               Inner Functions                                    | #
 # ==================================================================================== #
 
 def _assert_N(N:int) -> None:
@@ -129,9 +138,48 @@ def pulse(
     return np.matrix( expm(exponent) )  # e^exponent
 
 
+# ==================================================================================== #
+# |                                 Classes                                          | #
+# ==================================================================================== #
+
+class SPulses():
+    def __init__(self, N:int) -> None:
+        Sx, Sy, Sz = S_mats(N)
+        self.Sx = Sx 
+        self.Sy = Sy 
+        self.Sz = Sz
+    
+
+class CoherentControl():
+
+    def __init__(self, N:int=2) -> None:
+        # Keep basic properties:        
+        self._N = N
+        # define basic pulses:
+        self.s_pulses = SPulses(N)
+
+    def pulse(self, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix:
+        Sx = self.s_pulses.Sx 
+        Sy = self.s_pulses.Sy 
+        Sz = self.s_pulses.Sz
+        return pulse(x,y,z, Sx,Sy,Sz)
+
+    def pulse_on_state(self, state:np.matrix, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix :
+        p = self.pulse(x,y,z)
+        final_state = p * state * p.getH()
+        return final_state
+
+    @property
+    def N(self) -> int:
+        return self._N
+    @N.setter
+    def N(self, val:Any) -> None:
+        self._N = val
+        self.s_pulses = SPulses(val)
+
 
 # ==================================================================================== #
-# |                                  main                                            | #
+# |                                   main                                           | #
 # ==================================================================================== #
 
 
@@ -190,8 +238,7 @@ def _test_M_of_m():
 
 def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
     # Specific imports:
-    from schrodinger_evolution import init_state, Params, CommonStates
-    import matplotlib.pyplot as plt  # for plotting test results:    
+    from schrodinger_evolution import init_state, Params, CommonStates    
     from scipy.optimize import minimize  # for optimization:    
 
     # Define pulse:
@@ -216,7 +263,7 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
         cost = diff**2
         return cost
 
-    """ _summary_
+    """ 
 
     cost functions:
 
@@ -259,12 +306,11 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
     title = f" rho "
     plot_city(rho_final, title=title)
     plt.show()
-    rho_final = np.array( rho_final.tolist() )
-    visualize_light_from_atomic_density_matrix(rho_final, N)
+    # rho_final = np.array( rho_final.tolist() )
+    # visualize_light_from_atomic_density_matrix(rho_final, N)
 
-    # visualizing matter:
-    Atomic_state_on_bloch_sphere.Wigner_BlochSphere()  # use this. this is better.
-
+    # # visualizing matter:
+    # Atomic_state_on_bloch_sphere.Wigner_BlochSphere()  # use this. this is better.
 
 
     
