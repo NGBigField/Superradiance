@@ -27,7 +27,6 @@ from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-MAX_ITER  =  2
 OPT_METHOD = 'COBYLA'
 
 
@@ -163,16 +162,19 @@ def _test_s_mats():
         print( "\n\n" )
 
 def _test_M_of_m():
-    # Init:
     N = 6
+
+    # Init:
     M_vec = []
     m_vec = []
+
     # Compute:
     J = _J(N)
     for m in range(N+1):
         M = _M(m,J)
         M_vec.append(M)
         m_vec.append(m)
+        
     # plot:
     plt.plot(m_vec, M_vec)
     plt.title(f"N={N}, J={J}")
@@ -181,12 +183,11 @@ def _test_M_of_m():
     plt.ylabel("M")
     plt.show()
 
-def _test_pi_pulse():
-
+def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
+    # Specific imports:
     from schrodinger_evolution import init_state, Params, CommonStates
 
-    # Define:
-    N = 2
+    # Define pulse:
     Sx, Sy, Sz = S_mats(N)
     _pulse = lambda x, y, z, c : pulse( x,y,z, Sx,Sy,Sz, c )
     _x_pulse = lambda c : _pulse(1,0,0,c)    

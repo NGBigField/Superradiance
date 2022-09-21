@@ -1,3 +1,6 @@
+# ============================================================================ #
+#                                  Imports                                     #
+# ============================================================================ #
 import time 
 
 # For type hints:
@@ -7,6 +10,7 @@ from typing import (
     Any,
     Tuple,
     List,    
+    TypeVar,
 )
 
 # Operating System and files:
@@ -14,7 +18,14 @@ from pathlib import Path
 import os
 
 from collections.abc import Iterable
-import matlab.engine
+
+# Matlab engine
+try:
+    import matlab.engine
+except ImportError:
+    _matlab_engine_on = False
+else:
+    _matlab_engine_on = True
 
 # For controlling numpy behavior:
 import numpy as np
@@ -23,8 +34,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure as FigureType
 
+
+# ============================================================================ #
+#                            Constants and Flags                               #
+# ============================================================================ #
+
 # For type hints:
-MatlabEngineType = matlab.engine.matlabengine.MatlabEngine
+if _matlab_engine_on:
+    MatlabEngineType = matlab.engine.matlabengine.MatlabEngine
+else:
+    MatlabEngineType = TypeVar('MatlabEngineType')
 
 # ============================================================================ #
 #                               Static Classes                                 #
