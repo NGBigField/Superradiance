@@ -45,6 +45,7 @@ class Expression():
 class Ket():
     def __init__(self, *args) -> None:
         weight = 1.00
+        assert not isinstance(args, list), "Ket accepts individual bits as input. not a list of bits."
         qubits = list(args)
         self._n : int = len(qubits)
         self._expressions : typ.List[Expression] = list()
@@ -148,7 +149,7 @@ def _dec2binary(n: int, length: Optional[int] = None ):
 class Fock(Ket):
     def __init__(self, n:int, num_bits:Optional[int]=None) -> None:
         bits = _dec2binary(n, length=num_bits)
-        super().__init__(bits)
+        super().__init__(*bits)
 
 class FockSpace():
     def __init__(self, max_num:int) -> None:

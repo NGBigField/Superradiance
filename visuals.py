@@ -3,6 +3,7 @@
 # ==================================================================================== #
 
 # For typing hints
+import imp
 import typing as typ
 
 # For plotting:
@@ -18,7 +19,11 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 # For tools and helpers:
-from utils import decorators, visuals
+from utils import visuals
+
+# For defining a density matrix
+from densitymats import DensityMatrix
+
 
 # For type hints:
 from typing import (
@@ -26,7 +31,6 @@ from typing import (
     Union,
 )
 _QobjType = qutip.qobj.Qobj
-from qiskit.quantum_info.states.densitymatrix import DensityMatrix
 from matplotlib.axes import Axes
 
 # For function version detection:
@@ -51,7 +55,14 @@ else:
 # ==================================================================================== #
 
 
-def plot_city(M:np.matrix, title:Optional[str]=None, ax:Axes=None):
+def plot_city(M:Union[np.matrix, DensityMatrix, np.array], title:Optional[str]=None, ax:Axes=None):
+    # Check input type:
+    if isinstance(M, DensityMatrix):
+        M = M.to_numpy()
+    elif isinstance(M, np.matrix):
+        M = np.array(M)
+    assert len(M.shape)==2
+    assert M.shape[0]==M.shape[1]
 
     # Define common symbols:
     pi = np.pi
@@ -63,10 +74,10 @@ def plot_city(M:np.matrix, title:Optional[str]=None, ax:Axes=None):
     zpos = np.zeros(n)
     dx = dy = 0.8 * np.ones(n)
     Mvec = M.flatten()
-    dz = abs(Mvec).tolist()[0]
+    dz = abs(Mvec).tolist()
 
     # make small numbers real, to avoid random colors
-    idx, _ = np.where(abs(Mvec) < 0.001)
+    idx = np.where(abs(Mvec) < 0.001)
     Mvec[idx] = abs(Mvec[idx])
 
     # Define colors:

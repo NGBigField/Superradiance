@@ -5,6 +5,7 @@
 # ==================================================================================== #
 
 # Everyone needs numpy:
+import imp
 import numpy as np
 
 # import our helper modules
@@ -17,7 +18,10 @@ from utils import (
 # For states
 from schrodinger_evolution import init_state, Params, CommonStates    
 from densitymats import DensityMatrix
-from statevec import FockSpace, coherent_state
+from statevec import Ket, Fock, FockSpace, coherent_state
+
+# For plotting results:
+from visuals import plot_city
 
 
 # For coherent control
@@ -31,6 +35,7 @@ from coherentcontrol import (
 from typing import (
     Tuple,
     List,
+    Union,
 )
 
 
@@ -62,14 +67,21 @@ class LearnedResults():
 
 
 # ==================================================================================== #
+# |                                  Typing hints                                    | #
+# ==================================================================================== #
+_MatrixType = Union[DensityMatrix, np.matrix]
+
+# ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
 
 
-def learn_specific_state(target_state:np.matrix, max_iter:int=4, plot_on:bool=True) -> LearnedResults:
+def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, max_iter:int=4 ) -> LearnedResults:
+
     # Check inputs:
-    assert len(target_state.shape)==2
-    assert target_state.shape[0] == target_state.shape[1]
+    for state in [initial_state, target_state]:
+        assert len(state.shape)==2
+        assert state.shape[0] == state.shape[1]
 
     # Derive state size:
     N = 0
@@ -118,14 +130,10 @@ def learn_specific_state(target_state:np.matrix, max_iter:int=4, plot_on:bool=Tr
     rho_final = _apply_pulse_on_initial_state(theta)
     np_utils.print_mat(rho_final)
 
-    # visualizing light:
-    if plot_on:
-        title = f"MAX_ITER={max_iter} \n{theta} "
-        plot_city(rho_final, title=title)
 
 
 
-def learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=True):
+def learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResults :
     coherent_control = CoherentControl(N)
 
     # init:
@@ -175,6 +183,10 @@ def learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=True):
     if plot_on:
         title = f"MAX_ITER={num_iter} \n{theta} "
         plot_city(rho_final, title=title)
+
+    # Pack results:
+    res = LearnedResults(params=theta, state=rho_final)
+    return res
 
 
 def learn_pi_pulse_only_x(num_iter:int=4, N:int=2, plot_on:bool=True):
@@ -260,17 +272,19 @@ def _test_learn_pi_pulse_only_x():
 
 def _test_learn_pi_pulse():
     for num_iter in [1, 2, 5, 10, 20]:
-        learn_pi_pulse(num_iter=num_iter, plot_on=True)
+        res = learn_pi_pulse(num_iter=num_iter, plot_on=True)
         visuals.save_figure(file_name=f"learn_pi_pulse num_iter {num_iter}")
 
 def _test_learn_state():
-    zero_state = coherent_state(3, 0.00, 'normal')
-    rho_initial = DensityMatrix.from_ket(zero_state)
+    zero_coherent_state = coherent_state(3, 0.00, 'normal')
+    rho_initial = DensityMatrix.from_ket(zero_coherent_state)
 
     cat_state = coherent_state(3, 1.00, 'normal')
     rho_target = DensityMatrix.from_ket(cat_state)
+
     np_utils.print_mat(rho_target)
-    learn_specific_state(rho_target, max_iter=10)
+    plot_city(rho_target)
+    learn_specific_state(rho_initial, rho_target, max_iter=10)
 
 if __name__ == "__main__":
     # _test_learn_pi_pulse_only_x()

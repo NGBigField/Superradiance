@@ -68,7 +68,7 @@ def _is_positive_semidefinite(m, EPSILON) -> bool:
     eigen_vals = np.linalg.eigvals(m)
     if np.any(np.imag(eigen_vals)>EPSILON):  # Must be real
         return False
-    if np.any(np.real(eigen_vals)<0):  # Must be positive
+    if np.any(np.real(eigen_vals)<-EPSILON):  # Must be positive
         return False
     return True
 
@@ -191,7 +191,7 @@ class DensityMatrix(SquareMatrix):
                 # Validate where needed:
                 if on and where=='before':
                     DensityMatrix.validate(args[0])            
-                results = method(*args, **kwargs)
+                results = method(*args, **kwargs)   # <<<< The actual call
                 if on and where=='results':
                     DensityMatrix.validate(results)
                 if on and where=='after':
@@ -256,6 +256,7 @@ class DensityMatrix(SquareMatrix):
         assert abs(self.trace()-1)<EPSILON, "Density Matrix must have trace==1"
         assert _is_hermitian(self, EPSILON), "Density Matrix must be hermitian"
         assert _is_positive_semidefinite(self, EPSILON), "Density Matrix must be positive semidefinite"
+
 
     def trace(self) -> complex:
         return np.trace(self)
@@ -507,61 +508,3 @@ def __test_mat(index: int) -> DensityMatrix:
     elif index == 3:
         mat = CommonDensityMatrices.ghz(3)
     return mat
-
-
-def __example1():
-    for test_ind in [1, 2, 3]:
-        print(f"test #{test_ind}:")
-        rho = __test_mat(test_ind)
-        rho_pt = rho.partial_transpose()
-        print(f" ")
-        print(f"test {test_ind}: ")
-        print(f"rho = (1/2)*")
-        print(rho*2)
-        print(f"rho_pt = (1/2)*")
-        print(rho_pt*2)
-
-def __example2():
-    rho = CommonDensityMatrices.ghz(3)
-    rho_pts = {}
-    print(f"rho = (1/2)*")
-    print(rho*2)
-    rho_pt = rho.partial_transpose() 
-    print(" ")
-    print(f"rho_pt = (1/2)*")
-    print(rho_pt*2)        
-
-def __example3():
-    ket = (Ket(0,0)-Ket(1,1))*(1/np.sqrt(2))
-    rho = DensityMatrix.from_ket(ket)
-    rho_PT = rho.partial_transpose()
-
-def __example4():
-    mat = DensityMatrix.zeros(num_qubits=3)
-    num = 1
-    for i, j in mat.all_indices():
-        mat[i(), j()] = num
-        num += 1
-    mat_pt1 = mat.partial_transpose(part_to_transpose='first',validate=False)
-    mat_pt2 = mat.partial_transpose(part_to_transpose='second',validate=False)
-    print(f"original:\n{mat}")
-    print(f"mat_pt1:\n{mat_pt1}")
-    print(f"mat_pt2:\n{mat_pt2}")
-
-def __example5():
-    from ItaysFunctions.TenQI import mat_to_op
-    mat = DensityMatrix.random(num_qubits=3)
-    print(mat)
-    np_mat = mat.to_numpy()
-    print(np_mat)
-    op = mat_to_op(np_mat)
-    print(op)
-
-
-if __name__ == "__main__":
-    fix_numpy_print_length()
-    # __example1()
-    # __example2()
-    # __example3()
-    # __example4()
-    __example5()
