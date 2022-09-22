@@ -11,9 +11,11 @@ from utils import (
 # For type hintings:
 from typing import (
     Any,
+    Literal,
     Optional,
 )
 
+from math import factorial
 
 # Global Constants:
 EPSILON = 0.00000001
@@ -36,6 +38,9 @@ def with_indicate_first(it: typ.Iterator[T] ) ->  typ.Generator[ typ.Tuple[bool,
 class Expression():
     weight: complex
     qubits: _Qubits
+
+    def is_zero_weight(self)->bool:
+        return self.weight < EPSILON
 
 class Ket():
     def __init__(self, *args) -> None:
@@ -70,6 +75,9 @@ class Ket():
                 sum_squared += overlap*ket_exp.weight*np.conj(bra_exp.weight)
         return sum_squared
 
+    def norm(self) -> float:
+        return np.sqrt(self.norm_squared())
+
     def _validate_output(func: typ.Callable) -> typ.Callable:
         def wrapper(*args):
             result = func(*args)
@@ -84,10 +92,15 @@ class Ket():
             return results
         return wrapper
     
+    def _drop_zero_weights(self)->None:
+        self._expressions[:] = [ exp for exp in self._expressions if not exp.is_zero_weight() ]
+
+
     @_validate_operator_inputs
     def __add__(self, other: _Ket) -> _Ket:
         for expression in other._expressions:
-            self._expressions.append( expression )
+            self._expressions.append( expression )            
+        self._drop_zero_weights()
         return self
 
     def __sub__(self, other: _Ket) -> _Ket:
@@ -154,6 +167,38 @@ class FockSpace():
         return Fock(n, num_bits=self.num_bits)
 
 
+
+def coherent_state(max_num:int, alpha:float, type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->Fock:
+    # Choose iterator:
+    if type_=='normal':
+        iterator = range(0, max_num+1, 1)
+    elif type_=='even_cat':
+        iterator = range(0, max_num+1, 2)
+    elif type_=='odd_cat':
+        iterator = range(1, max_num+1, 2)
+    else:
+        raise ValueError("`type_` must be either 'normal', 'even_cat' or 'odd_cat'.")
+
+    # fock space object:
+    fock_space = FockSpace(max_num)
+
+    # Iterate
+    first = True
+    for n in iterator:
+        # choose coeficient
+        coef = np.exp( -(abs(alpha)**2)/2 ) * np.power(alpha, n) / np.sqrt( factorial(n) )
+        # Create ket state:
+        if first:
+            ket : Ket = fock_space.state(n) * coef
+        else:
+            ket += fock_space.state(n) * coef
+        # Update:
+        first = False
+    
+    # Normalize:
+    ket *= 1/( ket.norm() )
+    return ket
+
 def _main_test():
     k0 = Ket(0,0)
     k1 = Ket(1,1)
@@ -170,7 +215,14 @@ def _fock_test():
     print(f"is_normalized = '{f.is_normalized}'")
     print(f)
 
+def _cat_state_test():
+    zero = coherent_state(4, 0.0, 'normal')
+    print(zero)
+    cat = coherent_state(8, 1.0, 'even_cat')
+    print(cat)
+    print(f"norm squared = {cat.norm_squared()}")
 
 if __name__ == "__main__":
+    _cat_state_test()
     _fock_test()
     _main_test()

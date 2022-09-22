@@ -17,7 +17,7 @@ from utils import (
 # For states
 from schrodinger_evolution import init_state, Params, CommonStates    
 from densitymats import DensityMatrix
-from statevec import FockSpace
+from statevec import FockSpace, coherent_state
 
 
 # For coherent control
@@ -264,11 +264,13 @@ def _test_learn_pi_pulse():
         visuals.save_figure(file_name=f"learn_pi_pulse num_iter {num_iter}")
 
 def _test_learn_state():
-    fock_space = FockSpace(3)
-    state = ( fock_space.state(0) + fock_space.state(2) ) * (1/np.sqrt(2))
-    target_state = DensityMatrix.from_ket(state)
-    np_utils.print_mat(target_state)
-    learn_specific_state(target_state, max_iter=10)
+    zero_state = coherent_state(3, 0.00, 'normal')
+    rho_initial = DensityMatrix.from_ket(zero_state)
+
+    cat_state = coherent_state(3, 1.00, 'normal')
+    rho_target = DensityMatrix.from_ket(cat_state)
+    np_utils.print_mat(rho_target)
+    learn_specific_state(rho_target, max_iter=10)
 
 if __name__ == "__main__":
     # _test_learn_pi_pulse_only_x()
