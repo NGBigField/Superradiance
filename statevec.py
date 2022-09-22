@@ -5,6 +5,7 @@ import numpy as np
 
 from utils import (
     errors,
+    assertions,
 )
 
 # For type hintings:
@@ -138,6 +139,7 @@ class Fock(Ket):
 
 class FockSpace():
     def __init__(self, max_num:int) -> None:
+        assertions.index(max_num)
         self.max_num = max_num
 
     @property

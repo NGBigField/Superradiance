@@ -171,7 +171,7 @@ def coherent_pulse(params:Params=Params()):
 #                                   main()                                             #
 # ==================================================================================== #
 
-def main( params:Params=Params() ):    
+def _main_test( params:Params=Params() ):    
 
     # Check:
     params.validate()
@@ -198,6 +198,6 @@ def main( params:Params=Params() ):
 
 
 if __name__ == "__main__":
-    main()
+    _main_test()
     # coherent_pulse()
     print("Done")

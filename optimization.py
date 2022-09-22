@@ -7,10 +7,18 @@
 # Everyone needs numpy:
 import numpy as np
 
+# import our helper modules
+from utils import (
+    assertions,
+    numpy as np_utils,
+    visuals, 
+)
+
 # For states
 from schrodinger_evolution import init_state, Params, CommonStates    
 from densitymats import DensityMatrix
 from statevec import FockSpace
+
 
 # For coherent control
 from coherentcontrol import (
@@ -25,12 +33,6 @@ from typing import (
     List,
 )
 
-# import our helper modules
-from utils import (
-    assertions,
-    numpy as np_utils,
-    visuals, 
-)
 
 # for optimization:
 from scipy.optimize import minimize  # for optimization:   
