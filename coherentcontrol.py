@@ -149,11 +149,11 @@ class SPulses():
 
 class CoherentControl():
 
-    def __init__(self, N:int=2) -> None:
+    def __init__(self, max_state_num:int=2) -> None:
         # Keep basic properties:        
-        self._N = N
+        self._max_state_num = max_state_num
         # define basic pulses:
-        self.s_pulses = SPulses(N)
+        self.s_pulses = SPulses(max_state_num)
 
     def pulse(self, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix:
         Sx = self.s_pulses.Sx 
@@ -167,11 +167,11 @@ class CoherentControl():
         return final_state
 
     @property
-    def N(self) -> int:
-        return self._N
-    @N.setter
-    def N(self, val:Any) -> None:
-        self._N = val
+    def max_state_num(self) -> int:
+        return self._max_state_num
+    @max_state_num.setter
+    def max_state_num(self, val:Any) -> None:
+        self._max_state_num = val
         self.s_pulses = SPulses(val)
 
 

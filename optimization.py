@@ -82,26 +82,21 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
     for state in [initial_state, target_state]:
         assert len(state.shape)==2
         assert state.shape[0] == state.shape[1]
-
-    # Derive state size:
-    N = 0
-    coherent_control = CoherentControl(N)
-
-    # init:
-    params = Params(N=N)
-    rho_initial = init_state(params, CommonStates.Ground)
-    rho_target  = init_state(params, CommonStates.FullyExcited)
+    assert initial_state.shape[0] == target_state.shape[0]
+    if isinstance(initial_state, DensityMatrix):
+        initial_state = initial_state.to_numpy()
+    if isinstance(target_state, DensityMatrix):
+        target_state = target_state.to_numpy()
+    
+    # Set basic properties:
+    matrix_size = state.shape[0]
+    max_state_num = matrix_size-1
+    coherent_control = CoherentControl(max_state_num)
 
     # Helper functions:
-    def _apply_pulse_on_initial_state(theta:np.array) -> np.matrix: 
-        x = theta[0]
-        y = theta[1]
-        z = theta[2]
-        return coherent_control.pulse_on_state(rho_initial, x, y, z)
-
     def _derive_cost_function(theta:np.array) -> float :  
-        rho_final = _apply_pulse_on_initial_state(theta)
-        diff = np.linalg.norm(rho_final-rho_target)
+        final_state = coherent_control.pulse_on_state(initial_state, *theta)
+        diff = np.linalg.norm(final_state - target_state)
         cost = diff**2
         return cost
 
@@ -190,7 +185,6 @@ def learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResult
 
 
 def learn_pi_pulse_only_x(num_iter:int=4, N:int=2, plot_on:bool=True):
- 
     
     # Define pulse:
     Sx, Sy, Sz = S_mats(N)
@@ -275,15 +269,22 @@ def _test_learn_pi_pulse():
         res = learn_pi_pulse(num_iter=num_iter, plot_on=True)
         visuals.save_figure(file_name=f"learn_pi_pulse num_iter {num_iter}")
 
-def _test_learn_state():
-    zero_coherent_state = coherent_state(3, 0.00, 'normal')
-    rho_initial = DensityMatrix.from_ket(zero_coherent_state)
+def _test_learn_state(max_fock_state:int=4):
 
-    cat_state = coherent_state(3, 1.00, 'normal')
+    assertions.even(max_fock_state)
+    
+    zero_state = coherent_state(max_num=max_fock_state, alpha=0.00,  type_='normal')
+    cat_state = coherent_state(max_num=max_fock_state, alpha=1.00, type_='normal')
+    
+    rho_initial = DensityMatrix.from_ket(zero_state)
     rho_target = DensityMatrix.from_ket(cat_state)
 
-    np_utils.print_mat(rho_target)
+    plot_city(rho_initial)
     plot_city(rho_target)
+
+    np_utils.print_mat(rho_initial)
+    np_utils.print_mat(rho_target)
+
     learn_specific_state(rho_initial, rho_target, max_iter=10)
 
 if __name__ == "__main__":

@@ -116,7 +116,7 @@ class Ket():
     def __rmul__(self, other: float) -> _Ket:
         return self.__mul__(other)
     
-    def __repr__(self) -> str:
+    def __repr__(self) -> str:  
         string = ""
         for is_first_exp, expression in with_indicate_first(self._expressions):
             expression_str = f"({expression.weight})|"
