@@ -175,7 +175,7 @@ class FockSum():
         common_data_type = self.date_type
         dtype = np.dtype(common_data_type)
         # Init output:
-        mat = np.zeros((n,n))
+        mat = np.zeros((n,n), dtype=dtype)
         # Fill matrix:
         for ket in kets:
             for bra in bras:
@@ -314,10 +314,12 @@ class FockSum():
 
 def _test():
 
-    fock : FockSum = Fock(0) - Fock(3)*np.sqrt(2) + (4+3j)*Fock(1)
+    fock : FockSum = Fock(0) - Fock(3)*2 
+    fock /= fock.norm
 
     density_mat = fock.to_density_matrix()
     print(density_mat)
+    print(f"trace={density_mat.trace()}")
 
 if __name__ == "__main__":
     _test()
