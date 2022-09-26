@@ -7,26 +7,30 @@ from utils import (
     assertions,
     errors,
     types,
+    visuals,
 )
 
 from utils.errors import QuantumTheoryError
 
-
-from dataclasses import dataclass, field, Field
+from dataclasses import dataclass, field
 
 from typing import (
     List,
     Union,
     Optional,
+    Literal,
 )
 
 from copy import deepcopy
 
 import numpy as np
+import math
 
 from enum import Enum, auto
 
 import warnings
+
+
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
@@ -60,8 +64,6 @@ _NumericType = Union[int, float, complex]
 # ==================================================================================== #
 # |                                   Classes                                        | #
 # ==================================================================================== #
-
-
 
 
 class KetBra(Enum):
@@ -105,6 +107,9 @@ class Fock():
 
     def to_density_matrix(self, max_num:Optional[int]=None) -> np.matrix:
         return self.to_sum().to_density_matrix(max_num=max_num)
+
+    def zero_weight(self) -> bool:
+        return abs(self.weight)<EPS
 
     @property
     def date_type(self) -> np.dtype:
@@ -220,6 +225,8 @@ class FockSum():
 
     def _add_state(self, fock:Fock) -> None:
         assert isinstance(fock, Fock)
+        if fock.zero_weight():
+            return  # Avoid adding states with zero contribution 
         for i, inner_fock in enumerate(self.states):
             if inner_fock.similar(fock):
                 self.states[i].weight += fock.weight
@@ -309,10 +316,38 @@ class FockSum():
         return res
 
 # ==================================================================================== #
+# |                             Declared Functions                                   | #
+# ==================================================================================== #
+
+def coherent_state(max_num:int, alpha:float, type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum:
+    # Choose iterator:
+    if type_=='normal':
+        iterator = range(0, max_num+1, 1)
+    elif type_=='even_cat':
+        iterator = range(0, max_num+1, 2)
+    elif type_=='odd_cat':
+        iterator = range(1, max_num+1, 2)
+    else:
+        raise ValueError("`type_` must be either 'normal', 'even_cat' or 'odd_cat'.")
+
+    # fock space object:
+    fock = FockSum()
+
+    # Iterate
+    for n in iterator:
+        # choose coeficient
+        coef = np.exp( -(abs(alpha)**2)/2 ) * np.power(alpha, n) / np.sqrt( math.factorial(n) )
+        fock += Fock(n)*coef
+    
+    # Normalize:
+    fock /= fock.norm
+    return fock
+
+# ==================================================================================== #
 # |                                 main tests                                       | #
 # ==================================================================================== #
 
-def _test():
+def _test_simple_fock_sum():
 
     fock : FockSum = Fock(0) - Fock(3)*2 
     fock /= fock.norm
@@ -321,5 +356,20 @@ def _test():
     print(density_mat)
     print(f"trace={density_mat.trace()}")
 
+
+def _test_coherent_state(max_fock_num:int=4):
+    assertions.even(max_fock_num)
+
+    zero = coherent_state(max_num=4, alpha=0.00, type_='normal')
+    print(zero)
+    visuals.plot_city(zero.to_density_matrix(max_num=max_fock_num))
+
+    ket = coherent_state(max_num=4, alpha=1.00, type_='normal')
+    print(ket)
+    visuals.plot_city(ket.to_density_matrix(max_num=max_fock_num))
+
+    print("Plotted.")
+
 if __name__ == "__main__":
-    _test()
+    _test_coherent_state()
+    print("Done.")
