@@ -18,8 +18,8 @@ from typing import (
 # import our helper modules
 from utils import (
     assertions,
+    numpy_tools as np_utils,
     visuals,
-    numpy as np_utils,
 )
 
 # For measuring time:

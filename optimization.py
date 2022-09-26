@@ -10,8 +10,8 @@ import numpy as np
 # import our helper modules
 from utils import (
     assertions,
-    visuals, 
-    numpy as np_utils
+    numpy_tools as np_utils,
+    visuals
 )
 
 # For states
