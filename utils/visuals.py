@@ -14,12 +14,6 @@ from mpl_toolkits.mplot3d import Axes3D
 # Everyone needs numpy in their life:
 import numpy as np
 
-# For tools and helpers:
-from utils import visuals
-
-# For defining a density matrix
-from quantum_states.densitymats import DensityMatrix
-
 # For type hints:
 from typing import (
     Optional,
@@ -30,18 +24,17 @@ from matplotlib.axes import Axes
 # For function version detection:
 from packaging.version import parse as parse_version
 
-# Typing hints:
-from typing import (
-    Optional,
-    Literal,
-)
-
 # Operating System and files:
 from pathlib import Path
 import os
 
 # For plotting:
 import matplotlib.pyplot as plt
+
+# Import our tools and utils:
+from utils import (
+    strings,
+)
 
 
 # ==================================================================================== #
@@ -80,11 +73,9 @@ def save_figure(fig:Optional[FigureType]=None, file_name:Optional[str]=None ) ->
     fig.savefig(fullpath_str)
     return 
 
-def plot_city(M:Union[np.matrix, DensityMatrix, np.array], title:Optional[str]=None, ax:Axes=None):
+def plot_city(M:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=None):
     # Check input type:
-    if isinstance(M, DensityMatrix):
-        M = M.to_numpy()
-    elif isinstance(M, np.matrix):
+    if isinstance(M, np.matrix):
         M = np.array(M)
     assert len(M.shape)==2
     assert M.shape[0]==M.shape[1]

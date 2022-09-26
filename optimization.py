@@ -13,15 +13,12 @@ from utils import (
     numpy_tools as np_utils,
     visuals
 )
+from quantum_states.fock import coherent_state
 
 # For states
 from schrodinger_evolution import init_state, Params, CommonStates    
-from densitymats import DensityMatrix
-from statevec import Ket, Fock, FockSpace, coherent_state
 
 # For plotting results:
-from visuals import plot_city
-
 
 # For coherent control
 from coherentcontrol import (
@@ -37,16 +34,14 @@ from typing import (
     Union,
 )
 
-
 # for optimization:
-from scipy.optimize import minimize  # for optimization:   
+from scipy.optimize import minimize, OptimizeResult  # for optimization:   
         
 # For measuring time:
 import time
 
 # For visualizations:
 import matplotlib.pyplot as plt  # for plotting test results:
-from visuals import plot_city
 
 # For OOP:
 from dataclasses import dataclass
@@ -62,13 +57,14 @@ OPT_METHOD = 'COBYLA'
 @dataclass
 class LearnedResults():
     params : np.array
+    similarity : float
     state : np.matrix
 
 
 # ==================================================================================== #
 # |                                  Typing hints                                    | #
 # ==================================================================================== #
-_MatrixType = Union[DensityMatrix, np.matrix]
+_MatrixType = Union[np.matrix, np.array]
 
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
@@ -82,10 +78,6 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
         assert len(state.shape)==2
         assert state.shape[0] == state.shape[1]
     assert initial_state.shape[0] == target_state.shape[0]
-    if isinstance(initial_state, DensityMatrix):
-        initial_state = initial_state.to_numpy()
-    if isinstance(target_state, DensityMatrix):
-        target_state = target_state.to_numpy()
     
     # Set basic properties:
     matrix_size = state.shape[0]
@@ -99,7 +91,7 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
         cost = diff**2
         return cost
 
-    def _find_optimum():
+    def _find_optimum()->OptimizeResult:
         initial_point = np.array([0.0]*3)
         options = dict(
             maxiter = max_iter
@@ -117,17 +109,26 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
     # Minimize:
     opt = _find_optimum()
 
-    # Unpack results:    
+    # Unpack minimization results:    
     theta = opt.x
     assert len(theta)==3
+    final_state = coherent_control.pulse_on_state(initial_state, *theta)
+    
+    # Pack learned-results:
+    return LearnedResults(
+        params=theta,
+        state=final_state,
+        similarity=opt.fun
+    )
+    
 
-    rho_final = _apply_pulse_on_initial_state(theta)
-    np_utils.print_mat(rho_final)
+
+# ==================================================================================== #
+# |                                Inner Functions                                   | #
+# ==================================================================================== #
 
 
-
-
-def learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResults :
+def _learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResults :
     coherent_control = CoherentControl(N)
 
     # init:
@@ -148,7 +149,7 @@ def learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResult
         cost = diff**2
         return cost
 
-    def _find_optimum():
+    def _find_optimum()->OptimizeResult:
         initial_point = np.array([0.0]*3)
         options = dict(
             maxiter = num_iter
@@ -183,7 +184,7 @@ def learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResult
     return res
 
 
-def learn_pi_pulse_only_x(num_iter:int=4, N:int=2, plot_on:bool=True):
+def _learn_pi_pulse_only_x(num_iter:int=4, N:int=2, plot_on:bool=True):
     
     # Define pulse:
     Sx, Sy, Sz = S_mats(N)
@@ -254,37 +255,45 @@ def learn_pi_pulse_only_x(num_iter:int=4, N:int=2, plot_on:bool=True):
 
 
 # ==================================================================================== #
-# |                                     main                                         | #
+# |                                  main tests                                      | #
 # ==================================================================================== #
 
 
 def _test_learn_pi_pulse_only_x():
     for num_iter in [1, 2, 5, 10]:
-        learn_pi_pulse_only_x(num_iter=num_iter, plot_on=True)
+        _learn_pi_pulse_only_x(num_iter=num_iter, plot_on=True)
         visuals.save_figure(file_name=f"learn_pi_pulse_only_x num_iter {num_iter}")
 
 def _test_learn_pi_pulse():
     for num_iter in [1, 2, 5, 10, 20]:
-        res = learn_pi_pulse(num_iter=num_iter, plot_on=True)
+        res = _learn_pi_pulse(num_iter=num_iter, plot_on=True)
         visuals.save_figure(file_name=f"learn_pi_pulse num_iter {num_iter}")
 
-def _test_learn_state(max_fock_state:int=4):
+def _test_learn_state(max_fock_num:int=4, plot_on:bool=False):
 
-    assertions.even(max_fock_state)
+    assertions.even(max_fock_num)
     
-    zero_state = coherent_state(max_num=max_fock_state, alpha=0.00,  type_='normal')
-    cat_state = coherent_state(max_num=max_fock_state, alpha=1.00, type_='normal')
+    zero_state = coherent_state(max_num=max_fock_num, alpha=0.00,  type_='normal')
+    cat_state  = coherent_state(max_num=max_fock_num, alpha=1.00, type_='normal')
     
-    rho_initial = DensityMatrix.from_ket(zero_state)
-    rho_target = DensityMatrix.from_ket(cat_state)
+    rho_initial = zero_state.to_density_matrix(max_num=max_fock_num)
+    rho_target  = cat_state .to_density_matrix(max_num=max_fock_num) 
 
-    plot_city(rho_initial)
-    plot_city(rho_target)
+    if plot_on:
+        visuals.plot_city(rho_initial)
+        visuals.plot_city(rho_target)
 
-    np_utils.print_mat(rho_initial)
-    np_utils.print_mat(rho_target)
+    # np_utils.print_mat(rho_initial)
+    # np_utils.print_mat(rho_target)
 
-    learn_specific_state(rho_initial, rho_target, max_iter=10)
+    results = learn_specific_state(rho_initial, rho_target, max_iter=10000)
+    print(results.similarity)
+
+    if plot_on:
+        visuals.plot_city(results.state)
+
+    return results
+
 
 if __name__ == "__main__":
     # _test_learn_pi_pulse_only_x()

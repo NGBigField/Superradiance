@@ -2,9 +2,10 @@ import time
 from typing import (
     Optional,
     Literal,
+    Any,
 )
 
-def formatted(s:typ.Any, fill:str=' ', alignment:Literal['<','^','>']='>', width:Optional[int]=None, decimals:Optional[int]=None) -> str:
+def formatted(s:Any, fill:str=' ', alignment:Literal['<','^','>']='>', width:Optional[int]=None, decimals:Optional[int]=None) -> str:
     if width is None:
         width = len(f"{s}")
     if decimals is None:

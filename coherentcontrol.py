@@ -141,10 +141,22 @@ def pulse(
 
 class SPulses():
     def __init__(self, N:int) -> None:
+        self.N = N
         Sx, Sy, Sz = S_mats(N)
         self.Sx = Sx 
         self.Sy = Sy 
         self.Sz = Sz
+
+    def __repr__(self) -> str:
+        res = f"S Pulses with N={self.N}: \n"
+        for (mat, name) in [
+            (self.Sx, 'Sx'),
+            (self.Sy, 'Sy'),
+            (self.Sz, 'Sz')
+        ]:
+            res += f"{name}:\n"
+            res += np_utils.mat_str(mat)+"\n"
+        return res
     
 
 class CoherentControl():
