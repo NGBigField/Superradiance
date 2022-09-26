@@ -56,9 +56,10 @@ OPT_METHOD = 'COBYLA'
 # ==================================================================================== #
 @dataclass
 class LearnedResults():
-    params : np.array
+    theta : np.array
     similarity : float
     state : np.matrix
+    time : float
 
 
 # ==================================================================================== #
@@ -91,34 +92,29 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
         cost = diff**2
         return cost
 
-    def _find_optimum()->OptimizeResult:
-        initial_point = np.array([0.0]*3)
-        options = dict(
-            maxiter = max_iter
-        )            
-        # Run optimization:
-        start_time = time.time()
-        minimum = minimize(_derive_cost_function, initial_point, method=OPT_METHOD, options=options)
-        finish_time = time.time()
+    # Opt Config:
+    initial_point = np.array([0.0]*3)
+    options = dict(
+        maxiter = max_iter
+    )            
 
-        # Unpack results:
-        run_time = finish_time-start_time
-        print(f"run_time={run_time} [sec]")
-        return minimum
-
-    # Minimize:
-    opt = _find_optimum()
+    # Run optimization:
+    start_time = time.time()
+    minimum = minimize(_derive_cost_function, initial_point, method=OPT_METHOD, options=options)
+    finish_time = time.time()
 
     # Unpack minimization results:    
-    theta = opt.x
+    run_time = finish_time-start_time
+    theta = minimum.x
     assert len(theta)==3
     final_state = coherent_control.pulse_on_state(initial_state, *theta)
     
     # Pack learned-results:
     return LearnedResults(
-        params=theta,
+        theta=theta,
         state=final_state,
-        similarity=opt.fun
+        similarity=minimum.fun,
+        time=run_time
     )
     
 
@@ -180,7 +176,7 @@ def _learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResul
         plot_city(rho_final, title=title)
 
     # Pack results:
-    res = LearnedResults(params=theta, state=rho_final)
+    res = LearnedResults(theta=theta, state=rho_final)
     return res
 
 
@@ -250,7 +246,7 @@ def _learn_pi_pulse_only_x(num_iter:int=4, N:int=2, plot_on:bool=True):
     # visualizing light:
     if plot_on:
         title = f"MAX_ITER={num_iter}"
-        plot_city(rho_final, title=title)
+        visuals.plot_city(rho_final, title=title)
 
 
 
@@ -287,7 +283,9 @@ def _test_learn_state(max_fock_num:int=4, plot_on:bool=False):
     # np_utils.print_mat(rho_target)
 
     results = learn_specific_state(rho_initial, rho_target, max_iter=10000)
-    print(results.similarity)
+    print(f"run_time = {results.time} [sec]")
+    print(f"similarity = {results.similarity}")
+    print(f"theta = {results.theta}")
 
     if plot_on:
         visuals.plot_city(results.state)
