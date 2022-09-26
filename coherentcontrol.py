@@ -5,23 +5,55 @@
 # Everyone needs numpy:
 import numpy as np
 
+# For matrix exponential: 
+from scipy.linalg import expm
+
 # For typing hints:
 from typing import (
+    Any,
     Tuple,
     List,
 )
 
+# import our helper modules
+from utils import (
+    assertions,
+    numpy_tools as np_utils,
+    visuals,
+)
+
+# For measuring time:
+import time
+
+# For visualizations:
+import matplotlib.pyplot as plt  # for plotting test results:
+from light_wigner.main import visualize_light_from_atomic_density_matrix
+from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
+
+# For OOP:
+from dataclasses import dataclass
 
 # ==================================================================================== #
-# |                            Inner Functions                                       | #
+# |                                  Constants                                       | #
+# ==================================================================================== #
+OPT_METHOD = 'COBYLA'
+
+
+
+
+# ==================================================================================== #
+# |                               Inner Functions                                    | #
 # ==================================================================================== #
 
 def _assert_N(N:int) -> None:
-    assert float(N)/2 == int(int(N)/2) # N must be even    
+    assertions.even(N) # N must be even    
 
 def _J(N:int) -> int : 
     _assert_N(N)
     return N//2
+
+def _M(m:int, J:int) :
+    return m-J
 
 def _mat_size(N: int) -> Tuple[int, int]:
     return (N+1, N+1)
@@ -41,42 +73,122 @@ def _d_plus_minus(M:int, J:int, pm:int) -> float:
     )
     return d
 
-def _d_plus_or_minus_mat(N:int, pm:int) -> np.matrix :    
-    D = np.zeros(_mat_size(N))
+def _D_plus_minus_mats(N:int) -> Tuple[np.matrix, np.matrix] :
+    # Derive sizes:
+    mat_size = _mat_size(N)
     J = _J(N)
-    for M in range(0, N+1):
-        print(M)
-        i = M
-        j = M + pm
-        if j>=N+1 or j<0:
-            continue
-        d = _d_plus_minus(M, J, pm)
-        D[i,j] = d
-    return D
+    # Init outputs:    
+    D = {}
+    D[+1] = np.zeros(mat_size)
+    D[-1] = np.zeros(mat_size)
+    # Iterate over diagonals:
+    for m in range(mat_size[0]):
+        M = _M(m, J)
+        i = m
 
+        for pm in [-1, +1]:
+            # derive matrix indices:
+            j = m + pm
+            if j>=N+1 or j<0:
+                continue
+            # compute and assign to matrix
+            d = _d_plus_minus(M, J, pm)
+            D[pm][i,j] = d
 
+    return D[+1], D[-1]
+
+def _Sz_mat(N:int) -> np.matrix :
+    mat_size = _mat_size(N)
+    J = _J(N)
+    Sz = np.zeros(mat_size)
+    for m in range(mat_size[0]):
+        M = _M(m, J)
+        Sz[m,m] = M
+    return Sz
+        
 # ==================================================================================== #
 # |                            Declared Functions                                    | #
 # ==================================================================================== #
 
-def d_plus_mat(N:int) -> np.matrix:
-    return _d_plus_or_minus_mat(N, +1)
-
-def d_minus_mat(N:int) -> np.matrix:
-    return _d_plus_or_minus_mat(N, -1)
-
-
-def sx_mat(N:int) -> np.matrix:
+def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
+    # Check input:
     _assert_N(N)
-    d_plus = d_plus_mat(N)
-    d_minus = d_minus_mat(N)
-    sx = d_plus+d_minus
-    return sx
+    # Prepare Base Matrices:
+    D_plus, D_minus = _D_plus_minus_mats(N)
+    # Derive X, Y, Z Matrices
+    Sx = D_plus + D_minus 
+    Sy = -1j*D_plus + 1j*D_minus 
+    Sz = _Sz_mat(N)
+    # Return:
+    return Sx, Sy, Sz
 
+def pulse(
+    x  : float, 
+    y  : float, 
+    z  : float, 
+    Sx : np.matrix, 
+    Sy : np.matrix, 
+    Sz : np.matrix,
+    c  : float = 1.0  # Scaling param
+) -> np.matrix :
+    exponent = 1j*(x*Sx + y*Sy + z*Sz)*c
+    return np.matrix( expm(exponent) )  # e^exponent
 
 
 # ==================================================================================== #
-# |                                  main                                            | #
+# |                                 Classes                                          | #
+# ==================================================================================== #
+
+class SPulses():
+    def __init__(self, N:int) -> None:
+        self.N = N
+        Sx, Sy, Sz = S_mats(N)
+        self.Sx = Sx 
+        self.Sy = Sy 
+        self.Sz = Sz
+
+    def __repr__(self) -> str:
+        res = f"S Pulses with N={self.N}: \n"
+        for (mat, name) in [
+            (self.Sx, 'Sx'),
+            (self.Sy, 'Sy'),
+            (self.Sz, 'Sz')
+        ]:
+            res += f"{name}:\n"
+            res += np_utils.mat_str(mat)+"\n"
+        return res
+    
+
+class CoherentControl():
+
+    def __init__(self, max_state_num:int=2) -> None:
+        # Keep basic properties:        
+        self._max_state_num = max_state_num
+        # define basic pulses:
+        self.s_pulses = SPulses(max_state_num)
+
+    def pulse(self, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix:
+        Sx = self.s_pulses.Sx 
+        Sy = self.s_pulses.Sy 
+        Sz = self.s_pulses.Sz
+        return pulse(x,y,z, Sx,Sy,Sz)
+
+    def pulse_on_state(self, state:np.matrix, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix :
+        p = self.pulse(x,y,z)
+        final_state = p * state * p.getH()
+        return final_state
+
+    @property
+    def max_state_num(self) -> int:
+        return self._max_state_num
+    @max_state_num.setter
+    def max_state_num(self, val:Any) -> None:
+        self._max_state_num = val
+        self.s_pulses = SPulses(val)
+
+
+# ==================================================================================== #
+# |                                   main                                           | #
 # ==================================================================================== #
 
 
@@ -98,10 +210,129 @@ S_Z = ( 1   0 )
       ( 0  -1 )
 """
 
-def _sx_test():
-    N = 2
-    sx = sx_mat(N)
-    print(sx)
+def _test_s_mats():
+    _print = np_utils.print_mat
+    for N in [2,4]:
+        Sx, Sy, Sz = S_mats(N)
+        print(f"N={N}")
+        print("\nSx:")
+        _print(Sx)
+        print("\nSy:")
+        _print(Sy)
+        print("\nSz:")
+        _print(Sz)
+        print( "\n\n" )
 
-if __name__ == "__main__":
-    _sx_test()
+def _test_M_of_m():
+    N = 6
+
+    # Init:
+    M_vec = []
+    m_vec = []
+
+    # Compute:
+    J = _J(N)
+    for m in range(N+1):
+        M = _M(m,J)
+        M_vec.append(M)
+        m_vec.append(m)
+        
+    # plot:
+    plt.plot(m_vec, M_vec)
+    plt.title(f"N={N}, J={J}")
+    plt.grid(True)
+    plt.xlabel("m")
+    plt.ylabel("M")
+    plt.show()
+
+def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
+    # Specific imports:
+    from schrodinger_evolution import init_state, Params, CommonStates    
+    from scipy.optimize import minimize  # for optimization:    
+
+    # Define pulse:
+    Sx, Sy, Sz = S_mats(N)
+    _pulse = lambda x, y, z, c : pulse( x,y,z, Sx,Sy,Sz, c )
+    _x_pulse = lambda c : _pulse(1,0,0,c)    
+
+    # init:
+    params = Params(N=N)
+    rho_initial = init_state(params, CommonStates.Ground)
+    rho_target  = init_state(params, CommonStates.FullyExcited)
+
+    # Helper functions:
+    def _apply_pulse_on_initial_state(c:float) -> np.matrix: 
+        p = _x_pulse(c)
+        rho_final = p * rho_initial * p.getH()
+        return rho_final
+
+    def _derive_cost_function(c:float) -> float :  
+        rho_final = _apply_pulse_on_initial_state(c)
+        diff = np.linalg.norm(rho_final-rho_target)
+        cost = diff**2
+        return cost
+
+    """ 
+
+    cost functions:
+
+    * Even\odd cat states (atomic density matrix)  (poisonic dist. pure state as a |ket><bra| )
+
+    * purity measure:  trace(rho^2)
+        1 - if pure
+        1/N - maximally not pure 
+
+    * BSV light
+    """
+
+    def _find_optimum():
+        initial_point = 0.00
+        options = dict(
+            maxiter = MAX_ITER
+        )            
+        # Run optimization:
+        start_time = time.time()
+        minimum = minimize(_derive_cost_function, initial_point, method=OPT_METHOD, options=options)
+        finish_time = time.time()
+
+        # Unpack results:
+        run_time = finish_time-start_time
+        print(f"run_time={run_time} [sec]")
+        return minimum
+
+    # Minimize:
+    opt = _find_optimum()
+
+    # Unpack results:    
+    c = opt.x
+    assert len(c)==1
+    assert np.isreal(c)[0]
+
+    rho_final = _apply_pulse_on_initial_state(c)
+    np_utils.print_mat(rho_final)
+
+    # visualizing light:
+    title = f" rho "
+    visuals.plot_city(rho_final, title=title)
+    plt.show()
+    # rho_final = np.array( rho_final.tolist() )
+    # visualize_light_from_atomic_density_matrix(rho_final, N)
+
+    # # visualizing matter:
+    # Atomic_state_on_bloch_sphere.Wigner_BlochSphere()  # use this. this is better.
+
+
+    
+
+
+if __name__ == "__main__":    
+
+    np_utils.fix_print_length()
+    # _test_M_of_m()
+    # _test_s_mats()
+    _test_pi_pulse()
+    print("Done.")
+
+
+    visualize_light_from_atomic_density_matrix(1,2)
+    

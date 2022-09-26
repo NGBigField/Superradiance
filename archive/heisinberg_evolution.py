@@ -7,8 +7,8 @@ import typing as typ
 # For plotting:
 import matplotlib.pyplot as plt
 # For tools and helpers:
-from utils import Decorators
-from variables_and_units import Variable, Units
+from utils import decorators
+from archive.variables_and_units import Variable, Units
 from dataclasses import dataclass
 
 
