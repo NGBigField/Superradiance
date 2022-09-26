@@ -5,14 +5,13 @@
 # ==================================================================================== #
 
 # Everyone needs numpy:
-import imp
 import numpy as np
 
 # import our helper modules
 from utils import (
     assertions,
-    numpy as np_utils,
     visuals, 
+    numpy as np_utils
 )
 
 # For states

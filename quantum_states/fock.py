@@ -3,6 +3,11 @@
 # ==================================================================================== #
 from __future__ import annotations
 
+from utils import (
+    assertions,
+    errors,
+)
+
 from utils.errors import QuantumTheoryError
 
 

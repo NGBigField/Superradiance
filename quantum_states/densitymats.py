@@ -6,7 +6,10 @@ from numpy import typing as np_type
 import typing as typ
 import inspect
 from copy import deepcopy
-from statevec import Ket
+
+from quantum_states.statevec import Ket
+from  statevec import Ket
+
 from dataclasses import dataclass, field
 from qiskit.quantum_info import random_density_matrix
 

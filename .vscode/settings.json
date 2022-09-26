@@ -5,4 +5,8 @@
         "kets_and_bras",
         "superradiance"
     ]
+    ,
+    "python.analysis.extraPaths": [
+        
+    ]
 }

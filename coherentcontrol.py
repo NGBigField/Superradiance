@@ -18,7 +18,8 @@ from typing import (
 # import our helper modules
 from utils import (
     assertions,
-    numpy as np_utils
+    visuals,
+    numpy as np_utils,
 )
 
 # For measuring time:
@@ -28,7 +29,6 @@ import time
 import matplotlib.pyplot as plt  # for plotting test results:
 from light_wigner.main import visualize_light_from_atomic_density_matrix
 from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
-from visuals import plot_city
 
 # For OOP:
 from dataclasses import dataclass
@@ -301,7 +301,7 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
 
     # visualizing light:
     title = f" rho "
-    plot_city(rho_final, title=title)
+    visuals.plot_city(rho_final, title=title)
     plt.show()
     # rho_final = np.array( rho_final.tolist() )
     # visualize_light_from_atomic_density_matrix(rho_final, N)

@@ -8,9 +8,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 # our modules, tools and helpers:
-from visuals import (
-    plot_superradiance_evolution
-)
+from utils.visuals import plot_superradiance_evolution
 
 
 # ==================================================================================== #
