@@ -4,11 +4,17 @@ from scipy.linalg import expm as matrix_exp
 
 # For typing hints
 import typing as typ
+from typing import (
+    Optional,
+)
 from dataclasses import dataclass
 from enum import Enum, auto
 
 # our modules, tools and helpers:
-from utils.visuals import plot_superradiance_evolution
+from utils import (
+    visuals,
+    assertions,
+) 
 
 
 # ==================================================================================== #
@@ -32,7 +38,7 @@ class Params():
     def validate(self) -> None:
         N = self.N
         J = self.J
-        assert float(N)/2 == int(int(N)/2) # N is even
+        assertions.even(N, f"N must be even")
         assert J*2 == N 
         assert _num_M_vals(self) == N + 1
 
@@ -128,23 +134,27 @@ def evolve(
     return rho_next
 
 def evolve(
-    params  : Params,
-    rho_prev : np.array,  # previous density matrix 
-) -> np.array:
+    rho : np.matrix,  # previous density matrix 
+    params  : Optional[Params] = None,
+) -> np.matrix:
     # Parse params:
+    if params is None:
+        params = Params
+        params.N = rho.shape[0] + 1
+    params.validate()
     Gamma   = params.Gamma
     J       = params.J
     dt      = params.dt
     # init output:
-    rho_next = np.zeros(rho_prev.shape)
+    rho_final = np.zeros(rho.shape)
     # Iterate:
-    for m, rho_prev_m, rho_prev_mp1 in iterate_rho(params, rho_prev):
+    for m, rho_prev_m, rho_prev_mp1 in iterate_rho(params, rho):
         M = _m2M(params, m)
         d_rho = -Gamma*(J+M)*(J-M+1)*rho_prev_m + Gamma*(J-M)*(J+M+1)*rho_prev_mp1
         rho_next_m = dt*d_rho + rho_prev_m
         # Insert Values:
-        rho_next[m,m] = rho_next_m
-    return rho_next
+        rho_final[m,m] = rho_next_m
+    return rho_final
 
 def coherent_pulse(params:Params=Params()):
     # Inputs:
@@ -192,7 +202,7 @@ def _main_test( params:Params=Params() ):
     intensities = calc_intensity(energies, times)
 
     # Plot Results:
-    plot_superradiance_evolution(times, energies, intensities)
+    visuals.plot_superradiance_evolution(times, energies, intensities)
 
 
 if __name__ == "__main__":

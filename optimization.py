@@ -13,12 +13,12 @@ from utils import (
     numpy_tools as np_utils,
     visuals
 )
-from quantum_states.fock import coherent_state
+
+# For defining coherent states:
+from quantum_states.fock import Fock
 
 # For states
-from schrodinger_evolution import init_state, Params, CommonStates    
-
-# For plotting results:
+from evolution import init_state, Params, CommonStates    
 
 # For coherent control
 from coherentcontrol import (
@@ -42,6 +42,7 @@ import time
 
 # For visualizations:
 import matplotlib.pyplot as plt  # for plotting test results:
+from light_wigner.main import visualize_light_from_atomic_density_matrix
 
 # For OOP:
 from dataclasses import dataclass
@@ -269,8 +270,8 @@ def _test_learn_state(max_fock_num:int=4, plot_on:bool=False):
 
     assertions.even(max_fock_num)
     
-    zero_state = coherent_state(max_num=max_fock_num, alpha=0.00,  type_='normal')
-    cat_state  = coherent_state(max_num=max_fock_num, alpha=1.00, type_='normal')
+    zero_state = Fock.create_coherent_state(max_num=max_fock_num, alpha=0.00,  type_='normal')
+    cat_state  = Fock.create_coherent_state(max_num=max_fock_num, alpha=1.00, type_='normal')
     
     rho_initial = zero_state.to_density_matrix(max_num=max_fock_num)
     rho_target  = cat_state .to_density_matrix(max_num=max_fock_num) 
@@ -289,6 +290,7 @@ def _test_learn_state(max_fock_num:int=4, plot_on:bool=False):
 
     if plot_on:
         visuals.plot_city(results.state)
+        visualize_light_from_atomic_density_matrix(results.state, max_fock_num)
 
     return results
 

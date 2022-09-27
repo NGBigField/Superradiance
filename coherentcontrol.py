@@ -33,12 +33,19 @@ from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
 # For OOP:
 from dataclasses import dataclass
 
+# For simulating state decay:
+from evolution import (
+    evolve,
+    Params as evolution_params,
+)
+
+# for copying input:
+from copy import deepcopy
+
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
 OPT_METHOD = 'COBYLA'
-
-
 
 
 # ==================================================================================== #
@@ -161,22 +168,37 @@ class SPulses():
 
 class CoherentControl():
 
-    def __init__(self, max_state_num:int=2) -> None:
+    def __init__(self, max_state_num:int) -> None:
         # Keep basic properties:        
         self._max_state_num = max_state_num
         # define basic pulses:
         self.s_pulses = SPulses(max_state_num)
 
-    def pulse(self, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix:
+    def _pulse(self, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix:
         Sx = self.s_pulses.Sx 
         Sy = self.s_pulses.Sy 
         Sz = self.s_pulses.Sz
         return pulse(x,y,z, Sx,Sy,Sz)
 
     def pulse_on_state(self, state:np.matrix, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix :
-        p = self.pulse(x,y,z)
+        p = self._pulse(x,y,z)
         final_state = p * state * p.getH()
         return final_state
+    
+    def state_decay(self, state:np.matrix, time:float, time_steps:int=100) -> np.matrix :
+        # Check inputs:
+        assertions.integer(time_steps)
+        assertions.density_matrix(state)
+        # Params:
+        params = evolution_params(
+            N = self.max_state_num,
+            dt=time/time_steps
+        )
+        # Init state:
+        crnt_state = deepcopy(state) 
+        for step in range(time_steps):
+            crnt_state = evolve( rho=crnt_state, params=params )
+        return crnt_state
 
     @property
     def max_state_num(self) -> int:
@@ -247,7 +269,7 @@ def _test_M_of_m():
 
 def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
     # Specific imports:
-    from schrodinger_evolution import init_state, Params, CommonStates    
+    from evolution import init_state, Params, CommonStates    
     from scipy.optimize import minimize  # for optimization:    
 
     # Define pulse:
@@ -307,6 +329,7 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
     c = opt.x
     assert len(c)==1
     assert np.isreal(c)[0]
+    print(f"pulse x = {c}")
 
     rho_final = _apply_pulse_on_initial_state(c)
     np_utils.print_mat(rho_final)
@@ -315,14 +338,25 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
     title = f" rho "
     visuals.plot_city(rho_final, title=title)
     plt.show()
-    # rho_final = np.array( rho_final.tolist() )
-    # visualize_light_from_atomic_density_matrix(rho_final, N)
-
-    # # visualizing matter:
-    # Atomic_state_on_bloch_sphere.Wigner_BlochSphere()  # use this. this is better.
 
 
+def _test_decay(max_state_num:int=4, decay_time:float=1.00):
+    # Specific imports for test:
+    from quantum_states.fock import Fock
+
+    # Constants:
+    pi_pulse_x_value = 1.56
     
+    # Prepare state:
+    coherent_control = CoherentControl(max_state_num=max_state_num)
+    zero_state = Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(max_num=max_state_num)
+    initial_state = coherent_control.pulse_on_state(state=zero_state, x=pi_pulse_x_value )
+
+    # Let evolve:
+    final_state = coherent_control.state_decay(state=initial_state, time=decay_time)
+
+    # Plot:
+    visuals.plot_city(final_state)
 
 
 if __name__ == "__main__":    
@@ -330,9 +364,8 @@ if __name__ == "__main__":
     np_utils.fix_print_length()
     # _test_M_of_m()
     # _test_s_mats()
-    _test_pi_pulse()
+    # _test_pi_pulse(N=4, MAX_ITER=10)
+    _test_decay()
     print("Done.")
 
-
-    visualize_light_from_atomic_density_matrix(1,2)
     
