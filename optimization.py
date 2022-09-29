@@ -107,11 +107,11 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
     options = dict(
         maxiter = max_iter
     )      
-    constraints = _deal_constraints(num_params)      
+    # constraints = _deal_constraints(num_params)      
 
     # Run optimization:
     start_time = time.time()
-    minimum = minimize(_cost_func, initial_point, method=OPT_METHOD, options=options, callback=_after_each, constraints=constraints)
+    minimum = minimize(_cost_func, initial_point, method=OPT_METHOD, options=options, callback=_after_each)
     finish_time = time.time()
     optimal_theta = minimum.x
     
@@ -207,10 +207,10 @@ def _test_learn_state(max_fock_num:int=4, max_iter:int=100, num_pulses:int=1, pl
     assertions.even(max_fock_num)
     
     zero_state = Fock.create_coherent_state(max_num=max_fock_num, alpha=0.00,  type_='normal')
-    cat_state  = Fock.create_coherent_state(max_num=max_fock_num, alpha=1.00, type_='normal')
+    cat_state  = Fock.create_coherent_state(max_num=max_fock_num, alpha=1.00, type_='even_cat')
     
     rho_initial = zero_state.to_density_matrix(max_num=max_fock_num)
-    rho_target  = cat_state .to_density_matrix(max_num=max_fock_num) 
+    rho_target  = cat_state.to_density_matrix(max_num=max_fock_num) 
 
     if plot_on:
         visuals.plot_city(rho_initial)
