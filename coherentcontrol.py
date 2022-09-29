@@ -12,7 +12,10 @@ from scipy.linalg import expm
 from typing import (
     Any,
     Tuple,
+    Optional,
     List,
+    ClassVar,
+    Final,
 )
 
 # import our helper modules
@@ -45,8 +48,15 @@ from copy import deepcopy
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-OPT_METHOD = 'COBYLA'
+OPT_METHOD : Final = 'COBYLA'
 
+# ==================================================================================== #
+# |                                 Helper Types                                     | #
+# ==================================================================================== #
+@dataclass
+class _PulseSequenceParams():
+    xyz : Tuple[float]
+    pause : float
 
 # ==================================================================================== #
 # |                               Inner Functions                                    | #
@@ -113,6 +123,51 @@ def _Sz_mat(N:int) -> np.matrix :
         Sz[m,m] = M
     return Sz
         
+def _deal_params(theta:List[float]) -> List[_PulseSequenceParams] :
+    # Constants:
+    NUM_PULSE_PARAMS : Final = 4
+    # Check length:
+    assert isinstance(theta, list), f"Input `theta` must be of type `list`"
+    l = len(theta)
+    p = (l+1)/NUM_PULSE_PARAMS
+    assertions.integer(p, reason=f"Length of `theta` must be an integer 4*p - 1 where p is the number of pulses")
+    # prepare output and iteration helpers:
+    result : List[_PulseSequenceParams] = []
+    counter : int = 0
+    crnt_pulse_params_list : List[float] = []
+    # deal:
+    for param in theta:
+        # Check input:
+        assert isinstance(param, (int, float)), f"Input `theta` must be a list of floats"
+        # Add to current pulse:
+        counter += 1
+        crnt_pulse_params_list.append( param )
+        # Check if to wrap-up:
+        if counter >= NUM_PULSE_PARAMS:
+            # append results:
+            result.append(
+                _PulseSequenceParams(
+                    xyz = crnt_pulse_params_list[0:3],
+                    pause = crnt_pulse_params_list[3]
+                )
+            )
+            # reset iteration helpers:
+            counter = 0
+            crnt_pulse_params_list = []
+    # Last iteration didn't complete to 4 since the last pulse doesn't require a pause:
+    result.append(
+        _PulseSequenceParams(
+            xyz = crnt_pulse_params_list[0:3],
+            pause = 0
+        )
+    )
+
+    # end:
+    return result
+            
+
+
+
 # ==================================================================================== #
 # |                            Declared Functions                                    | #
 # ==================================================================================== #
@@ -168,11 +223,24 @@ class SPulses():
 
 class CoherentControl():
 
+    # Class Attributes:
+    _default_state_decay_resolution : ClassVar[int] = 1000
+
+    # ==================================================== #
+    #|                    constructor                     |#
+    # ==================================================== #
+
     def __init__(self, max_state_num:int) -> None:
         # Keep basic properties:        
         self._max_state_num = max_state_num
         # define basic pulses:
         self.s_pulses = SPulses(max_state_num)
+        # add default class properties:
+        self.state_decay_resolution : int = CoherentControl._default_state_decay_resolution
+    
+    # ==================================================== #
+    #|                   inner functions                  |#
+    # ==================================================== #
 
     def _pulse(self, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix:
         Sx = self.s_pulses.Sx 
@@ -180,12 +248,19 @@ class CoherentControl():
         Sz = self.s_pulses.Sz
         return pulse(x,y,z, Sx,Sy,Sz)
 
+    # ==================================================== #
+    #|                 declared functions                 |#
+    # ==================================================== #
+
     def pulse_on_state(self, state:np.matrix, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix :
         p = self._pulse(x,y,z)
         final_state = p * state * p.getH()
         return final_state
     
-    def state_decay(self, state:np.matrix, time:float, time_steps:int=100) -> np.matrix :
+    def state_decay(self, state:np.matrix, time:float, time_steps:Optional[int]=None) -> np.matrix :
+        # Complete missing inputs:
+        if time_steps is None:
+            time_steps = self.state_decay_resolution
         # Check inputs:
         assertions.integer(time_steps)
         assertions.density_matrix(state)
@@ -200,6 +275,54 @@ class CoherentControl():
             crnt_state = evolve( rho=crnt_state, params=params )
         return crnt_state
 
+    def coherent_sequence(self, state:np.matrix, theta:List[float]) -> np.matrix :
+        """coherent_sequence Apply sequence of coherent pulses separated by state decay.
+
+        The length of the `theta` is 4*p - 1 
+        where `p` is the the number of pulses
+        3*p x,y,z parameters for p pulses.
+        p-1 decay-time parameters between each pulse.
+
+        Args:
+            state (np.matrix): initial density-matrix
+            theta (List[float]): parameters.
+
+        Returns:
+            np.matrix: final density-matrix
+        """
+        # Check and prepare inputs:
+        assertions.density_matrix(state)
+        params = _deal_params(theta)
+        crnt_state = deepcopy(state)
+
+        # iterate:
+        for pulse_params in params:
+            # Unpack parans:
+            x = pulse_params.xyz[0]
+            y = pulse_params.xyz[1]
+            z = pulse_params.xyz[2]
+            pause = pulse_params.pause
+            # Apply pulse and delay:
+            crnt_state = self.pulse_on_state(state=crnt_state, x=x, y=y, z=z)
+            if pause == 0: continue
+            crnt_state = self.state_decay(state=crnt_state, time=pause)
+        
+        # End:
+        return crnt_state
+        
+
+    # ==================================================== #
+    #|                  static methods                    |#
+    # ==================================================== #        
+    @staticmethod
+    def num_params_for_pulse_sequence(num_pulses:int) -> int:
+        assertions.integer(num_pulses)
+        return num_pulses*4-1
+
+    # ==================================================== #
+    #|                  setters\getters                   |#
+    # ==================================================== #        
+
     @property
     def max_state_num(self) -> int:
         return self._max_state_num
@@ -213,24 +336,6 @@ class CoherentControl():
 # |                                   main                                           | #
 # ==================================================================================== #
 
-
-#TODO: 
-#   M is from -J to J   
-#   but we use the index 
-#   m from 0 to N
-""" _summary_
-S_+ = ( 0   1 )
-      ( 0   0 )
-
-S_- = ( 0   0 )
-      ( 1   0 )
-
-S_X = ( 0   1 )
-      ( 1   0 )
-
-S_Z = ( 1   0 )
-      ( 0  -1 )
-"""
 
 def _test_s_mats():
     _print = np_utils.print_mat
@@ -294,19 +399,6 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
         cost = diff**2
         return cost
 
-    """ 
-
-    cost functions:
-
-    * Even\odd cat states (atomic density matrix)  (poisonic dist. pure state as a |ket><bra| )
-
-    * purity measure:  trace(rho^2)
-        1 - if pure
-        1/N - maximally not pure 
-
-    * BSV light
-    """
-
     def _find_optimum():
         initial_point = 0.00
         options = dict(
@@ -359,13 +451,47 @@ def _test_decay(max_state_num:int=4, decay_time:float=1.00):
     visuals.plot_city(final_state)
 
 
+def _test_coherent_sequence(max_state_num:int=4, num_pulses:int=3):
+    # Specific imports for test:
+    from quantum_states.fock import Fock
+
+    # init params:
+    num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
+    theta = list(range(num_params))
+    initial_state = Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(max_num=max_state_num)
+    
+    # Apply sequence:
+    coherent_control = CoherentControl(max_state_num=max_state_num)
+    final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
+
+    # Plot:
+    visuals.plot_city(final_state)
+
+
 if __name__ == "__main__":    
 
     np_utils.fix_print_length()
     # _test_M_of_m()
     # _test_s_mats()
     # _test_pi_pulse(N=4, MAX_ITER=10)
-    _test_decay()
+    # _test_decay()
+    _test_coherent_sequence()
     print("Done.")
 
     
+
+
+#NOTE:
+
+""" 
+
+possible cost functions:
+
+* Even\odd cat states (atomic density matrix)  (poisonic dist. pure state as a |ket><bra| )
+
+* purity measure:  trace(rho^2)
+    1 - if pure
+    1/N - maximally not pure 
+
+* BSV light
+"""

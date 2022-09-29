@@ -81,7 +81,9 @@ def even(x:_T, reason:Optional[str]=None) -> _T:
     return x
 
 def density_matrix(m:_T, reason:Optional[str]=None, robust_check:bool=True) -> _T:
-    _assert( isinstance(m, (np.matrix, np.array)), reason=reason, default_reason="Must be a matrix type" )
+    _assert( isinstance(m, (np.matrix, np.ndarray)), reason=reason, default_reason="Must be a matrix type" )
+    if not isinstance(m, np.matrix):
+        m = np.matrix(m)
     _assert( len(m.shape)==2, reason=reason, default_reason="Must be a matrix" )
     _assert( m.shape[0]==m.shape[1], reason=reason, default_reason="Must be a square matrix" )
     _assert( abs(np.trace(m)-1)<EPSILON, reason=reason, default_reason="Density Matrix must have trace==1")
