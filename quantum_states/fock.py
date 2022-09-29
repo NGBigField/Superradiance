@@ -90,8 +90,17 @@ class Fock():
     weight : complex = field(init=False, default=1)
     ket_or_bra : KetBra = field(default=KetBra.Ket)
 
+
     def __post_init__(self):
         self.validate()
+    
+    @staticmethod
+    def create_coherent_state(
+        max_num:int, 
+        alpha:float, 
+        type_:Literal['normal', 'even_cat', 'odd_cat']='normal'
+    )->FockSum  :  
+        return coherent_state(max_num=max_num, alpha=alpha, type_=type_)
 
     def validate(self) -> None:
         assertions.index(self.number, f" fock-space-number must be an integer >= 0. Got `{self.number}`") 

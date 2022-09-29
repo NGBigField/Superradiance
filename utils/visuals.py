@@ -11,6 +11,9 @@ from matplotlib.cm import ScalarMappable
 from qutip.matplotlib_utilities import complex_phase_cmap
 from mpl_toolkits.mplot3d import Axes3D
 
+# For defining print std_out or other:
+import sys
+
 # Everyone needs numpy in their life:
 import numpy as np
 
@@ -153,18 +156,93 @@ def plot_superradiance_evolution(times, energies, intensities):
     axes[1].grid(which='major')
     axes[1].set_xlabel('Time [sec] '    , fontdict=dict(size=16) )
     axes[1].set_ylabel('Intensity  '    , fontdict=dict(size=16) )
-    visuals.save_figure()
+    save_figure()
     plt.show()
 
+
+class ProgressBar():
+
+    def __init__(self, expected_end:int, print_prefix:str="", print_length:int=60, print_out=sys.stdout): # Python3.6+
+        self.expected_end = expected_end
+        self.print_prefix = print_prefix
+        self.print_length = print_length
+        self.print_out = print_out
+        self.counter = 0
+        self._as_iterator : bool = False
+
+    def __next__(self) -> int:
+        return self.next()
+
+    def __iter__(self):
+        self._as_iterator = True
+        return self
+
+    def next(self) -> int:
+        self.counter += 1
+        if self._as_iterator and self.counter > self.expected_end:
+            self.close()
+            raise StopIteration
+        self._show()
+        return self.counter
+
+    def close(self):
+        # print("", flush=True, file=self.print_out)
+        full_bar_length = self.print_length+len(self.print_prefix)+4+len(str(self.expected_end))*2
+        print(
+            f"{(' '*(full_bar_length))}", 
+            end='\r', 
+            file=self.print_out, 
+            flush=True
+        )
+
+    def _show(self):
+        # Unpack properties:
+        i = self.counter
+        prefix = self.print_prefix
+        expected_end = self.expected_end
+        print_length = self.print_length
+
+        # Derive print:
+        if i>expected_end:
+            crnt_bar_length = print_length
+        else:
+            crnt_bar_length = int(print_length*i/expected_end)
+        s = f"{prefix}[{u'█'*crnt_bar_length}{('.'*(print_length-crnt_bar_length))}] {i}/{expected_end}"
+
+        # Print:
+        print(
+            s,
+            end='\r', 
+            file=self.print_out, 
+            flush=True
+        )
 
 
 # ==================================================================================== #
 # |                                  Tests                                           | #
 # ==================================================================================== #
 
+def _test_prog_bar_as_iterator():
+    import time    
+    n = 5
+    for p in ProgressBar(n, "Computing: "):
+        time.sleep(0.1) # any code you need
+    print("Done iteration")
+
+def _test_prog_bar_as_object():
+    import time    
+    n = 5
+    prog_bar = ProgressBar(n, "Computing: ")
+    for p in range(n+10):
+        next(prog_bar)
+        time.sleep(0.1) # any code you need
+    print("")
+    print("Done iteration")
+
 def tests():
-    from coherentcontrol import _test_pi_pulse
-    _test_pi_pulse(MAX_ITER=2, N=2)
+    _test_prog_bar_as_iterator()
+    _test_prog_bar_as_object()
+    print("Done tests.")
 
 if __name__ == "__main__":
     tests()
