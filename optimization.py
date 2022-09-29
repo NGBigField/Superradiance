@@ -32,6 +32,7 @@ from typing import (
     Tuple,
     List,
     Union,
+    Dict,
 )
 
 # for optimization:
@@ -39,6 +40,7 @@ from scipy.optimize import minimize, OptimizeResult  # for optimization:
         
 # For measuring time:
 import time
+from datetime import timedelta
 
 # For visualizations:
 import matplotlib.pyplot as plt  # for plotting test results:
@@ -86,6 +88,7 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
     matrix_size = state.shape[0]
     max_state_num = matrix_size-1
     coherent_control = CoherentControl(max_state_num)
+    num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
 
     # cost function:
     def _cost_func(theta:np.ndarray) -> float :  
@@ -100,14 +103,15 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
         prog_bar.next()
 
     # Opt Config:
-    initial_point = np.array([0.0]*CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses))
+    initial_point = np.array([0.0]*num_params)
     options = dict(
         maxiter = max_iter
-    )            
+    )      
+    constraints = _deal_constraints(num_params)      
 
     # Run optimization:
     start_time = time.time()
-    minimum = minimize(_cost_func, initial_point, method=OPT_METHOD, options=options, callback=_after_each)
+    minimum = minimize(_cost_func, initial_point, method=OPT_METHOD, options=options, callback=_after_each, constraints=constraints)
     finish_time = time.time()
     optimal_theta = minimum.x
     
@@ -124,6 +128,10 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
 # ==================================================================================== #
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
+
+
+def _deal_constraints(num_params:int) -> int:
+    constraints : List[Dict[list]]
 
 
 def _learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResults :
@@ -214,7 +222,7 @@ def _test_learn_state(max_fock_num:int=4, max_iter:int=100, num_pulses:int=1, pl
     results = learn_specific_state(rho_initial, rho_target, max_iter=max_iter, num_pulses=num_pulses)
     print(f"==========================")
     print(f"num_pulses = {num_pulses}")
-    print(f"run_time = {results.time} [sec]")
+    print(f"run_time = {timedelta(seconds=results.time)} [hh:mm:ss]")
     print(f"similarity = {results.similarity}")
     # print(f"theta = {results.theta}")
 
@@ -226,7 +234,9 @@ def _test_learn_state(max_fock_num:int=4, max_iter:int=100, num_pulses:int=1, pl
 
 
 if __name__ == "__main__":
+
+
     # _test_learn_pi_pulse_only_x()
     # _test_learn_pi_pulse()
-    _test_learn_state(num_pulses=20, max_iter=1000)
+    _test_learn_state(num_pulses=20, max_iter=10000)
     print("Done.")
