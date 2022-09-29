@@ -16,6 +16,7 @@ from typing import (
     List,
     ClassVar,
     Final,
+    Union,
 )
 
 # import our helper modules
@@ -123,18 +124,24 @@ def _Sz_mat(N:int) -> np.matrix :
         Sz[m,m] = M
     return Sz
         
-def _deal_params(theta:List[float]) -> List[_PulseSequenceParams] :
+def _deal_params(theta: Union[List[float], np.ndarray]) -> List[_PulseSequenceParams] :
     # Constants:
     NUM_PULSE_PARAMS : Final = 4
     # Check length:
+    if isinstance(theta, np.ndarray):
+        # Assert 1D array:
+        assert theta.ndim==1
+        theta = theta.tolist()
     assert isinstance(theta, list), f"Input `theta` must be of type `list`"
     l = len(theta)
     p = (l+1)/NUM_PULSE_PARAMS
     assertions.integer(p, reason=f"Length of `theta` must be an integer 4*p - 1 where p is the number of pulses")
+
     # prepare output and iteration helpers:
     result : List[_PulseSequenceParams] = []
     counter : int = 0
     crnt_pulse_params_list : List[float] = []
+
     # deal:
     for param in theta:
         # Check input:
@@ -154,6 +161,7 @@ def _deal_params(theta:List[float]) -> List[_PulseSequenceParams] :
             # reset iteration helpers:
             counter = 0
             crnt_pulse_params_list = []
+
     # Last iteration didn't complete to 4 since the last pulse doesn't require a pause:
     result.append(
         _PulseSequenceParams(
@@ -263,7 +271,7 @@ class CoherentControl():
             time_steps = self.state_decay_resolution
         # Check inputs:
         assertions.integer(time_steps)
-        assertions.density_matrix(state)
+        assertions.density_matrix(state, robust_check=False)  # allow matrices to be non-PSD or non-Hermitian
         # Params:
         params = evolution_params(
             N = self.max_state_num,
@@ -275,7 +283,11 @@ class CoherentControl():
             crnt_state = evolve( rho=crnt_state, params=params )
         return crnt_state
 
-    def coherent_sequence(self, state:np.matrix, theta:List[float]) -> np.matrix :
+    def coherent_sequence(
+        self, 
+        state:np.matrix, 
+        theta: Union[ List[float], np.ndarray ]
+    ) -> np.matrix :
         """coherent_sequence Apply sequence of coherent pulses separated by state decay.
 
         The length of the `theta` is 4*p - 1 
@@ -303,9 +315,10 @@ class CoherentControl():
             z = pulse_params.xyz[2]
             pause = pulse_params.pause
             # Apply pulse and delay:
-            crnt_state = self.pulse_on_state(state=crnt_state, x=x, y=y, z=z)
-            if pause == 0: continue
-            crnt_state = self.state_decay(state=crnt_state, time=pause)
+            if x != 0 or y != 0 or z != 0:
+                crnt_state = self.pulse_on_state(state=crnt_state, x=x, y=y, z=z)
+            if pause != 0:
+                crnt_state = self.state_decay(state=crnt_state, time=pause)
         
         # End:
         return crnt_state
