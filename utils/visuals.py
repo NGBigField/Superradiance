@@ -76,23 +76,23 @@ def save_figure(fig:Optional[FigureType]=None, file_name:Optional[str]=None ) ->
     fig.savefig(fullpath_str)
     return 
 
-def plot_city(M:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=None):
+def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=None):
     # Check input type:
-    if isinstance(M, np.matrix):
-        M = np.array(M)
-    assert len(M.shape)==2
-    assert M.shape[0]==M.shape[1]
+    if isinstance(mat, np.matrix):
+        mat = np.array(mat)
+    assert len(mat.shape)==2
+    assert mat.shape[0]==mat.shape[1]
 
     # Define common symbols:
     pi = np.pi
 
-    n = np.size(M)
-    xpos, ypos = np.meshgrid(range(M.shape[0]), range(M.shape[1]))
+    n = np.size(mat)
+    xpos, ypos = np.meshgrid(range(mat.shape[0]), range(mat.shape[1]))
     xpos = xpos.T.flatten() - 0.5
     ypos = ypos.T.flatten() - 0.5
     zpos = np.zeros(n)
     dx = dy = 0.8 * np.ones(n)
-    Mvec = M.flatten()
+    Mvec = mat.flatten()
     dz = abs(Mvec).tolist()
 
     # make small numbers real, to avoid random colors
@@ -104,7 +104,7 @@ def plot_city(M:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=No
     phase_max = pi
     norm = mpl.colors.Normalize(phase_min, phase_max)
     cmap = complex_phase_cmap()
-    colors = cmap(norm(np.angle(Mvec)))[0]
+    colors = cmap(norm(np.angle(Mvec)))
 
     if ax is None:
         fig = plt.figure()
@@ -116,12 +116,12 @@ def plot_city(M:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=No
         ax.set_title(title, y=0.95)
 
     # x axis
-    xtics = -0.5 + np.arange(M.shape[0])
+    xtics = -0.5 + np.arange(mat.shape[0])
     ax.axes.w_xaxis.set_major_locator(plt.FixedLocator(xtics))
     ax.tick_params(axis='x', labelsize=12)
 
     # y axis
-    ytics = -0.5 + np.arange(M.shape[1])
+    ytics = -0.5 + np.arange(mat.shape[1])
     ax.axes.w_yaxis.set_major_locator(plt.FixedLocator(ytics))
     ax.tick_params(axis='y', labelsize=12)
 
@@ -129,9 +129,11 @@ def plot_city(M:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=No
     ax.set_zlim3d([0, 1])  # use min/max
 
     # Labels:
-    n = M.shape[0]
-    plt.xticks( range(n), [ f"|{m}>" for m in range(n)] )
-    plt.yticks( range(n), [ f"<{m}|" for m in range(n)] )
+    M = mat.shape[0]//2
+    m_range = range(-M,M+1)
+    pos_range = range(mat.shape[0]) 
+    plt.xticks( pos_range, [ f"|{m}>" for m in m_range] )
+    plt.yticks( pos_range, [ f"<{m}|" for m in m_range] )
 
     # Colorbar:
     cax = plt.axes([0.90, 0.1, 0.05, 0.8])

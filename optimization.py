@@ -114,6 +114,7 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
     minimum = minimize(_cost_func, initial_point, method=OPT_METHOD, options=options, callback=_after_each)
     finish_time = time.time()
     optimal_theta = minimum.x
+    prog_bar.close()
     
     # Pack learned-results:
     return LearnedResults(
@@ -206,8 +207,8 @@ def _test_learn_state(max_fock_num:int=4, max_iter:int=100, num_pulses:int=1, pl
 
     assertions.even(max_fock_num)
     
-    zero_state = Fock.create_coherent_state(max_num=max_fock_num, alpha=0.00,  type_='normal')
-    cat_state  = Fock.create_coherent_state(max_num=max_fock_num, alpha=1.00, type_='even_cat')
+    zero_state = Fock.create_coherent_state(max_num=max_fock_num, alpha=0.00, type_='normal')
+    cat_state  = Fock.create_coherent_state(max_num=max_fock_num, alpha=1.00, type_='normal')
     
     rho_initial = zero_state.to_density_matrix(max_num=max_fock_num)
     rho_target  = cat_state.to_density_matrix(max_num=max_fock_num) 
@@ -238,5 +239,5 @@ if __name__ == "__main__":
 
     # _test_learn_pi_pulse_only_x()
     # _test_learn_pi_pulse()
-    _test_learn_state(num_pulses=20, max_iter=10000)
+    _test_learn_state(num_pulses=1, max_iter=1000)
     print("Done.")

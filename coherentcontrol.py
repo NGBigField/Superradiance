@@ -46,6 +46,9 @@ from evolution import (
 # for copying input:
 from copy import deepcopy
 
+# For checking on real fock states:
+from quantum_states.fock import Fock
+
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
@@ -446,9 +449,6 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
 
 
 def _test_decay(max_state_num:int=4, decay_time:float=1.00):
-    # Specific imports for test:
-    from quantum_states.fock import Fock
-
     # Constants:
     pi_pulse_x_value = 1.56
     
@@ -465,9 +465,6 @@ def _test_decay(max_state_num:int=4, decay_time:float=1.00):
 
 
 def _test_coherent_sequence(max_state_num:int=4, num_pulses:int=3):
-    # Specific imports for test:
-    from quantum_states.fock import Fock
-
     # init params:
     num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
     theta = list(range(num_params))
@@ -479,6 +476,28 @@ def _test_coherent_sequence(max_state_num:int=4, num_pulses:int=3):
 
     # Plot:
     visuals.plot_city(final_state)
+    plt.show()
+
+def _zero_state(max_state_num:int=4) -> Fock :
+    return Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(max_num=max_state_num)
+
+def _test_complex_state(max_state_num:int=2):
+    # Init:
+    rho_initial = _zero_state(max_state_num=max_state_num)
+    coherent_control = CoherentControl(max_state_num=max_state_num)
+    # Apply:
+    final_state = coherent_control.pulse_on_state(
+        rho_initial, 
+        x = -0.1, 
+        y =  0.3,
+        z = -0.2
+    )
+
+    # Plot:
+    np_utils.print_mat(final_state)
+    visuals.plot_city(final_state)
+    plt.show()
+    print("Plotted.")
 
 
 if __name__ == "__main__":    
@@ -488,7 +507,8 @@ if __name__ == "__main__":
     # _test_s_mats()
     # _test_pi_pulse(N=4, MAX_ITER=10)
     # _test_decay()
-    _test_coherent_sequence()
+    # _test_coherent_sequence()
+    _test_complex_state()
     print("Done.")
 
     
