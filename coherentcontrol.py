@@ -333,7 +333,8 @@ class CoherentControl():
         method:Literal['iterative', 'solve_ode']='solve_ode',
     ) -> np.matrix :
         # Check inputs:
-        assertions.density_matrix(state, robust_check=False)  # allow matrices to be non-PSD or non-Hermitian
+        assertions.density_matrix(state, robust_check=True)  # allow matrices to be non-PSD or non-Hermitian
+        assert time>0, f"decay time must be a positive number. got {time}"
         # Choose method:
         if method == 'iterative':
             return self._state_decay_iterative(state=state, time=time, time_steps=time_steps)
@@ -363,7 +364,7 @@ class CoherentControl():
             np.matrix: final density-matrix
         """
         # Check and prepare inputs:
-        assertions.density_matrix(state)
+        assertions.density_matrix(state, robust_check=True)
         params = _deal_params(theta)
         crnt_state = deepcopy(state)
 

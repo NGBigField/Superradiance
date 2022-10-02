@@ -8,6 +8,7 @@ from typing import (
     Union,
     Optional,
     Literal,
+    overload,
 )
 
 from utils import (
@@ -96,13 +97,27 @@ class Fock():
     def __post_init__(self):
         self.validate()
     
+    @overload
+    @staticmethod
+    def create_coherent_state(num_moments:int, alpha:float, output:Literal['density_matrix'], type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->np.matrix: ...
+    @overload
+    @staticmethod
+    def create_coherent_state(num_moments:int, alpha:float, output:Literal['ket'], type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum: ...
+
     @staticmethod
     def create_coherent_state(
         num_moments:int, 
         alpha:float, 
-        type_:Literal['normal', 'even_cat', 'odd_cat']='normal'
-    )->FockSum  :  
-        return coherent_state(num_moments=num_moments, alpha=alpha, type_=type_)
+        output:Literal['ket', 'density_matrix']='ket',
+        type_:Literal['normal', 'even_cat', 'odd_cat']='normal',
+    )->Union[FockSum, np.matrix] :  
+        ket = coherent_state(num_moments=num_moments, alpha=alpha, type_=type_)
+        if output == 'ket':
+            return ket
+        elif output == 'density_matrix':
+            return ket.to_density_matrix(num_moments=num_moments)
+        else:
+            raise ValueError("Not an option.")
 
     def validate(self) -> None:
         assertions.index(self.number, f" fock-space-number must be an integer >= 0. Got `{self.number}`") 

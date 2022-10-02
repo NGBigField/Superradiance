@@ -7,6 +7,16 @@
 # Everyone needs numpy:
 import numpy as np
 
+# For typing hints:
+from typing import (
+    Any,
+    Tuple,
+    List,
+    Union,
+    Dict,
+    Final,
+)
+
 # import our helper modules
 from utils import (
     assertions,
@@ -27,14 +37,6 @@ from coherentcontrol import (
     CoherentControl,
 )
 
-# For typing hints:
-from typing import (
-    Tuple,
-    List,
-    Union,
-    Dict,
-)
-
 # for optimization:
 from scipy.optimize import minimize, OptimizeResult  # for optimization:   
         
@@ -52,7 +54,7 @@ from dataclasses import dataclass
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-OPT_METHOD = 'COBYLA'
+OPT_METHOD : Final = 'SLSQP'
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
@@ -107,11 +109,20 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
     options = dict(
         maxiter = max_iter
     )      
-    # constraints = _deal_constraints(num_params)      
+    constraints = _deal_constraints(num_params)      
+    bounds = _deal_bounds(num_params)      
 
     # Run optimization:
     start_time = time.time()
-    minimum = minimize(_cost_func, initial_point, method=OPT_METHOD, options=options, callback=_after_each)
+    minimum = minimize(
+        _cost_func, 
+        initial_point, 
+        method=OPT_METHOD, 
+        options=options, 
+        callback=_after_each, 
+        bounds=bounds
+        # constraints=constraints
+    )
     finish_time = time.time()
     optimal_theta = minimum.x
     prog_bar.close()
@@ -130,9 +141,48 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
 
+def _inequality_func(theta:np.ndarray, *args )->float:
+    # Parse inputs:
+    index = args[0]
+    # Generate value ( should be positive on scipy's check, for it to be legit )
+    time = theta[index]
+    if time<0:
+        print(time)
+        return abs(time)
+    return time
 
-def _deal_constraints(num_params:int) -> int:
-    constraints : List[Dict[list]]
+def _bound_rule(i:int) -> Tuple[Any, Any]:
+    # Constant:
+    NUM_PULSE_PARAMS : Final = 4  
+    # Derive:
+    if i%NUM_PULSE_PARAMS==3:
+        return (0, None)
+    else:
+        return (None, None)
+
+def _deal_bounds(num_params:int) -> int: 
+    # Define bounds:
+    bounds = [_bound_rule(i) for i in range(num_params)]
+    return bounds
+
+def _deal_constraints(num_params:int) -> int:    
+    # Constants:
+    NUM_PULSE_PARAMS : Final = 4
+    # Init list:
+    constraints : List[dict] = []
+    # Iterate:
+    for i in range(3, num_params, NUM_PULSE_PARAMS):
+        print(i)
+
+        constraints.append(
+            dict(
+                type = 'ineq',
+                fun  = _inequality_func,
+                args = [i]
+            )
+        )
+
+    return constraints
 
 
 def _learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResults :
@@ -203,24 +253,20 @@ def _test_learn_pi_pulse():
         res = _learn_pi_pulse(num_iter=num_iter, plot_on=True)
         visuals.save_figure(file_name=f"learn_pi_pulse num_iter {num_iter}")
 
-def _test_learn_state(max_fock_num:int=4, max_iter:int=100, num_pulses:int=1, plot_on:bool=False):
+def _test_learn_state(num_moments:int=4, max_iter:int=100, num_pulses:int=1, plot_on:bool=False):
 
-    assertions.even(max_fock_num)
-    
-    zero_state = Fock.create_coherent_state(num_moments=max_fock_num, alpha=0.00, type_='normal')
-    cat_state  = Fock.create_coherent_state(num_moments=max_fock_num, alpha=1.00, type_='normal')
-    
-    rho_initial = zero_state.to_density_matrix(num_moments=max_fock_num)
-    rho_target  = cat_state.to_density_matrix(num_moments=max_fock_num) 
+    assertions.even(num_moments)
+    initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0.0, output='density_matrix', type_='normal')
+    target_state = Fock.create_coherent_state(num_moments=num_moments, alpha=1.0, output='density_matrix', type_='normal')
 
     if plot_on:
-        visuals.plot_city(rho_initial)
-        visuals.plot_city(rho_target)
+        visuals.plot_city(initial_state)
+        visuals.plot_city(target_state)
 
     # np_utils.print_mat(rho_initial)
     # np_utils.print_mat(rho_target)
 
-    results = learn_specific_state(rho_initial, rho_target, max_iter=max_iter, num_pulses=num_pulses)
+    results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses)
     print(f"==========================")
     print(f"num_pulses = {num_pulses}")
     print(f"run_time = {timedelta(seconds=results.time)} [hh:mm:ss]")
@@ -229,15 +275,13 @@ def _test_learn_state(max_fock_num:int=4, max_iter:int=100, num_pulses:int=1, pl
 
     if plot_on:
         visuals.plot_city(results.state)
-        visualize_light_from_atomic_density_matrix(results.state, max_fock_num)
+        visualize_light_from_atomic_density_matrix(results.state, num_moments)
 
     return results
 
 
 if __name__ == "__main__":
-
-
     # _test_learn_pi_pulse_only_x()
     # _test_learn_pi_pulse()
-    _test_learn_state(num_pulses=1, max_iter=1000)
+    _test_learn_state(num_pulses=3, max_iter=1000)
     print("Done.")
