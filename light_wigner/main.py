@@ -316,7 +316,35 @@ def visualize_light_from_atomic_density_matrix(
                       text_label='$\\frac{\Omega - \Omega_0}{\Gamma}\;=\;$', color_label='$W(q,p)$')
     # plot_spectrum(omega, N, photon_number, domega)
 
+def decay(
+    rho: np.matrix,
+    delta_t : float,
+    gamma : float = 1.0,
+    num_time_steps : int = NUM_TIMES,
+)->np.matrix:
+    # Constants:
+    omega1 = 1
+    # Fill missing inputs:
+    num_momments = rho.shape[0]
+    num_atoms = num_momments-1
+    
+    # init helper objects:
+    atomoc = Atomic_state_on_bloch_sphere(num_atoms)
+    op = Operators(num_atoms)
+    
+    # Solve:
+    _, _, _, _, rho_t, time = solve_sr_equations(
+        op, 
+        num_atoms, 
+        rho, 
+        omega1, 
+        gamma=gamma, 
+        delta_t=delta_t, 
+        num_times=num_time_steps
+    )
 
+    rho_final = rho_t[:,:,-1]
+    return rho_final
     
 
 def main():
@@ -328,7 +356,6 @@ def main():
     '''
     gamma = 0.3
     g_w = gamma ** 0.5 / (np.pi ** 0.5)
-    c = 0.3
     delta_t = np.log(2)/gamma
 
     NUM_ATOMS = 1    ###change###

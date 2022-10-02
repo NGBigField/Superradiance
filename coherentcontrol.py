@@ -11,6 +11,7 @@ from scipy.linalg import expm
 # For typing hints:
 from typing import (
     Any,
+    Literal,
     Tuple,
     Optional,
     List,
@@ -24,6 +25,7 @@ from utils import (
     assertions,
     numpy_tools as np_utils,
     visuals,
+    arguments,
 )
 
 # For measuring time:
@@ -31,13 +33,12 @@ import time
 
 # For visualizations:
 import matplotlib.pyplot as plt  # for plotting test results:
-from light_wigner.main import visualize_light_from_atomic_density_matrix
-from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
 
 # For OOP:
 from dataclasses import dataclass
 
 # For simulating state decay:
+from light_wigner.main import decay
 from evolution import (
     evolve,
     Params as evolution_params,
@@ -175,8 +176,7 @@ def _deal_params(theta: Union[List[float], np.ndarray]) -> List[_PulseSequencePa
 
     # end:
     return result
-            
-
+        
 
 
 # ==================================================================================== #
@@ -232,6 +232,9 @@ class SPulses():
         return res
     
 
+
+
+
 class CoherentControl():
 
     # Class Attributes:
@@ -241,14 +244,25 @@ class CoherentControl():
     #|                    constructor                     |#
     # ==================================================== #
 
-    def __init__(self, max_state_num:int) -> None:
+    def __init__(
+        self, 
+        num_moments:int,
+        gamma:float=1.0,
+    ) -> None:
         # Keep basic properties:        
-        self._max_state_num = max_state_num
+        self._num_moments = num_moments
+        self.gamma = gamma
         # define basic pulses:
-        self.s_pulses = SPulses(max_state_num)
-        # add default class properties:
-        self.state_decay_resolution : int = CoherentControl._default_state_decay_resolution
-    
+        self.s_pulses = SPulses(num_moments)
+
+    # ==================================================== #
+    #|                  static methods                    |#
+    # ==================================================== #        
+    @staticmethod
+    def num_params_for_pulse_sequence(num_pulses:int) -> int:
+        assertions.integer(num_pulses)
+        return num_pulses*4-1
+
     # ==================================================== #
     #|                   inner functions                  |#
     # ==================================================== #
@@ -259,6 +273,49 @@ class CoherentControl():
         Sz = self.s_pulses.Sz
         return pulse(x,y,z, Sx,Sy,Sz)
 
+    def _state_decay_iterative(
+        self,
+        state:np.matrix, 
+        time:float, 
+        time_steps:Optional[int]=None,
+    )->np.matrix:
+        # Complete missing inputs:
+        time_steps = arguments.default_value(time_steps, self._default_state_decay_resolution)    
+        assertions.integer(time_steps)
+        # Params:
+        params = evolution_params(
+            N = self.num_moments,
+            dt = time/time_steps,
+            Gamma = self.gamma
+        )
+        # Compute:
+        crnt_state = deepcopy(state) 
+        for _ in range(time_steps):
+            crnt_state = evolve( rho=crnt_state, params=params )
+        # Return:
+        return crnt_state
+
+    def _state_decay_solve_ode(
+        self,
+        state:np.matrix, 
+        time:float, 
+        time_steps:Optional[int]=10001,
+    )->np.matrix:
+        # Complete missing inputs:
+        time_steps = arguments.default_value(time_steps, 10001)        
+        assertions.integer(time_steps)            
+        # Convert matrix to ndarray:
+        if isinstance(state, np.matrix):
+            state = np.array(state)
+        # Compute:
+        return decay(
+            rho=state,  
+            delta_t=time,
+            gamma=self.gamma,
+            num_time_steps=time_steps
+        )
+        
+
     # ==================================================== #
     #|                 declared functions                 |#
     # ==================================================== #
@@ -268,23 +325,23 @@ class CoherentControl():
         final_state = p * state * p.getH()
         return final_state
     
-    def state_decay(self, state:np.matrix, time:float, time_steps:Optional[int]=None) -> np.matrix :
-        # Complete missing inputs:
-        if time_steps is None:
-            time_steps = self.state_decay_resolution
+    def state_decay(
+        self, 
+        state:np.matrix, 
+        time:float, 
+        time_steps:Optional[int]=None,
+        method:Literal['iterative', 'solve_ode']='iterative',
+    ) -> np.matrix :
         # Check inputs:
-        assertions.integer(time_steps)
         assertions.density_matrix(state, robust_check=False)  # allow matrices to be non-PSD or non-Hermitian
-        # Params:
-        params = evolution_params(
-            N = self.max_state_num,
-            dt=time/time_steps
-        )
-        # Init state:
-        crnt_state = deepcopy(state) 
-        for step in range(time_steps):
-            crnt_state = evolve( rho=crnt_state, params=params )
-        return crnt_state
+        # Choose method:
+        if method == 'iterative':
+            return self._state_decay_iterative(state=state, time=time, time_steps=time_steps)
+        elif method == 'solve_ode':
+            return self._state_decay_solve_ode(state=state, time=time, time_steps=time_steps)
+        else:
+            raise ValueError("`method` must be either either 'iterative' or 'solve_ode' ")
+
 
     def coherent_sequence(
         self, 
@@ -326,25 +383,16 @@ class CoherentControl():
         # End:
         return crnt_state
         
-
-    # ==================================================== #
-    #|                  static methods                    |#
-    # ==================================================== #        
-    @staticmethod
-    def num_params_for_pulse_sequence(num_pulses:int) -> int:
-        assertions.integer(num_pulses)
-        return num_pulses*4-1
-
     # ==================================================== #
     #|                  setters\getters                   |#
     # ==================================================== #        
 
     @property
-    def max_state_num(self) -> int:
-        return self._max_state_num
-    @max_state_num.setter
-    def max_state_num(self, val:Any) -> None:
-        self._max_state_num = val
+    def num_moments(self) -> int:
+        return self._num_moments
+    @num_moments.setter
+    def num_moments(self, val:Any) -> None:
+        self._num_moments = val
         self.s_pulses = SPulses(val)
 
 
@@ -448,30 +496,34 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
     plt.show()
 
 
-def _test_decay(max_state_num:int=4, decay_time:float=1.00):
+def _test_decay(num_moments:int=4, decay_time:Optional[float]=None, gamma:float=1.00):
     # Constants:
     pi_pulse_x_value = 1.56
+
+    # fill missing:
+    decay_time = arguments.default_value(decay_time, np.log(2)/gamma)
     
     # Prepare state:
-    coherent_control = CoherentControl(max_state_num=max_state_num)
-    zero_state = Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(max_num=max_state_num)
+    coherent_control = CoherentControl(num_moments=num_moments, gamma=gamma)
+    zero_state = Fock.create_coherent_state(alpha=0, max_num=num_moments).to_density_matrix(num_moments=num_moments)
     initial_state = coherent_control.pulse_on_state(state=zero_state, x=pi_pulse_x_value )
 
     # Let evolve:
-    final_state = coherent_control.state_decay(state=initial_state, time=decay_time)
+    final_state1 = coherent_control.state_decay(state=initial_state, time=decay_time, method='iterative')
+    final_state2 = coherent_control.state_decay(state=initial_state, time=decay_time, method='solve_ode')
+    visuals.plot_city(final_state1)
+    visuals.plot_city(final_state2)
 
-    # Plot:
-    visuals.plot_city(final_state)
 
 
 def _test_coherent_sequence(max_state_num:int=4, num_pulses:int=3):
     # init params:
     num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
     theta = list(range(num_params))
-    initial_state = Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(max_num=max_state_num)
+    initial_state = Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(num_moments=max_state_num)
     
     # Apply sequence:
-    coherent_control = CoherentControl(max_state_num=max_state_num)
+    coherent_control = CoherentControl(num_moments=max_state_num)
     final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
 
     # Plot:
@@ -479,12 +531,12 @@ def _test_coherent_sequence(max_state_num:int=4, num_pulses:int=3):
     plt.show()
 
 def _zero_state(max_state_num:int=4) -> Fock :
-    return Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(max_num=max_state_num)
+    return Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(num_moments=max_state_num)
 
 def _test_complex_state(max_state_num:int=2):
     # Init:
     rho_initial = _zero_state(max_state_num=max_state_num)
-    coherent_control = CoherentControl(max_state_num=max_state_num)
+    coherent_control = CoherentControl(num_moments=max_state_num)
     # Apply:
     final_state = coherent_control.pulse_on_state(
         rho_initial, 
@@ -506,9 +558,9 @@ if __name__ == "__main__":
     # _test_M_of_m()
     # _test_s_mats()
     # _test_pi_pulse(N=4, MAX_ITER=10)
-    # _test_decay()
+    _test_decay()
     # _test_coherent_sequence()
-    _test_complex_state()
+    # _test_complex_state()
     print("Done.")
 
     

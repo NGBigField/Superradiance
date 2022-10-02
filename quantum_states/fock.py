@@ -3,23 +3,25 @@
 # ==================================================================================== #
 from __future__ import annotations
 
-from utils import (
-    assertions,
-    errors,
-    types,
-    visuals,
-)
-
-from utils.errors import QuantumTheoryError
-
-from dataclasses import dataclass, field
-
 from typing import (
     List,
     Union,
     Optional,
     Literal,
 )
+
+from utils import (
+    assertions,
+    errors,
+    types,
+    visuals,
+    arguments,
+)
+
+from utils.errors import QuantumTheoryError
+
+from dataclasses import dataclass, field
+
 
 from copy import deepcopy
 
@@ -115,7 +117,7 @@ class Fock():
         return sum        
 
     def to_density_matrix(self, max_num:Optional[int]=None) -> np.matrix:
-        return self.to_sum().to_density_matrix(max_num=max_num)
+        return self.to_sum().to_density_matrix(num_moments=max_num)
 
     def zero_weight(self) -> bool:
         return abs(self.weight)<EPS
@@ -172,19 +174,18 @@ class Fock():
 class FockSum():
     states : List[Fock] = field(default_factory=list, init=False)
 
-    def to_density_matrix(self, max_num:Optional[int]=None) -> np.matrix:
+    def to_density_matrix(self, num_moments:Optional[int]=None) -> np.matrix:
         # Check input:
         if not self.normalized:
             warnings.warn("Create density matrices with normalized fock states")
         assert self.ket_or_bra == KetBra.Ket
         # Maximal fock number:
-        if max_num is None:
-            max_num = self.max_num
+        num_moments = arguments.default_value(num_moments, self.max_num)
         # Prepare states:
         kets = self
         bras = ~self
         # Density size:
-        n = max_num+1
+        n = num_moments+1
         # Common type:
         common_data_type = self.date_type
         dtype = np.dtype(common_data_type)
@@ -371,11 +372,11 @@ def _test_coherent_state(max_fock_num:int=4):
 
     zero = coherent_state(max_num=4, alpha=0.00, type_='normal')
     print(zero)
-    visuals.plot_city(zero.to_density_matrix(max_num=max_fock_num))
+    visuals.plot_city(zero.to_density_matrix(num_moments=max_fock_num))
 
     ket = coherent_state(max_num=4, alpha=1.00, type_='normal')
     print(ket)
-    visuals.plot_city(ket.to_density_matrix(max_num=max_fock_num))
+    visuals.plot_city(ket.to_density_matrix(num_moments=max_fock_num))
 
     print("Plotted.")
 
