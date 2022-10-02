@@ -22,10 +22,10 @@ from typing import (
 
 # import our helper modules
 from utils import (
+    args,
     assertions,
     numpy_tools as np_utils,
     visuals,
-    arguments,
 )
 
 # For measuring time:
@@ -280,7 +280,7 @@ class CoherentControl():
         time_steps:Optional[int]=None,
     )->np.matrix:
         # Complete missing inputs:
-        time_steps = arguments.default_value(time_steps, self._default_state_decay_resolution)    
+        time_steps = args.default_value(time_steps, self._default_state_decay_resolution)    
         assertions.integer(time_steps)
         # Params:
         params = evolution_params(
@@ -302,7 +302,7 @@ class CoherentControl():
         time_steps:Optional[int]=10001,
     )->np.matrix:
         # Complete missing inputs:
-        time_steps = arguments.default_value(time_steps, 10001)        
+        time_steps = args.default_value(time_steps, 10001)        
         assertions.integer(time_steps)            
         # Convert matrix to ndarray:
         if isinstance(state, np.matrix):
@@ -330,7 +330,7 @@ class CoherentControl():
         state:np.matrix, 
         time:float, 
         time_steps:Optional[int]=None,
-        method:Literal['iterative', 'solve_ode']='iterative',
+        method:Literal['iterative', 'solve_ode']='solve_ode',
     ) -> np.matrix :
         # Check inputs:
         assertions.density_matrix(state, robust_check=False)  # allow matrices to be non-PSD or non-Hermitian
@@ -496,23 +496,22 @@ def _test_pi_pulse(MAX_ITER:int=4, N:int=2):
     plt.show()
 
 
-def _test_decay(num_moments:int=4, decay_time:Optional[float]=None, gamma:float=1.00):
-    # Constants:
-    pi_pulse_x_value = 1.56
-
+def _test_decay(num_moments:int=4, decay_time:Optional[float]=None, gamma:float=1.00, initial_pulse_xyz:Optional[List[float]]=None):
     # fill missing:
-    decay_time = arguments.default_value(decay_time, np.log(2)/gamma)
+    initial_pulse_xyz = args.default_value(initial_pulse_xyz, [1.56, 0, 0])
+    decay_time = args.default_value(decay_time, np.log(2)/gamma)
     
     # Prepare state:
     coherent_control = CoherentControl(num_moments=num_moments, gamma=gamma)
-    zero_state = Fock.create_coherent_state(alpha=0, max_num=num_moments).to_density_matrix(num_moments=num_moments)
-    initial_state = coherent_control.pulse_on_state(state=zero_state, x=pi_pulse_x_value )
+    zero_state = Fock.create_coherent_state(alpha=0, num_moments=num_moments).to_density_matrix(num_moments=num_moments)
+    initial_state = coherent_control.pulse_on_state(zero_state, *initial_pulse_xyz)
 
     # Let evolve:
     final_state1 = coherent_control.state_decay(state=initial_state, time=decay_time, method='iterative')
     final_state2 = coherent_control.state_decay(state=initial_state, time=decay_time, method='solve_ode')
     visuals.plot_city(final_state1)
     visuals.plot_city(final_state2)
+    plt.show()
 
 
 
@@ -520,7 +519,7 @@ def _test_coherent_sequence(max_state_num:int=4, num_pulses:int=3):
     # init params:
     num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
     theta = list(range(num_params))
-    initial_state = Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(num_moments=max_state_num)
+    initial_state = Fock.create_coherent_state(alpha=0, num_moments=max_state_num).to_density_matrix(num_moments=max_state_num)
     
     # Apply sequence:
     coherent_control = CoherentControl(num_moments=max_state_num)
@@ -531,7 +530,7 @@ def _test_coherent_sequence(max_state_num:int=4, num_pulses:int=3):
     plt.show()
 
 def _zero_state(max_state_num:int=4) -> Fock :
-    return Fock.create_coherent_state(alpha=0, max_num=max_state_num).to_density_matrix(num_moments=max_state_num)
+    return Fock.create_coherent_state(alpha=0, num_moments=max_state_num).to_density_matrix(num_moments=max_state_num)
 
 def _test_complex_state(max_state_num:int=2):
     # Init:
@@ -558,7 +557,7 @@ if __name__ == "__main__":
     # _test_M_of_m()
     # _test_s_mats()
     # _test_pi_pulse(N=4, MAX_ITER=10)
-    _test_decay()
+    _test_decay(initial_pulse_xyz=[0.1, 0.8, -0.3])
     # _test_coherent_sequence()
     # _test_complex_state()
     print("Done.")

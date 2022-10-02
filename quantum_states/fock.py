@@ -15,7 +15,7 @@ from utils import (
     errors,
     types,
     visuals,
-    arguments,
+    args,
 )
 
 from utils.errors import QuantumTheoryError
@@ -98,11 +98,11 @@ class Fock():
     
     @staticmethod
     def create_coherent_state(
-        max_num:int, 
+        num_moments:int, 
         alpha:float, 
         type_:Literal['normal', 'even_cat', 'odd_cat']='normal'
     )->FockSum  :  
-        return coherent_state(max_num=max_num, alpha=alpha, type_=type_)
+        return coherent_state(num_moments=num_moments, alpha=alpha, type_=type_)
 
     def validate(self) -> None:
         assertions.index(self.number, f" fock-space-number must be an integer >= 0. Got `{self.number}`") 
@@ -180,7 +180,7 @@ class FockSum():
             warnings.warn("Create density matrices with normalized fock states")
         assert self.ket_or_bra == KetBra.Ket
         # Maximal fock number:
-        num_moments = arguments.default_value(num_moments, self.max_num)
+        num_moments = args.default_value(num_moments, self.max_num)
         # Prepare states:
         kets = self
         bras = ~self
@@ -329,14 +329,14 @@ class FockSum():
 # |                             Declared Functions                                   | #
 # ==================================================================================== #
 
-def coherent_state(max_num:int, alpha:float, type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum:
+def coherent_state(num_moments:int, alpha:float, type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum:
     # Choose iterator:
     if type_=='normal':
-        iterator = range(0, max_num+1, 1)
+        iterator = range(0, num_moments+1, 1)
     elif type_=='even_cat':
-        iterator = range(0, max_num+1, 2)
+        iterator = range(0, num_moments+1, 2)
     elif type_=='odd_cat':
-        iterator = range(1, max_num+1, 2)
+        iterator = range(1, num_moments+1, 2)
     else:
         raise ValueError("`type_` must be either 'normal', 'even_cat' or 'odd_cat'.")
 
@@ -370,11 +370,11 @@ def _test_simple_fock_sum():
 def _test_coherent_state(max_fock_num:int=4):
     assertions.even(max_fock_num)
 
-    zero = coherent_state(max_num=4, alpha=0.00, type_='normal')
+    zero = coherent_state(num_moments=4, alpha=0.00, type_='normal')
     print(zero)
     visuals.plot_city(zero.to_density_matrix(num_moments=max_fock_num))
 
-    ket = coherent_state(max_num=4, alpha=1.00, type_='normal')
+    ket = coherent_state(num_moments=4, alpha=1.00, type_='normal')
     print(ket)
     visuals.plot_city(ket.to_density_matrix(num_moments=max_fock_num))
 

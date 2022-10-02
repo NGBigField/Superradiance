@@ -207,8 +207,8 @@ def _test_learn_state(max_fock_num:int=4, max_iter:int=100, num_pulses:int=1, pl
 
     assertions.even(max_fock_num)
     
-    zero_state = Fock.create_coherent_state(max_num=max_fock_num, alpha=0.00, type_='normal')
-    cat_state  = Fock.create_coherent_state(max_num=max_fock_num, alpha=1.00, type_='normal')
+    zero_state = Fock.create_coherent_state(num_moments=max_fock_num, alpha=0.00, type_='normal')
+    cat_state  = Fock.create_coherent_state(num_moments=max_fock_num, alpha=1.00, type_='normal')
     
     rho_initial = zero_state.to_density_matrix(num_moments=max_fock_num)
     rho_target  = cat_state.to_density_matrix(num_moments=max_fock_num) 
