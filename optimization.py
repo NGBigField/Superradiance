@@ -21,7 +21,9 @@ from typing import (
 from utils import (
     assertions,
     numpy_tools as np_utils,
-    visuals
+    visuals,
+    saveload,
+    strings,
 )
 
 # For defining coherent states:
@@ -77,7 +79,7 @@ _MatrixType = Union[np.matrix, np.array]
 # ==================================================================================== #
 
 
-def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, max_iter:int=100, num_pulses:int=3 ) -> LearnedResults:
+def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, max_iter:int=100, num_pulses:int=3, save_results:bool=True) -> LearnedResults:
 
     # Check inputs:
     for state in [initial_state, target_state]:
@@ -128,12 +130,18 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
     prog_bar.close()
     
     # Pack learned-results:
-    return LearnedResults(
+    learned_results = LearnedResults(
         theta = optimal_theta,
         state = coherent_control.coherent_sequence(initial_state, optimal_theta),
         similarity = minimum.fun,
         time = finish_time-start_time
     )
+
+    if save_results:
+        saveload.save(learned_results, "learned_results "+strings.time_stamp())
+
+
+    return learned_results
     
 
 
@@ -184,80 +192,15 @@ def _deal_constraints(num_params:int) -> int:
 
     return constraints
 
-
-def _learn_pi_pulse(num_iter:int=4, N:int=2, plot_on:bool=False) -> LearnedResults :
-    coherent_control = CoherentControl(N)
-
-    # init:
-    params = Params(N=N)
-    rho_initial = init_state(params, CommonStates.Ground)
-    rho_target  = init_state(params, CommonStates.FullyExcited)
-
-    # Helper functions:
-    def _apply_pulse_on_initial_state(theta:np.array) -> np.matrix: 
-        x = theta[0]
-        y = theta[1]
-        z = theta[2]
-        return coherent_control.pulse_on_state(rho_initial, x, y, z)
-
-    def _derive_cost_function(theta:np.array) -> float :  
-        rho_final = _apply_pulse_on_initial_state(theta)
-        diff = np.linalg.norm(rho_final-rho_target)
-        cost = diff**2
-        return cost
-
-    def _find_optimum()->OptimizeResult:
-        initial_point = np.array([0.0]*3)
-        options = dict(
-            maxiter = num_iter
-        )            
-        # Run optimization:
-        start_time = time.time()
-        minimum = minimize(_derive_cost_function, initial_point, method=OPT_METHOD, options=options)
-        finish_time = time.time()
-
-        # Unpack results:
-        run_time = finish_time-start_time
-        print(f"run_time={run_time} [sec]")
-        return minimum
-
-    # Minimize:
-    opt = _find_optimum()
-
-    # Unpack results:    
-    theta = opt.x
-    assert len(theta)==3
-
-    rho_final = _apply_pulse_on_initial_state(theta)
-    np_utils.print_mat(rho_final)
-
-    # visualizing light:
-    if plot_on:
-        title = f"MAX_ITER={num_iter} \n{theta} "
-        plot_city(rho_final, title=title)
-
-    # Pack results:
-    res = LearnedResults(theta=theta, state=rho_final)
-    return res
-
-
-
-
 # ==================================================================================== #
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
-
-def _test_learn_pi_pulse():
-    for num_iter in [1, 2, 5, 10, 20]:
-        res = _learn_pi_pulse(num_iter=num_iter, plot_on=True)
-        visuals.save_figure(file_name=f"learn_pi_pulse num_iter {num_iter}")
-
-def _test_learn_state(num_moments:int=4, max_iter:int=100, num_pulses:int=1, plot_on:bool=False):
+def _test_learn_state(num_moments:int=4, max_iter:int=100, num_pulses:int=1, plot_on:bool=False, video_on:bool=False):
 
     assertions.even(num_moments)
     initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0.0, output='density_matrix', type_='normal')
-    target_state = Fock.create_coherent_state(num_moments=num_moments, alpha=1.0, output='density_matrix', type_='normal')
+    target_state = Fock.create_coherent_state(num_moments=num_moments, alpha=1.0, output='density_matrix', type_='even_cat')
 
     if plot_on:
         visuals.plot_city(initial_state)
@@ -281,7 +224,5 @@ def _test_learn_state(num_moments:int=4, max_iter:int=100, num_pulses:int=1, plo
 
 
 if __name__ == "__main__":
-    # _test_learn_pi_pulse_only_x()
-    # _test_learn_pi_pulse()
-    _test_learn_state(num_pulses=3, max_iter=1000)
+    _test_learn_state(num_pulses=3, max_iter=10, video_on=True)
     print("Done.")
