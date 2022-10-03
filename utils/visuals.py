@@ -1,15 +1,16 @@
-
 # ==================================================================================== #
 # |                                 Imports                                          | #
 # ==================================================================================== #
 
 # For plotting:
+from symbol import argument
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure as FigureType
 from matplotlib.cm import ScalarMappable
 from qutip.matplotlib_utilities import complex_phase_cmap
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.axes import Axes
 
 # For defining print std_out or other:
 import sys
@@ -19,10 +20,18 @@ import numpy as np
 
 # For type hints:
 from typing import (
+    Any,
     Optional,
     Union,
+    Generator,
 )
-from matplotlib.axes import Axes
+
+# Import our tools and utils:
+from utils import (
+    strings,
+    args,
+    saveload,
+)
 
 # For function version detection:
 from packaging.version import parse as parse_version
@@ -31,17 +40,18 @@ from packaging.version import parse as parse_version
 from pathlib import Path
 import os
 
-# For plotting:
-import matplotlib.pyplot as plt
+# For videos:
+from moviepy.editor import ImageClip, concatenate_videoclips
 
-# Import our tools and utils:
-from utils import (
-    strings,
-)
 
 
 # ==================================================================================== #
-# |                             Inner Functions                                      | #
+#|                                 Constants                                          |#
+# ==================================================================================== #
+VIDEOS_FOLDER = os.getcwd()+os.sep+"videos"+os.sep
+
+# ==================================================================================== #
+#|                              Inner Functions                                       |#
 # ==================================================================================== #
 
 if parse_version(mpl.__version__) >= parse_version('3.4'):
@@ -53,10 +63,18 @@ else:
         return Axes3D(*args, **kwargs)
 
 
+
 # ==================================================================================== #
-# |                            Declared Functions                                    | #
+#|                             Declared Functions                                     |#
 # ==================================================================================== #
 
+def new_axis(is_3d:bool=False):
+    fig = plt.figure()
+    if is_3d:
+        axis : Axes3D = _axes3D(fig, azim=-35, elev=35)
+    else:
+        axis : Axes = plt.axes(fig)
+    return axis
 
 def save_figure(fig:Optional[FigureType]=None, file_name:Optional[str]=None ) -> None:
     # Figure:
@@ -109,6 +127,8 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
     if ax is None:
         fig = plt.figure()
         ax = _axes3D(fig, azim=-35, elev=35)
+    else:
+        fig = ax.figure
 
     ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors)
 
@@ -162,9 +182,65 @@ def plot_superradiance_evolution(times, energies, intensities):
     plt.show()
 
 
+# ==================================================================================== #
+#|                                     Classes                                        |#
+# ==================================================================================== #
+
+class VideoRecorder():
+    def __init__(self, fps:float=10.0, is_3d:bool=False) -> None:
+        self.fps = fps
+        self.axis : Union[Axes, Axes3D] = new_axis(is_3d)
+        self.frames_dir : str = self._reset_temp_folders_dir()
+        self.frames_counter : int = 0
+
+    def capture(self, ax:Optional[Axes]=None)->None:
+        # Prepare data
+        ax = args.default_value(ax, self.axis)
+        fullpath = self.crnt_frame_path
+        # set current axis:
+        plt.sca(ax)
+        # Capture:
+        plt.savefig(fullpath)
+        # Update:
+        self.frames_counter += 1
+
+    def save(self, name:Optional[str]=None)->None:
+        # Complete missing inputs:
+        name = args.default_value(name, strings.time_stamp() )        
+        # Derive basic params:
+        duration = 1/self.fps
+        # Compose video-slides
+        video_slides = concatenate_videoclips(
+            [ ImageClip(img_path+".png", duration=duration) for img_path in self.image_paths() ]    , 
+            method='compose'
+        )
+        # exporting final video
+        saveload.make_sure_folder_exists(VIDEOS_FOLDER)
+        fullpath = VIDEOS_FOLDER+name+".mp4"
+        video_slides.write_videofile(fullpath, fps=self.fps)
+
+    @property
+    def crnt_frame_path(self) -> str:         
+        return self._get_frame_path(self.frames_counter)
+
+    def image_paths(self) -> Generator[str, None, None] :
+        for i in range(self.frames_counter):
+            yield self._get_frame_path(i)
+
+    def _get_frame_path(self, index:int) -> str:
+        return self.frames_dir+"frame"+f"{index}"
+
+    @staticmethod
+    def _reset_temp_folders_dir()->str:
+        frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep
+        saveload.make_sure_folder_exists(frames_dir)
+        return frames_dir
+
+
+
 class ProgressBar():
 
-    def __init__(self, expected_end:int, print_prefix:str="", print_length:int=60, print_out=sys.stdout): # Python3.6+
+    def __init__(self, expected_end:int, print_prefix:str="", print_length:int=60, print_out=sys.stdout): 
         self.expected_end = expected_end
         self.print_prefix = print_prefix
         self.print_length = print_length
@@ -188,7 +264,6 @@ class ProgressBar():
         return self.counter
 
     def close(self):
-        # print("", flush=True, file=self.print_out)
         full_bar_length = self.print_length+len(self.print_prefix)+4+len(str(self.expected_end))*2
         print(
             f"{(' '*(full_bar_length))}", 

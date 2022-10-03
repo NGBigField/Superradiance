@@ -11,6 +11,7 @@ from scipy.linalg import expm
 # For typing hints:
 from typing import (
     Any,
+    Callable,
     Literal,
     Tuple,
     Optional,
@@ -33,6 +34,7 @@ import time
 
 # For visualizations:
 import matplotlib.pyplot as plt  # for plotting test results:
+from matplotlib.axes import Axes  # for type hinting:
 
 # For OOP:
 from dataclasses import dataclass
@@ -177,6 +179,31 @@ def _deal_params(theta: Union[List[float], np.ndarray]) -> List[_PulseSequencePa
     # end:
     return result
         
+def _add_state_to_video(
+    rho:np.matrix, 
+    video_recorder:Union[visuals.VideoRecorder, None], 
+    title:str, 
+    similarity: Union[float, Callable[[np.matrix], float], None] = None,
+) -> None:
+    # Check inputs:
+    if video_recorder is None:
+        return  # We don't want to record a video
+
+    # Plot city:
+    visuals.plot_city(rho, title=title, ax=video_recorder.axis)
+
+    # Add similarity string:
+    if isinstance(similarity, float):
+        raise NotImplementedError(" ")
+    elif isinstance(similarity, Callable):
+        raise NotImplementedError(" ")
+    elif similarity is None:
+        pass 
+    else:
+        raise TypeError("Not a supported type for `similarity`.")
+
+    # Save instance:
+    video_recorder.capture()
 
 
 # ==================================================================================== #
@@ -347,7 +374,8 @@ class CoherentControl():
     def coherent_sequence(
         self, 
         state:np.matrix, 
-        theta: Union[ List[float], np.ndarray ]
+        theta: Union[ List[float], np.ndarray ],
+        record_video : bool = False
     ) -> np.matrix :
         """coherent_sequence Apply sequence of coherent pulses separated by state decay.
 
@@ -359,6 +387,7 @@ class CoherentControl():
         Args:
             state (np.matrix): initial density-matrix
             theta (List[float]): parameters.
+            record_video bool
 
         Returns:
             np.matrix: final density-matrix
@@ -367,6 +396,13 @@ class CoherentControl():
         assertions.density_matrix(state, robust_check=True)
         params = _deal_params(theta)
         crnt_state = deepcopy(state)
+
+        # For sequence recording:
+        if record_video: 
+            video_recorder = visuals.VideoRecorder(fps=2, is_3d=True)
+        else: 
+            video_recorder = None
+        _add_state_to_video(crnt_state, video_recorder, f"Initial", similarity=None)
 
         # iterate:
         for pulse_params in params:
@@ -378,9 +414,14 @@ class CoherentControl():
             # Apply pulse and delay:
             if x != 0 or y != 0 or z != 0:
                 crnt_state = self.pulse_on_state(state=crnt_state, x=x, y=y, z=z)
+                _add_state_to_video(crnt_state, video_recorder, f"[x, y, z]  = [{x}, {y}, {z}]", similarity=None)
             if pause != 0:
                 crnt_state = self.state_decay(state=crnt_state, time=pause)
+                _add_state_to_video(crnt_state, video_recorder, f"decay-time = {pause}", similarity=None)
         
+        if record_video:
+            video_recorder.save()
+
         # End:
         return crnt_state
         
@@ -551,6 +592,17 @@ def _test_complex_state(max_state_num:int=2):
     plt.show()
     print("Plotted.")
 
+def _test_record_sequence():
+    num_moments:int=2
+    num_pulses:int=3
+    # init params:
+    num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
+    theta = np.random.random((num_params,1)).tolist()
+    initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
+    # Apply sequence:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_video=True)
+
 
 if __name__ == "__main__":    
 
@@ -558,9 +610,10 @@ if __name__ == "__main__":
     # _test_M_of_m()
     # _test_s_mats()
     # _test_pi_pulse(N=4, MAX_ITER=10)
-    _test_decay(initial_pulse_xyz=[0.1, 0.8, -0.3])
+    # _test_decay(initial_pulse_xyz=[0.1, 0.8, -0.3])
     # _test_coherent_sequence()
     # _test_complex_state()
+    _test_record_sequence()
     print("Done.")
 
     

@@ -272,26 +272,29 @@ def plot_spectrum(omega, N, photon_number, domega):
 
 def visualize_light_from_atomic_density_matrix(
     rho : np.matrix, 
-    N : int, 
-    num_moments : Optional[int] = None
+    num_atmos : int,
+    gamma : float = 0.03,
+    delta_t : Optional[float] = None,
 ) -> None :
 
-    if num_moments is None:
-        num_moments = N + 1
-    
-    GAMMA = 0.03
+    # Constants and params:
+    num_moments = num_atmos + 1    
     OMEGA_0 = 1
     omega1 = 1
 
+    # Complete missing values:
+    if delta_t is None:
+        delta_t = 2 / gamma
+
     # g_w = superradiance_no_cavity.GAMMA ** 0.5 / (np.pi ** 0.5)
-    g_w = GAMMA ** 0.5 / (np.pi ** 0.5)
+    g_w = gamma ** 0.5 / (np.pi ** 0.5)
     c = 0.3
 
-    atomic = Atomic_state_on_bloch_sphere(N)
-    op = Operators(N)
+    atomic = Atomic_state_on_bloch_sphere(num_atmos)
+    op = Operators(num_atmos)
 
 
-    Splus_cumsum, Sx_t, Sy_t, Sz_t, rho_t, time = solve_sr_equations(op, N, rho, omega1)
+    Splus_cumsum, Sx_t, Sy_t, Sz_t, rho_t, time = solve_sr_equations(op, num_atmos, rho, omega1, gamma=gamma, delta_t=delta_t, num_times=NUM_TIMES)
     Splus_t = (Sx_t + 1j * Sy_t)
     Sminus_t = op.dagger_3d(Splus_t)
 
