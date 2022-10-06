@@ -19,6 +19,7 @@ from typing import (
     ClassVar,
     Final,
     Union,
+    Generator,
 )
 
 # import our helper modules
@@ -64,6 +65,8 @@ OPT_METHOD : Final = 'COBYLA'
 class _PulseSequenceParams():
     xyz : Tuple[float]
     pause : float
+
+_DensityMatrixType = np.matrix
 
 # ==================================================================================== #
 # |                               Inner Functions                                    | #
@@ -238,45 +241,88 @@ class SPulses():
 
 class CoherentControl():
 
-    class SequenceRecorder(visuals.VideoRecorder):
+    class SequenceMovieRecorder(visuals.VideoRecorder):
+        
+        _default_num_transition_frames : int = 10
+        _default_num_freeze_frames : int = 5
+        _default_fps : int = 5
+        
         def __init__(
             self, 
             is_active:bool, 
             score_string_function : Optional[Callable[[np.matrix], str]] = None,
+            num_transition_frames : int = _default_num_transition_frames,
+            num_freeze_frames : int = _default_num_freeze_frames,
+            fps : int = _default_fps
         ) -> None:
-            super().__init__(fps=10, is_3d=True)
-            self.num_transition_frames = 10
-            self.num_freeze_frames = 5
-            self.last_state : Union[np.matrix, None] = None
+            # Skip init if user asked not to keep movie:
+            if not is_active:
+                return
+            # Super init:
+            super().__init__(fps=fps, is_3d=True)
+            # given inputs:
+            self.is_active : bool = is_active
             self.score_string_function : Optional[Callable[[np.matrix], str]] = score_string_function
-        
+            self.num_transition_frames : int = num_transition_frames
+            self.num_freeze_frames : int = num_freeze_frames
+            # Initialized params:
+            self.last_state : Union[np.matrix, None] = None
+            
+        def _record_single_shot(
+            self,
+            state:_DensityMatrixType,
+            title:str,
+            duration:int,  # number of repetitions of the same frame:
+            similarity_str:Optional[str]=None,
+        ) -> None:
+            
+            self.axis.clear()
+            visuals.plot_city(state, title=title, ax=self.axis)
+            if similarity_str is not None:
+                raise NotImplementedError("Not yet implemented")
+            self.capture(duration=duration)
+            
+        def _transition_states(self, final_state:_DensityMatrixType) -> Generator[_DensityMatrixType, None, None]:
+            # Check requirements:
+            if self.last_state is None:  # Happens on first call to function
+                return
+                yield
+            assert self.num_transition_frames > 0
+            num_transitions = self.num_transition_frames
+            # Keep basic info:
+            first_state = self.last_state
+            # Assert props:
+            assert final_state.shape == first_state.shape
+            # Create transition:
+            diff_matrix = final_state - first_state
+            addition_step_matrix = diff_matrix * (1/num_transitions) 
+            for step in range(1, num_transitions+1):
+                transition_state = first_state + step*addition_step_matrix
+                yield transition_state
+            
         def record_state(
             self, 
             state:np.matrix, 
             title:str, 
-            similarity: Union[float, Callable[[np.matrix], float], None] = None,
         ) -> None:
             # Check inputs:
-            if self is None:
+            if not self.is_active:
                 return  # We don't want to record a video
 
             # Add similarity string:
-            if isinstance(similarity, float):
-                raise NotImplementedError(" ")
-            elif isinstance(similarity, Callable):
-                raise NotImplementedError(" ")
-            elif similarity is None:
-                pass 
+            if self.score_string_function is None:
+                similarity_str = None
             else:
-                raise TypeError("Not a supported type for `similarity`.")
-            
-            # Plot city:
-            self.axis.clear()
-            visuals.plot_city(state, title=title, ax=self.axis)
-
-
-            # Save instance:
-            self.capture()
+                similarity_str = self.score_string_function(state)
+                
+            # Capture shots: (transition and freezed state)
+            if self.num_transition_frames > 0 :
+                for transition_state in self._transition_states(final_state=state):
+                    self._record_single_shot(transition_state, title, duration=1 )
+            self._record_single_shot(state, title, duration=self.num_freeze_frames, similarity_str=similarity_str)
+                    
+            # Keep info for next call:
+            self.last_state = deepcopy(state)
 
         
 
@@ -414,8 +460,9 @@ class CoherentControl():
         crnt_state = deepcopy(state)
 
         # For sequence recording:
-        sequence_recorder = self.SequenceRecorder(is_active=record_video)
-        sequence_recorder.record_state(crnt_state, sequence_recorder, f"Initial", similarity=None)
+        sequence_recorder = self.SequenceMovieRecorder(is_active=record_video)
+        sequence_recorder.record_state(crnt_state, f"Initial")
+        fill, align, width, precision = ' ', '>', 7, 5
 
         # iterate:
         for pulse_params in params:
@@ -427,10 +474,10 @@ class CoherentControl():
             # Apply pulse and delay:
             if x != 0 or y != 0 or z != 0:
                 crnt_state = self.pulse_on_state(state=crnt_state, x=x, y=y, z=z)
-                _add_state_to_video(crnt_state, sequence_recorder, f"[x, y, z]  = [{x}, {y}, {z}]", similarity=None)
+                sequence_recorder.record_state(crnt_state, f"Pulse = [{x:.5}, {y:.5}, {z:.5}]")
             if pause != 0:
                 crnt_state = self.state_decay(state=crnt_state, time=pause)
-                _add_state_to_video(crnt_state, sequence_recorder, f"decay-time = {pause}", similarity=None)
+                sequence_recorder.record_state(crnt_state, f"decay-time = {pause:.5}")
         
         if record_video:
             sequence_recorder.save()

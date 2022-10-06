@@ -7,6 +7,7 @@ from symbol import argument
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure as FigureType
+from matplotlib import cm
 from matplotlib.cm import ScalarMappable
 from qutip.matplotlib_utilities import complex_phase_cmap
 from mpl_toolkits.mplot3d import Axes3D
@@ -15,8 +16,9 @@ from matplotlib.axes import Axes
 # For defining print std_out or other:
 import sys
 
-# Everyone needs numpy in their life:
+# Everyone needs numpy in their life and other math stuff:
 import numpy as np
+import math
 
 # For type hints:
 from typing import (
@@ -24,6 +26,7 @@ from typing import (
     Optional,
     Union,
     Generator,
+    List,
 )
 
 # Import our tools and utils:
@@ -31,6 +34,7 @@ from utils import (
     strings,
     args,
     saveload,
+    assertions,
 )
 
 # For function version detection:
@@ -42,6 +46,10 @@ import os
 
 # For videos:
 from moviepy.editor import ImageClip, concatenate_videoclips
+
+# For wigner function on bloch sphere:
+from sympy.physics.wigner import wigner_3j
+from scipy.special import sph_harm
 
 
 
@@ -93,6 +101,59 @@ def save_figure(fig:Optional[FigureType]=None, file_name:Optional[str]=None ) ->
     # Save:
     fig.savefig(fullpath_str)
     return 
+
+def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None) -> None:
+    # Basic data:
+    num_atoms = rho.shape[0]
+    phi = np.linspace(0, 2 * np.pi, 2 * num_points)
+    theta = np.linspace(0, np.pi, num_points)
+    theta, phi = np.meshgrid(theta, phi)
+    X = np.sin(theta) * np.cos(phi)
+    Y = np.sin(theta) * np.sin(phi)
+    Z = np.cos(theta)
+    W = np.zeros(np.shape(phi))
+    j = num_atoms / 2
+
+    # Basic functions:
+    floor = math.floor
+    
+    # Iterate:
+    for k in np.linspace(0, 2 * j, floor(2 * j + 1)):
+        for q in np.linspace(-k, k, floor(2 * k + 1)):
+
+            if q >= 0:
+                Ykq = sph_harm(q, k, phi, theta)
+            else:
+                Ykq = sph_harm(-q, k, phi, theta)
+            Gkq = 0
+            for m1 in np.linspace(-j, j, floor(2 * j + 1)):
+                for m2 in np.linspace(-j, j, floor(2 * j + 1)):
+                    if -m1 + m2 + q == 0:
+                        tracem1m2 = rho[floor(m1 + j), floor(m2 + j)]
+                        Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * np.conj(
+                            np.complex(wigner_3j(j, k, j, -m1, q, m2)))
+            W = W + Ykq * Gkq;
+
+    if np.max(abs(np.imag(W))) > 1e-3:
+        print('The wigner function has non negligible imaginary part ', str(np.max(abs(np.imag(W)))))
+    W = np.real(W)
+
+    fmax, fmin = W.max(), W.min()
+
+    fcolors = W / np.max(np.abs(W))
+    # Set the aspect ratio to 1 so our sphere looks spherical
+    fig = plt.figure(figsize=(10,6))
+    ax = fig.add_subplot(121, projection='3d')
+    a = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.bwr(fcolors / 2 + 0.5))
+    m = cm.ScalarMappable(cmap=cm.bwr)
+    m.set_array(fcolors)
+    h = plt.colorbar(m,shrink=0.5)
+
+    h.set_label('$W(\\theta,\phi)$', fontsize=16)
+    m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
+    # Turn off the axis planes
+    ax.set_axis_off()
+    return fig
 
 def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=None):
     # Check input type:
@@ -191,9 +252,14 @@ class VideoRecorder():
         self.fps = fps
         self.axis : Union[Axes, Axes3D] = new_axis(is_3d)
         self.frames_dir : str = self._reset_temp_folders_dir()
+        self.frames_duration : List[int] = []
         self.frames_counter : int = 0
 
-    def capture(self, ax:Optional[Axes]=None)->None:
+    def capture(self, ax:Optional[Axes]=None, duration:Optional[int]=None)->None:
+        # Complete missing inputs:
+        duration = args.default_value(duration, 1)
+        # Check inputs:
+        assertions.integer(duration, reason=f"duration must be an integer")
         # Prepare data
         ax = args.default_value(ax, self.axis)
         fullpath = self.crnt_frame_path
@@ -203,15 +269,17 @@ class VideoRecorder():
         plt.savefig(fullpath)
         # Update:
         self.frames_counter += 1
+        self.frames_duration.append(duration)
 
     def save(self, name:Optional[str]=None)->None:
         # Complete missing inputs:
         name = args.default_value(name, strings.time_stamp() )        
         # Derive basic params:
-        duration = 1/self.fps
+        base_duration = 1/self.fps
         # Compose video-slides
         video_slides = concatenate_videoclips(
-            [ ImageClip(img_path+".png", duration=duration) for img_path in self.image_paths() ]    , 
+            [ ImageClip(img_path+".png", duration=base_duration*frame_duration) 
+             for img_path, frame_duration in zip(self.image_paths(), self.frames_duration) ] , 
             method='compose'
         )
         # exporting final video
