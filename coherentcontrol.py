@@ -179,32 +179,6 @@ def _deal_params(theta: Union[List[float], np.ndarray]) -> List[_PulseSequencePa
     # end:
     return result
         
-def _add_state_to_video(
-    rho:np.matrix, 
-    video_recorder:Union[visuals.VideoRecorder, None], 
-    title:str, 
-    similarity: Union[float, Callable[[np.matrix], float], None] = None,
-) -> None:
-    # Check inputs:
-    if video_recorder is None:
-        return  # We don't want to record a video
-
-    # Plot city:
-    visuals.plot_city(rho, title=title, ax=video_recorder.axis)
-
-    # Add similarity string:
-    if isinstance(similarity, float):
-        raise NotImplementedError(" ")
-    elif isinstance(similarity, Callable):
-        raise NotImplementedError(" ")
-    elif similarity is None:
-        pass 
-    else:
-        raise TypeError("Not a supported type for `similarity`.")
-
-    # Save instance:
-    video_recorder.capture()
-
 
 # ==================================================================================== #
 # |                            Declared Functions                                    | #
@@ -263,6 +237,48 @@ class SPulses():
 
 
 class CoherentControl():
+
+    class SequenceRecorder(visuals.VideoRecorder):
+        def __init__(
+            self, 
+            is_active:bool, 
+            score_string_function : Optional[Callable[[np.matrix], str]] = None,
+        ) -> None:
+            super().__init__(fps=10, is_3d=True)
+            self.num_transition_frames = 10
+            self.num_freeze_frames = 5
+            self.last_state : Union[np.matrix, None] = None
+            self.score_string_function : Optional[Callable[[np.matrix], str]] = score_string_function
+        
+        def record_state(
+            self, 
+            state:np.matrix, 
+            title:str, 
+            similarity: Union[float, Callable[[np.matrix], float], None] = None,
+        ) -> None:
+            # Check inputs:
+            if self is None:
+                return  # We don't want to record a video
+
+            # Add similarity string:
+            if isinstance(similarity, float):
+                raise NotImplementedError(" ")
+            elif isinstance(similarity, Callable):
+                raise NotImplementedError(" ")
+            elif similarity is None:
+                pass 
+            else:
+                raise TypeError("Not a supported type for `similarity`.")
+            
+            # Plot city:
+            self.axis.clear()
+            visuals.plot_city(state, title=title, ax=self.axis)
+
+
+            # Save instance:
+            self.capture()
+
+        
 
     # Class Attributes:
     _default_state_decay_resolution : ClassVar[int] = 1000
@@ -398,11 +414,8 @@ class CoherentControl():
         crnt_state = deepcopy(state)
 
         # For sequence recording:
-        if record_video: 
-            video_recorder = visuals.VideoRecorder(fps=2, is_3d=True)
-        else: 
-            video_recorder = None
-        _add_state_to_video(crnt_state, video_recorder, f"Initial", similarity=None)
+        sequence_recorder = self.SequenceRecorder(is_active=record_video)
+        sequence_recorder.record_state(crnt_state, sequence_recorder, f"Initial", similarity=None)
 
         # iterate:
         for pulse_params in params:
@@ -414,13 +427,13 @@ class CoherentControl():
             # Apply pulse and delay:
             if x != 0 or y != 0 or z != 0:
                 crnt_state = self.pulse_on_state(state=crnt_state, x=x, y=y, z=z)
-                _add_state_to_video(crnt_state, video_recorder, f"[x, y, z]  = [{x}, {y}, {z}]", similarity=None)
+                _add_state_to_video(crnt_state, sequence_recorder, f"[x, y, z]  = [{x}, {y}, {z}]", similarity=None)
             if pause != 0:
                 crnt_state = self.state_decay(state=crnt_state, time=pause)
-                _add_state_to_video(crnt_state, video_recorder, f"decay-time = {pause}", similarity=None)
+                _add_state_to_video(crnt_state, sequence_recorder, f"decay-time = {pause}", similarity=None)
         
         if record_video:
-            video_recorder.save()
+            sequence_recorder.save()
 
         # End:
         return crnt_state
@@ -597,7 +610,7 @@ def _test_record_sequence():
     num_pulses:int=3
     # init params:
     num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
-    theta = np.random.random((num_params,1)).tolist()
+    theta = np.random.random((num_params)).tolist()
     initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
     # Apply sequence:
     coherent_control = CoherentControl(num_moments=num_moments)
