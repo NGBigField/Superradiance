@@ -461,8 +461,7 @@ class CoherentControl():
 
         # For sequence recording:
         sequence_recorder = self.SequenceMovieRecorder(is_active=record_video)
-        sequence_recorder.record_state(crnt_state, f"Initial")
-        fill, align, width, precision = ' ', '>', 7, 5
+        sequence_recorder.record_state(crnt_state, f"Initial-State")
 
         # iterate:
         for pulse_params in params:
@@ -477,10 +476,10 @@ class CoherentControl():
                 sequence_recorder.record_state(crnt_state, f"Pulse = [{x:.5}, {y:.5}, {z:.5}]")
             if pause != 0:
                 crnt_state = self.state_decay(state=crnt_state, time=pause)
-                sequence_recorder.record_state(crnt_state, f"decay-time = {pause:.5}")
+                sequence_recorder.record_state(crnt_state, f"Decay-Time = {pause:.5}")
         
         if record_video:
-            sequence_recorder.save()
+            sequence_recorder.write_video()
 
         # End:
         return crnt_state

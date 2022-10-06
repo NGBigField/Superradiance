@@ -271,7 +271,7 @@ class VideoRecorder():
         self.frames_counter += 1
         self.frames_duration.append(duration)
 
-    def save(self, name:Optional[str]=None)->None:
+    def write_video(self, name:Optional[str]=None)->None:
         # Complete missing inputs:
         name = args.default_value(name, strings.time_stamp() )        
         # Derive basic params:
