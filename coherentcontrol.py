@@ -659,6 +659,8 @@ def _test_record_sequence():
     theta = np.random.random((num_params)).tolist()
     initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
     # Apply sequence:
+    visuals.plot_wigner_bloch_sphere(initial_state, num_points=100)
+    # plot bloch sphere:
     coherent_control = CoherentControl(num_moments=num_moments)
     final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_video=True)
 

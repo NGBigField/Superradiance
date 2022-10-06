@@ -11,6 +11,11 @@ from typing import (
     overload,
 )
 
+# For relative import when needed:
+import sys, pathlib
+sys.path.append(f"{pathlib.Path(__file__).parent.parent}")
+
+# Import our tools from another directory:
 from utils import (
     assertions,
     errors,
@@ -19,7 +24,6 @@ from utils import (
     args,
 )
 
-from utils.errors import QuantumTheoryError
 
 from dataclasses import dataclass, field
 
@@ -395,6 +399,11 @@ def _test_coherent_state(max_fock_num:int=4):
 
     print("Plotted.")
 
+def _test_simple_fock_density_matrix():
+    rho = Fock.create_coherent_state(num_moments=2, alpha=0, output='density_matrix')
+    print(rho)
+
 if __name__ == "__main__":
-    _test_coherent_state()
+    # _test_coherent_state()
+    _test_simple_fock_density_matrix()
     print("Done.")
