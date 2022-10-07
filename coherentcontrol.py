@@ -669,6 +669,15 @@ def _test_record_pi_pulse():
     final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_video=True)
     print("Movie is ready in folder 'video' ")
     
+def _test_special_state():
+    # Define params:
+    num_moments:int=4   
+    theta = [np.pi/2, 0, 0]
+    # init state:
+    initial_state = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
+    # plot bloch sphere:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_video=True)
 
 if __name__ == "__main__":    
 
@@ -680,7 +689,8 @@ if __name__ == "__main__":
     # _test_coherent_sequence()
     # _test_complex_state()
     # _test_record_sequence()
-    _test_record_pi_pulse()
+    # _test_record_pi_pulse()
+    _test_special_state()
     print("Done.")
 
     
