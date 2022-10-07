@@ -260,29 +260,25 @@ def _test_learn_pi_pulse(num_moments:int=4, max_iter:int=1000) -> float:
     results = learn_pulse(initial_state, target_state, max_iter=max_iter, x=True)
     print(results)
 
-def _test_learn_state(num_moments:int=4, max_iter:int=1000, num_pulses:int=5, plot_on:bool=False, video_on:bool=True):
+
+
+
+def main(num_moments:int=4, max_iter:int=1000, num_pulses:int=5, plot_on:bool=False, video_on:bool=True):
 
     assertions.even(num_moments)
-    initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0.0, output='density_matrix', type_='normal')    
+    initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
     target_state = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
 
     if plot_on:
         visuals.plot_city(initial_state)
         visuals.plot_city(target_state)
 
-    # np_utils.print_mat(rho_initial)
-    # np_utils.print_mat(rho_target)
-
     results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses)
     print(f"==========================")
     print(f"num_pulses = {num_pulses}")
     print(f"run_time = {timedelta(seconds=results.time)} [hh:mm:ss]")
     print(f"similarity = {results.similarity}")
-    # print(f"theta = {results.theta}")
 
-    if plot_on:
-        visuals.plot_city(results.state)
-        visualize_light_from_atomic_density_matrix(results.state, num_moments)
           
     coherent_control = CoherentControl(num_moments=num_moments)
     final_state = coherent_control.coherent_sequence(initial_state, theta=results.theta, record_video=video_on)
@@ -292,6 +288,6 @@ def _test_learn_state(num_moments:int=4, max_iter:int=1000, num_pulses:int=5, pl
 
 
 if __name__ == "__main__":
-    _test_learn_pi_pulse(num_moments=4)
-    # _test_learn_state(num_pulses=5, max_iter=10000, video_on=True)
+    # _test_learn_pi_pulse(num_moments=4)
+    main(num_pulses=15, max_iter=100000, video_on=True)
     print("Done.")
