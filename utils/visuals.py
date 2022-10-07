@@ -313,7 +313,7 @@ class MatterStatePlot():
         return fig, ax_bloch, ax_color, ax_block
 
 class VideoRecorder():
-    def __init__(self, fps:float=10.0, is_3d:bool=False) -> None:
+    def __init__(self, fps:float=10.0) -> None:
         self.fps = fps
         self.frames_dir : str = self._reset_temp_folders_dir()
         self.frames_duration : List[int] = []

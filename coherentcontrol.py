@@ -20,6 +20,7 @@ from typing import (
     Final,
     Union,
     Generator,
+    overload,
 )
 
 # import our helper modules
@@ -254,7 +255,7 @@ class SequenceMovieRecorder():
         # Base properties:        
         self.is_active : bool = is_active
         self.config : SequenceMovieRecorder.Config = args.default_value(config, SequenceMovieRecorder.Config() )
-        self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps, is_3d=True)
+        self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps)
         if is_active:
             self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(block_sphere_resolution=self.config.bloch_sphere_resolution)            
         else:
@@ -400,11 +401,26 @@ class CoherentControl():
     # ==================================================== #
     #|                 declared functions                 |#
     # ==================================================== #
-
-    def pulse_on_state(self, state:np.matrix, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix :
+    def pulse_on_state(self, state:np.matrix, x:float=0.0, y:float=0.0, z:float=0.0) -> _DensityMatrixType: 
         p = self._pulse(x,y,z)
         final_state = p * state * p.getH()
         return final_state
+
+    def pulse_on_state_in_steps(self, state:np.matrix, num_steps:int, x:float=0.0, y:float=0.0, z:float=0.0) -> List[_DensityMatrixType]: 
+        num_steps = assertions.integer(num_steps)
+        frac_x = x / num_steps
+        frac_y = y / num_steps
+        frac_z = z / num_steps
+        p = self._pulse(frac_x, frac_y, frac_z)
+        pH = p.getH()
+        states : List[_DensityMatrixType] = []
+        crnt_state = deepcopy(state)
+        states.append(crnt_state)   # initial state
+        for step in range(1, num_steps+1):            
+            crnt_state = p * crnt_state * pH
+            states.append(crnt_state)
+        return states
+        
     
     def state_decay(
         self, 
@@ -679,6 +695,29 @@ def _test_special_state():
     coherent_control = CoherentControl(num_moments=num_moments)
     final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_video=True)
 
+def _test_pulse_in_steps():
+    # Define params:
+    num_moments:int=4   
+    num_steps:int=20
+    # Init state:
+    initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
+    # Apply pulse:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    final_state = coherent_control.pulse_on_state(state=initial_state, x=np.pi)
+    all_states = coherent_control.pulse_on_state_in_steps(state=initial_state, num_steps=num_steps, x=np.pi )
+    np_utils.print_mat(final_state-all_states[-1])
+    np_utils.print_mat(all_states[0])
+    np_utils.print_mat(all_states[-1])
+    # Movie:
+    video_recorder = visuals.VideoRecorder(fps=3)
+    state_plot = visuals.MatterStatePlot(block_sphere_resolution=10)
+    plt.show(block=False)
+    for state in all_states:
+        state_plot.update(state)
+        video_recorder.capture(state_plot.figure)
+    video_recorder.capture(state_plot.figure, duration=2)
+    video_recorder.write_video()
+
 if __name__ == "__main__":    
 
     np_utils.fix_print_length()
@@ -690,7 +729,8 @@ if __name__ == "__main__":
     # _test_complex_state()
     # _test_record_sequence()
     # _test_record_pi_pulse()
-    _test_special_state()
+    # _test_special_state()
+    _test_pulse_in_steps()
     print("Done.")
 
     
