@@ -234,97 +234,85 @@ class SPulses():
             res += f"{name}:\n"
             res += np_utils.mat_str(mat)+"\n"
         return res
+
+class SequenceMovieRecorder():
     
-
-
-
-
-class CoherentControl():
-
-    class SequenceMovieRecorder(visuals.VideoRecorder):
+    @dataclass
+    class Config():
+        num_transition_frames : int = 10
+        num_freeze_frames : int = 5
+        fps : int = 5
+        bloch_sphere_resolution : int = 100    
+    
+    def __init__(
+        self, 
+        is_active : bool, 
+        score_string_function : Optional[Callable[[np.matrix], str]] = None,
+        config : Optional[Config] = None,
+    ) -> None:
+        # Base properties:        
+        self.is_active : bool = is_active
+        self.config : SequenceMovieRecorder.Config = args.default_value(config, SequenceMovieRecorder.Config() )
+        self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps, is_3d=True)
+        self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(block_sphere_resolution=self.config.bloch_sphere_resolution)
+        self.score_string_function : Optional[Callable[[np.matrix], str]] = score_string_function
+        # Initialized Tracking params:
+        self.last_state : Union[np.matrix, None] = None
         
-        _default_num_transition_frames : int = 10
-        _default_num_freeze_frames : int = 5
-        _default_fps : int = 5
+    def _record_single_shot(
+        self,
+        state : _DensityMatrixType,
+        title : str,
+        duration : int,  # number of repetitions of the same frame:
+        similarity_str : Optional[str] = None,
+    ) -> None:
+        self.figure_object.update(state)
+        self.video_recorder.capture(fig=self.figure_object.figure, duration=duration)
         
-        def __init__(
-            self, 
-            is_active:bool, 
-            score_string_function : Optional[Callable[[np.matrix], str]] = None,
-            num_transition_frames : int = _default_num_transition_frames,
-            num_freeze_frames : int = _default_num_freeze_frames,
-            fps : int = _default_fps
-        ) -> None:
-            # Skip init if user asked not to keep movie:
-            if not is_active:
-                return
-            # Super init:
-            super().__init__(fps=fps, is_3d=True)
-            # given inputs:
-            self.is_active : bool = is_active
-            self.score_string_function : Optional[Callable[[np.matrix], str]] = score_string_function
-            self.num_transition_frames : int = num_transition_frames
-            self.num_freeze_frames : int = num_freeze_frames
-            # Initialized params:
-            self.last_state : Union[np.matrix, None] = None
-            
-        def _record_single_shot(
-            self,
-            state:_DensityMatrixType,
-            title:str,
-            duration:int,  # number of repetitions of the same frame:
-            similarity_str:Optional[str]=None,
-        ) -> None:
-            
-            self.axis.clear()
-            visuals.plot_city(state, title=title, ax=self.axis)
-            if similarity_str is not None:
-                raise NotImplementedError("Not yet implemented")
-            self.capture(duration=duration)
-            
-        def _transition_states(self, final_state:_DensityMatrixType) -> Generator[_DensityMatrixType, None, None]:
-            # Check requirements:
-            if self.last_state is None:  # Happens on first call to function
-                return
-                yield
-            assert self.num_transition_frames > 0
-            num_transitions = self.num_transition_frames
-            # Keep basic info:
-            first_state = self.last_state
-            # Assert props:
-            assert final_state.shape == first_state.shape
-            # Create transition:
-            diff_matrix = final_state - first_state
-            addition_step_matrix = diff_matrix * (1/num_transitions) 
-            for step in range(1, num_transitions+1):
-                transition_state = first_state + step*addition_step_matrix
-                yield transition_state
-            
-        def record_state(
-            self, 
-            state:np.matrix, 
-            title:str, 
-        ) -> None:
-            # Check inputs:
-            if not self.is_active:
-                return  # We don't want to record a video
-
-            # Add similarity string:
-            if self.score_string_function is None:
-                similarity_str = None
-            else:
-                similarity_str = self.score_string_function(state)
-                
-            # Capture shots: (transition and freezed state)
-            if self.num_transition_frames > 0 :
-                for transition_state in self._transition_states(final_state=state):
-                    self._record_single_shot(transition_state, title, duration=1 )
-            self._record_single_shot(state, title, duration=self.num_freeze_frames, similarity_str=similarity_str)
-                    
-            # Keep info for next call:
-            self.last_state = deepcopy(state)
-
+    def _transition_states(self, final_state:_DensityMatrixType) -> Generator[_DensityMatrixType, None, None]:
+        # Check requirements:
+        if self.last_state is None:  # Happens on first call to function
+            return
+        num_transitions = self.config.num_transition_frames
+        if num_transitions <= 0:
+            return
+        # Keep basic info:
+        first_state = self.last_state
+        # Assert props:
+        assert final_state.shape == first_state.shape
+        # Create transition:
+        diff_matrix = final_state - first_state
+        addition_step_matrix = diff_matrix * (1/num_transitions) 
+        for step in range(1, num_transitions+1):
+            transition_state = first_state + step*addition_step_matrix
+            yield transition_state
         
+    def record_state(
+        self, 
+        state:np.matrix, 
+        title:str, 
+    ) -> None:
+        # Check inputs:
+        if not self.is_active:
+            return  # We don't want to record a video
+        # Add similarity string:
+        if self.score_string_function is None:
+            similarity_str = None
+        else:
+            similarity_str = self.score_string_function(state)
+        # Capture shots: (transition and freezed state)
+        for transition_state in self._transition_states(final_state=state):
+            self._record_single_shot(transition_state, title, duration=1 )
+        self._record_single_shot(state, title, duration=self.config.num_freeze_frames, similarity_str=similarity_str)
+        # Keep info for next call:
+        self.last_state = deepcopy(state)
+        
+    def write_video(self) -> None:
+        if not self.is_active:
+            return
+        self.video_recorder.write_video()
+
+class CoherentControl():   
 
     # Class Attributes:
     _default_state_decay_resolution : ClassVar[int] = 1000
@@ -460,7 +448,7 @@ class CoherentControl():
         crnt_state = deepcopy(state)
 
         # For sequence recording:
-        sequence_recorder = self.SequenceMovieRecorder(is_active=record_video)
+        sequence_recorder = SequenceMovieRecorder(is_active=record_video, config=SequenceMovieRecorder.Config(bloch_sphere_resolution=10))
         sequence_recorder.record_state(crnt_state, f"Initial-State")
 
         # iterate:
@@ -478,8 +466,7 @@ class CoherentControl():
                 crnt_state = self.state_decay(state=crnt_state, time=pause)
                 sequence_recorder.record_state(crnt_state, f"Decay-Time = {pause:.5}")
         
-        if record_video:
-            sequence_recorder.write_video()
+        sequence_recorder.write_video()
 
         # End:
         return crnt_state
@@ -663,6 +650,7 @@ def _test_record_sequence():
     # plot bloch sphere:
     coherent_control = CoherentControl(num_moments=num_moments)
     final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_video=True)
+    print("Movie is ready in folder 'video' ")
 
 
 if __name__ == "__main__":    

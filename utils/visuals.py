@@ -13,6 +13,7 @@ from qutip.matplotlib_utilities import complex_phase_cmap
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.axes import Axes
 from matplotlib.transforms import Bbox
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # For defining print std_out or other:
 import sys
@@ -110,10 +111,13 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     fig.savefig(fullpath_str)
     return 
 
-def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None) -> None:
+def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None) -> None:
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
+    else:
+        fig = ax.figure
+        
     # Basic data:
     num_atoms = rho.shape[0] - 1
     phi = np.linspace(0, 2 * np.pi, 2 * num_points)
@@ -156,10 +160,16 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None) ->
     a = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.bwr(fcolors / 2 + 0.5))
     m = cm.ScalarMappable(cmap=cm.bwr)
     m.set_array(fcolors)
-    h = plt.colorbar(m,shrink=0.5,ax=ax)
+    m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
+    
+    
+    # Color bar:
+    if colorbar_ax is None:
+        colorbar = plt.colorbar(mappable=m, shrink=0.5, ax=ax)
+    else:
+        colorbar = plt.colorbar(m, ax=ax, cax=colorbar_ax, shrink=0.5)        
 
     ax.set_title('$W(\\theta,\phi)$', fontsize=16)
-    m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
     # Turn off the axis planes
     ax.set_axis_off()
     return a
@@ -260,46 +270,66 @@ def plot_superradiance_evolution(times, energies, intensities):
 class MatterStatePlot():
     def __init__(self, block_sphere_resolution:int=100) -> None:
         self.block_sphere_resolution = block_sphere_resolution
-        fig, ax1, ax2 = MatterStatePlot._init_figure()
+        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure()
         self.axis_bloch_sphere : Axes3D = ax1
-        self.axis_block_city : Axes3D = ax2
+        self.axis_bloch_sphere_colorbar : Axes = ax2
+        self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
     
     def update(self, state:np.matrix, title:Optional[str]=None, fontsize:int=16) -> None:
-        self.axis_bloch_sphere.clear()
-        self.axis_block_city.clear()
+        # self.axis_bloch_sphere.clear()
+        # self.axis_bloch_sphere_colorbar.clear()
+        # self.axis_block_city.clear()
+        self.refresh_figure()
         plot_wigner_bloch_sphere(state, ax=self.axis_bloch_sphere, num_points=self.block_sphere_resolution)
         plot_city(state, ax=self.axis_block_city)
         if title is not None:
             self.figure.suptitle(title, fontsize=fontsize)
+            
+    def refresh_figure(self) -> None :
+        plt.close(self.figure)
+        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure()
+        self.axis_bloch_sphere : Axes3D = ax1
+        self.axis_bloch_sphere_colorbar : Axes = ax2
+        self.axis_block_city : Axes3D = ax3
+        self.figure : Figure = fig
         
     @staticmethod
     def _init_figure():
+        # Constants:
+        separate_colorbar_axis : bool = False
+        # fig:
         fig = plt.figure(figsize=(11,6))
-        ax1 = fig.add_subplot(1,2,1, projection='3d')
-        ax2 = _axes3D(fig)
-        ax1.set_position(Bbox([[0.0, 0.2], [0.45, 0.8]])) 
-        ax2.set_position(Bbox([[0.4, 0.0], [0.95, 0.9]]))  
-        return fig, ax1, ax2
+        # Create axes:
+        ax_bloch = fig.add_subplot(1,2,1, projection='3d')        
+        if separate_colorbar_axis:
+            ax_color = ax_bloch.inset_axes([1.03, 0, 0.1, 1], transform=ax_bloch.transAxes) 
+        else:
+            ax_color = None
+        ax_block = _axes3D(fig)
+        # set dims:
+        ax_bloch.set_position(Bbox([[0.00, 0.2], [0.45, 0.8]])) 
+        ax_block.set_position(Bbox([[0.45, 0.0], [0.95, 0.9]]))  
+        return fig, ax_bloch, ax_color, ax_block
 
 class VideoRecorder():
     def __init__(self, fps:float=10.0, is_3d:bool=False) -> None:
         self.fps = fps
-        self.axis : Union[Axes, Axes3D] = new_axis(is_3d)
         self.frames_dir : str = self._reset_temp_folders_dir()
         self.frames_duration : List[int] = []
         self.frames_counter : int = 0
 
-    def capture(self, ax:Optional[Axes]=None, duration:Optional[int]=None)->None:
+    def capture(self, fig:Optional[Figure]=None, duration:Optional[int]=None)->None:
         # Complete missing inputs:
         duration = args.default_value(duration, 1)
+        if fig is None:
+            fig = plt.gcf()
         # Check inputs:
-        assertions.integer(duration, reason=f"duration must be an integer")
+        assertions.integer(duration, reason=f"duration must be an integer - meaning the number of frames to repeat a single shot")
         # Prepare data
-        ax = args.default_value(ax, self.axis)
         fullpath = self.crnt_frame_path
-        # set current axis:
-        plt.sca(ax)
+        # Set the current figure:
+        plt.figure(fig.number)
         # Capture:
         plt.savefig(fullpath)
         # Update:
