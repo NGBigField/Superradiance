@@ -135,8 +135,8 @@ class Fock():
         sum += self
         return sum        
 
-    def to_density_matrix(self, max_num:Optional[int]=None) -> np.matrix:
-        return self.to_sum().to_density_matrix(num_moments=max_num)
+    def to_density_matrix(self, num_moments:Optional[int]=None) -> np.matrix:
+        return self.to_sum().to_density_matrix(num_moments=num_moments)
 
     def zero_weight(self) -> bool:
         return abs(self.weight)<EPS

@@ -28,6 +28,7 @@ from utils import (
     assertions,
     numpy_tools as np_utils,
     visuals,
+    strings,
 )
 
 # For measuring time:
@@ -193,8 +194,8 @@ def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
     # Prepare Base Matrices:
     D_plus, D_minus = _D_plus_minus_mats(N)
     # Derive X, Y, Z Matrices
-    Sx = D_plus + D_minus 
-    Sy = -1j*D_plus + 1j*D_minus 
+    Sx = ( D_plus + D_minus ) * (1/2)
+    Sy = ( -1j*D_plus + 1j*D_minus ) * (1/2)
     Sz = _Sz_mat(N)
     # Return:
     return Sx, Sy, Sz
@@ -254,7 +255,10 @@ class SequenceMovieRecorder():
         self.is_active : bool = is_active
         self.config : SequenceMovieRecorder.Config = args.default_value(config, SequenceMovieRecorder.Config() )
         self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps, is_3d=True)
-        self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(block_sphere_resolution=self.config.bloch_sphere_resolution)
+        if is_active:
+            self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(block_sphere_resolution=self.config.bloch_sphere_resolution)            
+        else:
+            self.figure_object = None
         self.score_string_function : Optional[Callable[[np.matrix], str]] = score_string_function
         # Initialized Tracking params:
         self.last_state : Union[np.matrix, None] = None
@@ -450,6 +454,7 @@ class CoherentControl():
         # For sequence recording:
         sequence_recorder = SequenceMovieRecorder(is_active=record_video, config=SequenceMovieRecorder.Config(bloch_sphere_resolution=10))
         sequence_recorder.record_state(crnt_state, f"Initial-State")
+        num2str = lambda x : strings.formatted(x, width=5, decimals=5)
 
         # iterate:
         for pulse_params in params:
@@ -457,14 +462,14 @@ class CoherentControl():
             x = pulse_params.xyz[0]
             y = pulse_params.xyz[1]
             z = pulse_params.xyz[2]
-            pause = pulse_params.pause
+            t = pulse_params.pause
             # Apply pulse and delay:
             if x != 0 or y != 0 or z != 0:
                 crnt_state = self.pulse_on_state(state=crnt_state, x=x, y=y, z=z)
-                sequence_recorder.record_state(crnt_state, f"Pulse = [{x:.5}, {y:.5}, {z:.5}]")
-            if pause != 0:
-                crnt_state = self.state_decay(state=crnt_state, time=pause)
-                sequence_recorder.record_state(crnt_state, f"Decay-Time = {pause:.5}")
+                sequence_recorder.record_state(crnt_state, f"Pulse = [{num2str(x)}, {num2str(y)}, {num2str(z)}]")
+            if t != 0:
+                crnt_state = self.state_decay(state=crnt_state, time=t)
+                sequence_recorder.record_state(crnt_state, f"Decay-Time = {num2str(t)}")
         
         sequence_recorder.write_video()
 
@@ -651,7 +656,19 @@ def _test_record_sequence():
     coherent_control = CoherentControl(num_moments=num_moments)
     final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_video=True)
     print("Movie is ready in folder 'video' ")
-
+    
+def _test_record_pi_pulse():
+    # Define params:
+    num_moments:int=4
+    decay_time = 2.0
+    theta = [np.pi, 0, 0, decay_time, 0, 0, 0]
+    # init state:
+    initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
+    # plot bloch sphere:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_video=True)
+    print("Movie is ready in folder 'video' ")
+    
 
 if __name__ == "__main__":    
 
@@ -662,7 +679,8 @@ if __name__ == "__main__":
     # _test_decay(initial_pulse_xyz=[0.1, 0.8, -0.3])
     # _test_coherent_sequence()
     # _test_complex_state()
-    _test_record_sequence()
+    # _test_record_sequence()
+    _test_record_pi_pulse()
     print("Done.")
 
     
