@@ -271,7 +271,7 @@ class SequenceMovieRecorder():
         duration : int,  # number of repetitions of the same frame:
         similarity_str : Optional[str] = None,
     ) -> None:
-        self.figure_object.update(state)
+        self.figure_object.update(state, title=title)
         self.video_recorder.capture(fig=self.figure_object.figure, duration=duration)
         
     def _transition_states(self, final_state:_DensityMatrixType) -> Generator[_DensityMatrixType, None, None]:
@@ -457,7 +457,7 @@ class CoherentControl():
         Args:
             state (np.matrix): initial density-matrix
             theta (List[float]): parameters.
-            record_video bool
+            record_video bool: Should the sequence be recorded as a video.
 
         Returns:
             np.matrix: final density-matrix

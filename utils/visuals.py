@@ -287,19 +287,21 @@ class MatterStatePlot():
             self.figure.suptitle(title, fontsize=fontsize)
             
     def refresh_figure(self) -> None :
-        plt.close(self.figure)
-        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure()
+        plt.figure(self.figure.number)
+        plt.clf()
+        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure(self.figure)
         self.axis_bloch_sphere : Axes3D = ax1
         self.axis_bloch_sphere_colorbar : Axes = ax2
         self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
         
     @staticmethod
-    def _init_figure():
+    def _init_figure(fig:Optional[Figure]=None):
         # Constants:
         separate_colorbar_axis : bool = False
         # fig:
-        fig = plt.figure(figsize=(11,6))
+        if fig is None:
+            fig = plt.figure(figsize=(11,6))
         # Create axes:
         ax_bloch = fig.add_subplot(1,2,1, projection='3d')        
         if separate_colorbar_axis:
@@ -339,22 +341,23 @@ class VideoRecorder():
     def write_video(self, name:Optional[str]=None)->None:
         # Complete missing inputs:
         name = args.default_value(name, strings.time_stamp() )        
-        # Derive basic params:
-        base_duration = 1/self.fps
-        # Compose video-slides
-        video_slides = concatenate_videoclips(
-            [ ImageClip(img_path+".png", duration=base_duration*frame_duration) 
-             for img_path, frame_duration in zip(self.image_paths(), self.frames_duration) ] , 
-            method='compose'
-        )
-        # exporting final video
+        # Prepare folder for video:
         saveload.make_sure_folder_exists(VIDEOS_FOLDER)
         fullpath = VIDEOS_FOLDER+name+".mp4"
+        clips_gen = self.image_clips()
+        clips = list(clips_gen)
+        video_slides = concatenate_videoclips( clips, method='chain' )
+        # Write video file:
         video_slides.write_videofile(fullpath, fps=self.fps)
 
     @property
     def crnt_frame_path(self) -> str:         
         return self._get_frame_path(self.frames_counter)
+
+    def image_clips(self) -> Generator[ImageClip, None, None] :
+        base_duration = 1/self.fps
+        for img_path, frame_duration in zip( self.image_paths(), self.frames_duration ):
+            yield ImageClip(img_path+".png", duration=base_duration+frame_duration)
 
     def image_paths(self) -> Generator[str, None, None] :
         for i in range(self.frames_counter):

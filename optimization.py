@@ -29,9 +29,6 @@ from utils import (
 # For defining coherent states:
 from quantum_states.fock import Fock
 
-# For states
-from evolution import init_state, Params, CommonStates    
-
 # For coherent control
 from coherentcontrol import (
     S_mats,
@@ -65,8 +62,10 @@ OPT_METHOD : Final = 'SLSQP'
 class LearnedResults():
     theta : np.array = None
     similarity : float = None
-    state : np.matrix = None
+    initial_state : np.matrix = None
+    final_state : np.matrix = None
     time : float = None
+    
 
 
 # ==================================================================================== #
@@ -77,66 +76,6 @@ _MatrixType = Union[np.matrix, np.array]
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
-
-
-def learn_pulse(initial_state:_MatrixType, target_state:_MatrixType, max_iter:int=1000, x:bool=True, y:bool=True, z:bool=True, save_results:bool=False) -> LearnedResults:
-
-    # Check inputs:
-    for state in [initial_state, target_state]:
-        assertions.density_matrix(state)
-        assert len(state.shape)==2
-        assert state.shape[0] == state.shape[1]
-    assert initial_state.shape[0] == target_state.shape[0]
-    
-    # Set basic properties:
-    matrix_size = state.shape[0]
-    max_state_num = matrix_size-1
-    coherent_control = CoherentControl(max_state_num)
-
-    # cost function:
-    def _cost_func(theta:np.ndarray) -> float :  
-        final_state = coherent_control.pulse_on_state(state=initial_state, x=theta[0])
-        diff = np.linalg.norm(final_state - target_state)
-        cost = diff**2
-        return cost
-
-    # Progress_bar
-    prog_bar = visuals.ProgressBar(max_iter, "Minimizing: ")
-    def _after_each(xk:np.ndarray) -> False:
-        prog_bar.next()
-
-    # Opt Config:
-    initial_point = np.random.random((1))
-    options = dict(
-        maxiter = max_iter
-    )      
-
-    # Run optimization:
-    start_time = time.time()
-    minimum = minimize(
-        _cost_func, 
-        initial_point, 
-        method=OPT_METHOD, 
-        options=options, 
-        callback=_after_each, 
-    )
-    finish_time = time.time()
-    optimal_theta = minimum.x
-    prog_bar.close()
-    
-    # Pack learned-results:
-    learned_results = LearnedResults(
-        theta = optimal_theta,
-        similarity = minimum.fun,
-        time = finish_time-start_time
-    )
-
-    if save_results:
-        saveload.save(learned_results, "learned_results "+strings.time_stamp())
-
-
-    return learned_results
-
 
 def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, max_iter:int=100, num_pulses:int=3, save_results:bool=True) -> LearnedResults:
 
@@ -189,9 +128,10 @@ def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, ma
     # Pack learned-results:
     learned_results = LearnedResults(
         theta = optimal_theta,
-        state = coherent_control.coherent_sequence(initial_state, optimal_theta),
         similarity = minimum.fun,
-        time = finish_time-start_time
+        time = finish_time-start_time,
+        initial_state = initial_state,
+        final_state = coherent_control.coherent_sequence(initial_state, optimal_theta),
     )
 
     if save_results:
@@ -267,13 +207,14 @@ def main(num_moments:int=4, max_iter:int=1000, num_pulses:int=5, plot_on:bool=Fa
 
     assertions.even(num_moments)
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
-    target_state = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
+    target_state = Fock.create_coherent_state(num_moments=num_moments, alpha=1.00, output='density_matrix', type_='even_cat')
 
     if plot_on:
         visuals.plot_city(initial_state)
         visuals.plot_city(target_state)
 
     results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses)
+    
     print(f"==========================")
     print(f"num_pulses = {num_pulses}")
     print(f"run_time = {timedelta(seconds=results.time)} [hh:mm:ss]")
