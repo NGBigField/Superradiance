@@ -18,6 +18,19 @@ def timeit(func: Callable):
         return results            
     return wrapper
 
+def final_value(func: Callable) -> Callable :
+    def wrapper(*args, **kwargs):
+        # Parse Input:
+        final_value_only = kwargs['final_value_only']
+        # Run:
+        results = func(*args, **kwargs)
+        # return:
+        if final_value_only:
+            return results[-1]  
+        else:
+            return results            
+    return wrapper
+
 def assert_type(Type: type, at: Literal['input', 'output', 'both'] = 'both' ) -> Callable:
     """assertType 
 

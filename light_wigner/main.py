@@ -1,21 +1,32 @@
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
+from operator import le
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.linalg
 import os
 
-import light_wigner.superradiance_no_cavity
-from light_wigner.superradiance_no_cavity import Superradiance_no_cavity
-from light_wigner.Operators import make_3d_exp
-from light_wigner.Operators import Operators
-from light_wigner.distribution_functions import Wigner
+try:
+    import light_wigner.superradiance_no_cavity
+    from light_wigner.superradiance_no_cavity import Superradiance_no_cavity
+    from light_wigner.Operators import make_3d_exp
+    from light_wigner.Operators import Operators
+    from light_wigner.distribution_functions import Wigner
+    from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
+except ImportError:
+    import superradiance_no_cavity
+    from   superradiance_no_cavity import Superradiance_no_cavity
+    from   Operators import make_3d_exp
+    from   Operators import Operators
+    from   distribution_functions import Wigner
+    from   distribution_functions import Atomic_state_on_bloch_sphere
+
+
 import matplotlib.animation as animation
 from pylab import *
 from moviepy.editor import *
 from matplotlib import cm, colors
 
-from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
 
 # For type hinting:
 from typing import (
@@ -24,7 +35,8 @@ from typing import (
 
 INFINITY = 1000
 NUM_POINTS = 1000
-
+NUM_TIMES = 10001
+NUM_VIDEO_FRAMES = 10
 
 # Press the green button in the gutter to run the script.
 
@@ -85,12 +97,11 @@ def make_matrix_movie(x, p, tensor, omega, xmax=2, ymax=2, text_label='$\\frac{\
     make_video('omega/', length=len(omega))
 
 
-def solve_sr_equations(op, N, atomic_rho, omega):
-    sr_solver = Superradiance_no_cavity(op, N, atomic_rho)
+def solve_sr_equations(op, N, atomic_rho, omega, delta_t, gamma, num_times:int):
+    sr_solver = Superradiance_no_cavity(op, N, atomic_rho, delta_t, gamma, num_times)
 
     time, Sx_t, Sy_t, Sz_t, rho_t = sr_solver.solve_ode()
     dt = time[1] - time[0]
-    omega = omega
     matrix_exp_iwt = make_3d_exp(N, time, omega)
     Splus_cumsum = np.cumsum((Sx_t + 1j * Sy_t) * dt * np.conj(matrix_exp_iwt), axis=2)
     return Splus_cumsum, Sx_t, Sy_t, Sz_t, rho_t, time
@@ -151,8 +162,11 @@ def make_video(label, length=100):
     img_clips = []
     path_list = []
     # accessing path of each image
-    for i in range(length):
-        path_list.append(os.path.join('Images/' + label + str(i) + '.png'))
+    for i in range(length+1):
+        try:
+            path_list.append(os.path.join('Images/' + label + str(i) + '.png'))
+        except:
+            continue
     # creating slide for each image
     for img_path in path_list:
         slide = ImageClip(img_path, duration=1 / 10)
@@ -171,7 +185,8 @@ def plot_wigner_videos(NUM_MOMENTS, atomic_wigner, Sx_t, Sy_t, Sz_t, rho_t, time
     for i in range(len(time)):
         Sminus_t[:, :, i] = np.conj(Splus_t[:, :, i].T)
 
-    for index in range(0, 100000, 1000):
+    frame_index : int = 0
+    for index in range(0, NUM_TIMES, NUM_TIMES//NUM_VIDEO_FRAMES):
         print(str(index) + '/' + str(len(time)))
         fig = atomic_wigner.Wigner_BlochSphere(100, np.size(rho_t, 0) - 1, [], rho_t[:, :, index], 'rho')
         ax2 = fig.add_subplot(122)
@@ -186,10 +201,11 @@ def plot_wigner_videos(NUM_MOMENTS, atomic_wigner, Sx_t, Sy_t, Sz_t, rho_t, time
         g.set_label('$W(q,p)$', fontsize=16)
         m.set_clim(-np.max(np.abs(wigner)), np.max(np.abs(wigner)))
         plt.tight_layout()
-        plt.savefig('Images/time/' + str(index // 1000) + '.png')
+        plt.savefig('Images/time/' + str(frame_index) + '.png')
         plt.close(fig)
+        frame_index += 1
 
-    make_video('time/')
+    make_video('time/', length=NUM_VIDEO_FRAMES)
 
 
 def plot_Sz(rho_t, Sz_t, time):
@@ -256,26 +272,29 @@ def plot_spectrum(omega, N, photon_number, domega):
 
 def visualize_light_from_atomic_density_matrix(
     rho : np.matrix, 
-    N : int, 
-    num_moments : Optional[int] = None
+    num_atmos : int,
+    gamma : float = 0.03,
+    delta_t : Optional[float] = None,
 ) -> None :
 
-    if num_moments is None:
-        num_moments = N + 1
-    
-    GAMMA = 0.03
+    # Constants and params:
+    num_moments = num_atmos + 1    
     OMEGA_0 = 1
     omega1 = 1
 
+    # Complete missing values:
+    if delta_t is None:
+        delta_t = 2 / gamma
+
     # g_w = superradiance_no_cavity.GAMMA ** 0.5 / (np.pi ** 0.5)
-    g_w = GAMMA ** 0.5 / (np.pi ** 0.5)
+    g_w = gamma ** 0.5 / (np.pi ** 0.5)
     c = 0.3
 
-    atomic = Atomic_state_on_bloch_sphere(N)
-    op = Operators(N)
+    atomic = Atomic_state_on_bloch_sphere(num_atmos)
+    op = Operators(num_atmos)
 
 
-    Splus_cumsum, Sx_t, Sy_t, Sz_t, rho_t, time = solve_sr_equations(op, N, rho, omega1)
+    Splus_cumsum, Sx_t, Sy_t, Sz_t, rho_t, time = solve_sr_equations(op, num_atmos, rho, omega1, gamma=gamma, delta_t=delta_t, num_times=NUM_TIMES)
     Splus_t = (Sx_t + 1j * Sy_t)
     Sminus_t = op.dagger_3d(Splus_t)
 
@@ -300,7 +319,34 @@ def visualize_light_from_atomic_density_matrix(
                       text_label='$\\frac{\Omega - \Omega_0}{\Gamma}\;=\;$', color_label='$W(q,p)$')
     # plot_spectrum(omega, N, photon_number, domega)
 
+def decay(
+    rho: np.matrix,
+    delta_t : float,
+    gamma : float = 1.0,
+    num_time_steps : int = NUM_TIMES,
+)->np.matrix:
+    # Constants:
+    omega1 = 1
+    # Fill missing inputs:
+    num_momments = rho.shape[0]
+    num_atoms = num_momments-1
+    
+    # init helper objects:
+    atomoc = Atomic_state_on_bloch_sphere(num_atoms)
+    op = Operators(num_atoms)
+    
+    # Solve:
+    _, _, _, _, rho_t, time = solve_sr_equations(
+        op, 
+        num_atoms, 
+        rho, 
+        omega1, 
+        gamma=gamma, 
+        delta_t=delta_t, 
+        num_times=num_time_steps
+    )
 
+    return rho_t
     
 
 def main():
@@ -310,20 +356,22 @@ def main():
     ### (2) change Num moments, should be greater than number of photons that are emmited. the code gets slow if this number is large (>40)
     ### (3) change atomic_rho as a numpy array.(N+1XN+1) in the symetric state basis. (rho_mn=<m|rho|n>)
     '''
-    g_w = superradiance_no_cavity.GAMMA ** 0.5 / (np.pi ** 0.5)
-    c = 0.3
+    gamma = 0.3
+    g_w = gamma ** 0.5 / (np.pi ** 0.5)
+    delta_t = np.log(2)/gamma
 
-    N = 1    ###change###
+    NUM_ATOMS = 1    ###change###
     NUM_MOMENTS = 2   ###change###  # usually N+1
 
-    atomic = Atomic_state_on_bloch_sphere(N)
-    op = Operators(N)
+    atomic = Atomic_state_on_bloch_sphere(NUM_ATOMS)
+    op = Operators(NUM_ATOMS)
 
-    atomic_rho = op.fock_light_state(N, N)    ###change###
+    atomic_rho = op.fock_light_state(NUM_ATOMS, NUM_ATOMS)    ###change###
 
 
     omega1 = 1
-    Splus_cumsum, Sx_t, Sy_t, Sz_t, rho_t, time = solve_sr_equations(op, N, atomic_rho, omega1)
+    Splus_cumsum, Sx_t, Sy_t, Sz_t, rho_t, time = solve_sr_equations(op, NUM_ATOMS, atomic_rho, omega1, gamma=gamma, delta_t=delta_t, num_times=NUM_TIMES)
+    rho_final = rho_t[:,:,-1]
     Splus_t = (Sx_t + 1j * Sy_t)
     Sminus_t = op.dagger_3d(Splus_t)
 
@@ -342,11 +390,6 @@ def main():
     g_omega = g_w * (omega / superradiance_no_cavity.OMEGA_0) ** 0.5
     domega = omega[1] - omega[0]
 
-    # #
-    # x, p, wigner_w, photon_number = calc_wigner_for_omega(NUM_MOMENTS, time, op, omega, Sminus_t, g_omega, atomic_rho)
-    # make_matrix_movie(x, p, wigner_w, omega, x_label='$q$', y_label='$p$',
-    #                   text_label='$\\frac{\Omega - \Omega_0}{\Gamma}\;=\;$', color_label='$W(q,p)$')
-    # plot_spectrum(omega, N, photon_number, domega)
 
 
 
@@ -367,6 +410,6 @@ def test_unitary():
 if __name__ == '__main__':
     main()
     # test_unitary()
-    make_video('time/')
+    
     # test_Wigner_from_moments()
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

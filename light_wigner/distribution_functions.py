@@ -1,10 +1,7 @@
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt
-import numpy as np
 from scipy.integrate import solve_ivp
-import matplotlib.pyplot as plt
-import numpy as np
 import matplotlib as mpl
 from decimal import Decimal
 from math import floor

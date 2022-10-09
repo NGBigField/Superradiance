@@ -63,20 +63,20 @@ def _is_hermitian(m:np.matrix) -> bool:
 def integer(x:_T, reason:Optional[str]=None) -> _T:
     _assert( isinstance(x, (int, float)), reason=reason )
     _assert( round(x) == x, reason=reason )
-    return x
+    return int(x)
 
 def index(x:_T, reason:Optional[str]=None) -> _T:
-    integer(x, reason=reason)
+    x = integer(x, reason=reason)
     _assert( x >= 0, reason=reason )
     return x
 
 def bit(x:_T, reason:Optional[str]=None) -> _T:
-    integer(x, reason=reason)
+    x = integer(x, reason=reason)
     _assert( x in [0, 1], reason=reason )
     return x
 
 def even(x:_T, reason:Optional[str]=None) -> _T:
-    integer(x, reason=reason)
+    x = integer(x, reason=reason)
     _assert( float(x)/2 == int(int(x)/2), reason=reason )
     return x
 

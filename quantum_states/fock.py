@@ -3,23 +3,30 @@
 # ==================================================================================== #
 from __future__ import annotations
 
-from utils import (
-    assertions,
-    errors,
-    types,
-    visuals,
-)
-
-from utils.errors import QuantumTheoryError
-
-from dataclasses import dataclass, field
-
 from typing import (
     List,
     Union,
     Optional,
     Literal,
+    overload,
 )
+
+# For relative import when needed:
+import sys, pathlib
+sys.path.append(f"{pathlib.Path(__file__).parent.parent}")
+
+# Import our tools from another directory:
+from utils import (
+    assertions,
+    errors,
+    types,
+    visuals,
+    args,
+)
+
+
+from dataclasses import dataclass, field
+
 
 from copy import deepcopy
 
@@ -95,12 +102,30 @@ class Fock():
         self.validate()
     
     @staticmethod
+    def ground_state_density_matrix(num_moments:int) -> np.matrix:
+        return Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
+
+    @overload
+    @staticmethod
+    def create_coherent_state(num_moments:int, alpha:float, output:Literal['density_matrix'], type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->np.matrix: ...
+    @overload
+    @staticmethod
+    def create_coherent_state(num_moments:int, alpha:float, output:Literal['ket'], type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum: ...
+
+    @staticmethod
     def create_coherent_state(
-        max_num:int, 
+        num_moments:int, 
         alpha:float, 
-        type_:Literal['normal', 'even_cat', 'odd_cat']='normal'
-    )->FockSum  :  
-        return coherent_state(max_num=max_num, alpha=alpha, type_=type_)
+        output:Literal['ket', 'density_matrix']='ket',
+        type_:Literal['normal', 'even_cat', 'odd_cat']='normal',
+    )->Union[FockSum, np.matrix] :  
+        ket = coherent_state(num_moments=num_moments, alpha=alpha, type_=type_)
+        if output == 'ket':
+            return ket
+        elif output == 'density_matrix':
+            return ket.to_density_matrix(num_moments=num_moments)
+        else:
+            raise ValueError("Not an option.")
 
     def validate(self) -> None:
         assertions.index(self.number, f" fock-space-number must be an integer >= 0. Got `{self.number}`") 
@@ -114,8 +139,8 @@ class Fock():
         sum += self
         return sum        
 
-    def to_density_matrix(self, max_num:Optional[int]=None) -> np.matrix:
-        return self.to_sum().to_density_matrix(max_num=max_num)
+    def to_density_matrix(self, num_moments:Optional[int]=None) -> np.matrix:
+        return self.to_sum().to_density_matrix(num_moments=num_moments)
 
     def zero_weight(self) -> bool:
         return abs(self.weight)<EPS
@@ -172,19 +197,18 @@ class Fock():
 class FockSum():
     states : List[Fock] = field(default_factory=list, init=False)
 
-    def to_density_matrix(self, max_num:Optional[int]=None) -> np.matrix:
+    def to_density_matrix(self, num_moments:Optional[int]=None) -> np.matrix:
         # Check input:
         if not self.normalized:
             warnings.warn("Create density matrices with normalized fock states")
         assert self.ket_or_bra == KetBra.Ket
         # Maximal fock number:
-        if max_num is None:
-            max_num = self.max_num
+        num_moments = args.default_value(num_moments, self.max_num)
         # Prepare states:
         kets = self
         bras = ~self
         # Density size:
-        n = max_num+1
+        n = num_moments+1
         # Common type:
         common_data_type = self.date_type
         dtype = np.dtype(common_data_type)
@@ -328,14 +352,14 @@ class FockSum():
 # |                             Declared Functions                                   | #
 # ==================================================================================== #
 
-def coherent_state(max_num:int, alpha:float, type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum:
+def coherent_state(num_moments:int, alpha:float, type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum:
     # Choose iterator:
     if type_=='normal':
-        iterator = range(0, max_num+1, 1)
+        iterator = range(0, num_moments+1, 1)
     elif type_=='even_cat':
-        iterator = range(0, max_num+1, 2)
+        iterator = range(0, num_moments+1, 2)
     elif type_=='odd_cat':
-        iterator = range(1, max_num+1, 2)
+        iterator = range(1, num_moments+1, 2)
     else:
         raise ValueError("`type_` must be either 'normal', 'even_cat' or 'odd_cat'.")
 
@@ -369,16 +393,21 @@ def _test_simple_fock_sum():
 def _test_coherent_state(max_fock_num:int=4):
     assertions.even(max_fock_num)
 
-    zero = coherent_state(max_num=4, alpha=0.00, type_='normal')
+    zero = coherent_state(num_moments=4, alpha=0.00, type_='normal')
     print(zero)
-    visuals.plot_city(zero.to_density_matrix(max_num=max_fock_num))
+    visuals.plot_city(zero.to_density_matrix(num_moments=max_fock_num))
 
-    ket = coherent_state(max_num=4, alpha=1.00, type_='normal')
+    ket = coherent_state(num_moments=4, alpha=1.00, type_='normal')
     print(ket)
-    visuals.plot_city(ket.to_density_matrix(max_num=max_fock_num))
+    visuals.plot_city(ket.to_density_matrix(num_moments=max_fock_num))
 
     print("Plotted.")
 
+def _test_simple_fock_density_matrix():
+    rho = Fock.create_coherent_state(num_moments=2, alpha=0, output='density_matrix')
+    print(rho)
+
 if __name__ == "__main__":
-    _test_coherent_state()
+    # _test_coherent_state()
+    _test_simple_fock_density_matrix()
     print("Done.")
