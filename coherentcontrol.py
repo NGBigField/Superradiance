@@ -249,9 +249,9 @@ class SequenceMovieRecorder():
     class Config():
         active : bool = False
         show_now : bool = True
-        fps : int = 20
-        num_transition_frames : int = 40
-        num_freeze_frames : int = 20
+        fps : int = 5
+        num_transition_frames : int = 10
+        num_freeze_frames : int = 5
         bloch_sphere_resolution : int = 25
     
     def __init__(
@@ -275,8 +275,8 @@ class SequenceMovieRecorder():
     def _record_single_state(
         self,
         state : _DensityMatrixType,
-        title : str,
         duration : int,  # number of repetitions of the same frame:
+        title : Optional[str]=None,
         similarity_str : Optional[str] = None,
     ) -> None:
         self.figure_object.update(state, title=title, show_now=self.config.show_now)
@@ -298,8 +298,8 @@ class SequenceMovieRecorder():
             similarity_str = self.score_string_function(final_state)
         # Capture shots: (transition and freezed state)
         for transition_state in transition_states:
-            self._record_single_state(transition_state, title, duration=1 )
-        self._record_single_state(final_state, title, duration=self.config.num_freeze_frames, similarity_str=similarity_str)
+            self._record_single_state(transition_state, title=title, duration=1 )
+        self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames, similarity_str=similarity_str)
         # Keep info for next call:
         self.last_state = deepcopy(transition_states)
         
@@ -519,11 +519,11 @@ def _test_record_sequence():
     num_moments:int=4
     num_pulses:int=3
     movie_config=CoherentControl.MovieConfig(
-        show_now=False,
-        num_transition_frames=25,
-        num_freeze_frames=25,
-        fps=25,
-        bloch_sphere_resolution=100
+        show_now=True,
+        num_transition_frames=5,
+        num_freeze_frames=10,
+        fps=5,
+        bloch_sphere_resolution=30
     )
     # init params:
     num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
