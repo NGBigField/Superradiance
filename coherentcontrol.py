@@ -40,7 +40,7 @@ import matplotlib.pyplot as plt  # for plotting test results:
 from matplotlib.axes import Axes  # for type hinting:
 
 # For OOP:
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 # For simulating state decay:
 from light_wigner.main import decay
@@ -390,7 +390,7 @@ class CoherentControl():
         if isinstance(state, np.matrix):
             state = np.array(state)
         # Compute:
-        return decay(
+        rho_at_all_times = decay(
             rho=state,  
             delta_t=time,
             gamma=self.gamma,
@@ -401,44 +401,71 @@ class CoherentControl():
     # ==================================================== #
     #|                 declared functions                 |#
     # ==================================================== #
-    def pulse_on_state(self, state:np.matrix, x:float=0.0, y:float=0.0, z:float=0.0) -> _DensityMatrixType: 
-        p = self._pulse(x,y,z)
-        final_state = p * state * p.getH()
-        return final_state
 
-    def pulse_on_state_in_steps(self, state:np.matrix, num_steps:int, x:float=0.0, y:float=0.0, z:float=0.0) -> List[_DensityMatrixType]: 
-        num_steps = assertions.integer(num_steps)
-        frac_x = x / num_steps
-        frac_y = y / num_steps
-        frac_z = z / num_steps
+    def pulse_on_state_fragmented(self, state:_DensityMatrixType, num_intermediate_states:int, x:float=0.0, y:float=0.0, z:float=0.0) -> List[_DensityMatrixType]: 
+        num_intermediate_states = assertions.integer(num_intermediate_states)
+        frac_x = x / num_intermediate_states
+        frac_y = y / num_intermediate_states
+        frac_z = z / num_intermediate_states
         p = self._pulse(frac_x, frac_y, frac_z)
         pH = p.getH()
         states : List[_DensityMatrixType] = []
         crnt_state = deepcopy(state)
         states.append(crnt_state)   # initial state
-        for step in range(1, num_steps+1):            
+        for step in range(1, num_intermediate_states+1):            
             crnt_state = p * crnt_state * pH
             states.append(crnt_state)
         return states
+
+    def pulse_on_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0) -> _DensityMatrixType: 
+        p = self._pulse(x,y,z)
+        final_state = p * state * p.getH()
+        return final_state
         
-    
-    def state_decay(
+    def state_decay_fragmented(
         self, 
-        state:np.matrix, 
+        state:_DensityMatrixType, 
+        num_intermediate_states:int,
         time:float, 
-        time_steps:Optional[int]=None,
-        method:Literal['iterative', 'solve_ode']='solve_ode',
-    ) -> np.matrix :
+        time_steps_resolution:Optional[int]=None,
+    ) -> List[_DensityMatrixType] :
         # Check inputs:
         assertions.density_matrix(state, robust_check=True)  # allow matrices to be non-PSD or non-Hermitian
+        num_intermediate_states = assertions.integer(num_intermediate_states, reason=f"`num_intermediate_states` must be a non-negative integer")
         assert time>0, f"decay time must be a positive number. got {time}"
-        # Choose method:
-        if method == 'iterative':
-            return self._state_decay_iterative(state=state, time=time, time_steps=time_steps)
-        elif method == 'solve_ode':
-            return self._state_decay_solve_ode(state=state, time=time, time_steps=time_steps)
+        # Complete missing inputs:
+        time_steps_resolution = args.default_value(time_steps_resolution, 10001)        
+        assertions.integer(time_steps_resolution)            
+        # Convert matrix to ndarray:
+        if isinstance(state, np.matrix):
+            state = np.array(state)
+        # Compute:
+        rho_at_all_times = decay(
+            rho=state,  
+            delta_t=time,
+            gamma=self.gamma,
+            num_time_steps=time_steps_resolution
+        )
+        # Return results in requested indices:
+        num_times = rho_at_all_times.shape[2]
+        if num_intermediate_states>0:
+            indices = np.floor( np.linspace(0, num_times-1, num_intermediate_states+1) ).astype(int)
+        elif num_intermediate_states==0:
+            indices = [num_times-1]
         else:
-            raise ValueError("`method` must be either either 'iterative' or 'solve_ode' ")
+            raise ValueError(f"`num_intermediate_states` must be a non-negative integer")
+        return [rho_at_all_times[:,:,ind] for ind in indices ]
+
+
+    def state_decay(
+        self, 
+        state:_DensityMatrixType, 
+        time:float, 
+        time_steps_resolution:Optional[int]=None,
+    ) -> _DensityMatrixType :
+        res = self.state_decay_fragmented(state=state, num_intermediate_states=0, time=time,time_steps_resolution=time_steps_resolution)
+        print(res)
+        return res[-1]
 
 
     def coherent_sequence(
@@ -698,24 +725,29 @@ def _test_special_state():
 def _test_pulse_in_steps():
     # Define params:
     num_moments:int=4   
-    num_steps:int=20
+    num_steps:int=50
+    fps:int=25
     # Init state:
-    initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
-    # Apply pulse:
+    initial_state = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
     coherent_control = CoherentControl(num_moments=num_moments)
-    final_state = coherent_control.pulse_on_state(state=initial_state, x=np.pi)
-    all_states = coherent_control.pulse_on_state_in_steps(state=initial_state, num_steps=num_steps, x=np.pi )
-    np_utils.print_mat(final_state-all_states[-1])
-    np_utils.print_mat(all_states[0])
-    np_utils.print_mat(all_states[-1])
+    # Apply pulse:
+    all_pulse_states = coherent_control.pulse_on_state_fragmented(state=initial_state, num_intermediate_states=num_steps, x=np.pi/2 )
+    # Apply decay time:
+    all_decay_states = coherent_control.state_decay_fragmented(state=all_pulse_states[-1], num_intermediate_states=num_steps, time=0.5)
     # Movie:
-    video_recorder = visuals.VideoRecorder(fps=3)
-    state_plot = visuals.MatterStatePlot(block_sphere_resolution=10)
-    plt.show(block=False)
-    for state in all_states:
+    visuals.draw_now()
+    state_plot = visuals.MatterStatePlot(block_sphere_resolution=100, initial_state=initial_state)
+    video_recorder = visuals.VideoRecorder(fps=fps)
+    video_recorder.capture(state_plot.figure, duration=fps)
+    def capture(state, duration:int=1):
         state_plot.update(state)
-        video_recorder.capture(state_plot.figure)
-    video_recorder.capture(state_plot.figure, duration=2)
+        video_recorder.capture(state_plot.figure, duration=duration)
+    for state in all_pulse_states:
+        capture(state)
+    capture(state, duration=fps)
+    for state in all_decay_states:
+        capture(state)
+    capture(state, duration=fps)
     video_recorder.write_video()
 
 if __name__ == "__main__":    

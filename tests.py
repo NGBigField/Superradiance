@@ -40,8 +40,6 @@ from optimization import learn_specific_state, LearnedResults
 #|                                helper functions                                    |#
 # ==================================================================================== #
 
-def draw_now():
-    plt.show(block=False)
 
 # ==================================================================================== #
 #|                                   main tests                                       |#

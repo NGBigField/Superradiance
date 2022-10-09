@@ -85,6 +85,9 @@ else:
 #|                             Declared Functions                                     |#
 # ==================================================================================== #
 
+def draw_now():
+    plt.show(block=False)
+
 def new_axis(is_3d:bool=False):
     fig = plt.figure()
     if is_3d:
@@ -268,13 +271,15 @@ def plot_superradiance_evolution(times, energies, intensities):
 # ==================================================================================== #
 
 class MatterStatePlot():
-    def __init__(self, block_sphere_resolution:int=100) -> None:
+    def __init__(self, block_sphere_resolution:int=100, initial_state:Optional[np.matrix]=None) -> None:
         self.block_sphere_resolution = block_sphere_resolution
         fig, ax1, ax2, ax3 = MatterStatePlot._init_figure()
         self.axis_bloch_sphere : Axes3D = ax1
         self.axis_bloch_sphere_colorbar : Axes = ax2
         self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
+        if initial_state is not None:
+            self.update(initial_state, title="Initial-State")
     
     def update(self, state:np.matrix, title:Optional[str]=None, fontsize:int=16) -> None:
         # self.axis_bloch_sphere.clear()
@@ -345,8 +350,7 @@ class VideoRecorder():
         saveload.make_sure_folder_exists(VIDEOS_FOLDER)
         fullpath = VIDEOS_FOLDER+name+".mp4"
         clips_gen = self.image_clips()
-        clips = list(clips_gen)
-        video_slides = concatenate_videoclips( clips, method='chain' )
+        video_slides = concatenate_videoclips( list(clips_gen), method='chain' )
         # Write video file:
         video_slides.write_videofile(fullpath, fps=self.fps)
 
@@ -357,7 +361,7 @@ class VideoRecorder():
     def image_clips(self) -> Generator[ImageClip, None, None] :
         base_duration = 1/self.fps
         for img_path, frame_duration in zip( self.image_paths(), self.frames_duration ):
-            yield ImageClip(img_path+".png", duration=base_duration+frame_duration)
+            yield ImageClip(img_path+".png", duration=base_duration*frame_duration)
 
     def image_paths(self) -> Generator[str, None, None] :
         for i in range(self.frames_counter):

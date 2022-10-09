@@ -346,8 +346,7 @@ def decay(
         num_times=num_time_steps
     )
 
-    rho_final = rho_t[:,:,-1]
-    return rho_final
+    return rho_t
     
 
 def main():
