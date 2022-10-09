@@ -115,6 +115,10 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     return 
 
 def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None) -> None:
+    # Constants:
+    radius = 1.5
+
+    # Check inputs:
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -126,9 +130,9 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     phi = np.linspace(0, 2 * np.pi, 2 * num_points)
     theta = np.linspace(0, np.pi, num_points)
     theta, phi = np.meshgrid(theta, phi)
-    X = np.sin(theta) * np.cos(phi)
-    Y = np.sin(theta) * np.sin(phi)
-    Z = np.cos(theta)
+    X = np.sin(theta) * np.cos(phi) * radius
+    Y = np.sin(theta) * np.sin(phi) * radius
+    Z = np.cos(theta) * radius
     W = np.zeros(np.shape(phi))
     j = num_atoms / 2
 
@@ -281,15 +285,15 @@ class MatterStatePlot():
         if initial_state is not None:
             self.update(initial_state, title="Initial-State")
     
-    def update(self, state:np.matrix, title:Optional[str]=None, fontsize:int=16) -> None:
-        # self.axis_bloch_sphere.clear()
-        # self.axis_bloch_sphere_colorbar.clear()
-        # self.axis_block_city.clear()
+    def update(self, state:np.matrix, title:Optional[str]=None, fontsize:int=16, show_now:bool=False) -> None:
         self.refresh_figure()
         plot_wigner_bloch_sphere(state, ax=self.axis_bloch_sphere, num_points=self.block_sphere_resolution)
         plot_city(state, ax=self.axis_block_city)
         if title is not None:
             self.figure.suptitle(title, fontsize=fontsize)
+        if show_now:
+            draw_now()
+            plt.pause(0.05)
             
     def refresh_figure(self) -> None :
         plt.figure(self.figure.number)
@@ -345,13 +349,13 @@ class VideoRecorder():
 
     def write_video(self, name:Optional[str]=None)->None:
         # Complete missing inputs:
-        name = args.default_value(name, strings.time_stamp() )        
+        name = args.default_value(name, default_factory=strings.time_stamp )        
         # Prepare folder for video:
         saveload.make_sure_folder_exists(VIDEOS_FOLDER)
-        fullpath = VIDEOS_FOLDER+name+".mp4"
         clips_gen = self.image_clips()
         video_slides = concatenate_videoclips( list(clips_gen), method='chain' )
         # Write video file:
+        fullpath = VIDEOS_FOLDER+name+".mp4"
         video_slides.write_videofile(fullpath, fps=self.fps)
 
     @property

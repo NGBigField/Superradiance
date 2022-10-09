@@ -101,6 +101,10 @@ class Fock():
     def __post_init__(self):
         self.validate()
     
+    @staticmethod
+    def ground_state_density_matrix(num_moments:int) -> np.matrix:
+        return Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
+
     @overload
     @staticmethod
     def create_coherent_state(num_moments:int, alpha:float, output:Literal['density_matrix'], type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->np.matrix: ...
