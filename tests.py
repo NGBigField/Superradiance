@@ -64,10 +64,6 @@ def _observe_saved_data():
         active=True,
         show_now=True
     ))
-    ## Plot:
-    # draw_now()
-    # state_plot = visuals.MatterStatePlot()
-    # state_plot.update(final_state, title=f"similarity = {similarity}")
     ## Done:
     print("Done")
     

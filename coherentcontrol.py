@@ -376,6 +376,8 @@ class CoherentControl():
     # ==================================================== #
     #|                 declared functions                 |#
     # ==================================================== #
+    def pulse_on_state_final_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0) -> _DensityMatrixType: 
+        return self.pulse_on_state(state=state, num_intermediate_states=0, x=x, y=y, z=z)[-1]
 
     def pulse_on_state(self, state:_DensityMatrixType, num_intermediate_states:int=0, x:float=0.0, y:float=0.0, z:float=0.0) -> List[_DensityMatrixType]: 
         # Check input:
@@ -403,14 +405,16 @@ class CoherentControl():
             crnt_state = p * crnt_state * pH
             states.append(crnt_state)
         return states
-        
+
+    def state_decay_final_state(self, state:_DensityMatrixType, time:float, time_steps_resolution:Optional[int]=None,) -> _DensityMatrixType: 
+        return self.state_decay(state=state, time=time, num_intermediate_states=0, time_steps_resolution=time_steps_resolution)[-1]        
+
     def state_decay(
         self, 
         state:_DensityMatrixType, 
         time:float, 
         num_intermediate_states:int=0,
-        time_steps_resolution:Optional[int]=None,
-        final_value_only:bool=True
+        time_steps_resolution:Optional[int]=None
     ) -> List[_DensityMatrixType] :
         # Check inputs:
         assertions.density_matrix(state, robust_check=True)  # allow matrices to be non-PSD or non-Hermitian

@@ -55,6 +55,7 @@ from dataclasses import dataclass
 # |                                  Constants                                       | #
 # ==================================================================================== #
 OPT_METHOD : Final = 'SLSQP'
+NUM_PULSE_PARAMS : Final = 4  
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
@@ -83,6 +84,36 @@ class LearnedResults():
 # |                                  Typing hints                                    | #
 # ==================================================================================== #
 _MatrixType = Union[np.matrix, np.array]
+
+
+
+# ==================================================================================== #
+# |                                Inner Functions                                   | #
+# ==================================================================================== #
+
+
+def _deal_bounds(num_params:int) -> int: 
+    def _bound_rule(i:int) -> Tuple[Any, Any]:
+        # Derive:
+        if i%NUM_PULSE_PARAMS==3:
+            return (0, None)
+        else:
+            return (None, None)
+    # Define bounds:
+    return [_bound_rule(i) for i in range(num_params)]
+
+def _deal_initial_guess(num_params:int, initial_guess:Optional[np.array]) -> np.array :
+    time_indices = np.arange(NUM_PULSE_PARAMS-1, num_params, NUM_PULSE_PARAMS)
+    if initial_guess is not None:  # If guess is given:
+        assert len(initial_guess) == num_params, f"Needed number of parameters for the initial guess is {num_params}"
+        if isinstance(initial_guess, list):
+            initial_guess = np.array(initial_guess)
+        assert np.all(initial_guess[time_indices]>=0), f"All decay-times must be non-negative!"    
+    else:  # if we need to create a guess:    
+        initial_guess = np.random.normal(0, np.pi/2, (num_params))
+        initial_guess[time_indices] = np.abs(initial_guess[time_indices])
+    return initial_guess
+    
 
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
@@ -123,7 +154,7 @@ def learn_specific_state(
         prog_bar.next()
 
     # Opt Config:
-    initial_point = np.random.random((num_params))
+    initial_guess = _deal_initial_guess(num_params, initial_guess)
     options = dict(
         maxiter = max_iter
     )      
@@ -133,7 +164,7 @@ def learn_specific_state(
     start_time = time.time()
     minimum = minimize(
         _cost_func, 
-        initial_point, 
+        initial_guess, 
         method=OPT_METHOD, 
         options=options, 
         callback=_after_each, 
@@ -158,85 +189,37 @@ def learn_specific_state(
 
     return learned_results
     
-
-
-# ==================================================================================== #
-# |                                Inner Functions                                   | #
-# ==================================================================================== #
-
-def _inequality_func(theta:np.ndarray, *args )->float:
-    # Parse inputs:
-    index = args[0]
-    # Generate value ( should be positive on scipy's check, for it to be legit )
-    time = theta[index]
-    if time<0:
-        print(time)
-        return abs(time)
-    return time
-
-def _bound_rule(i:int) -> Tuple[Any, Any]:
-    # Constant:
-    NUM_PULSE_PARAMS : Final = 4  
-    # Derive:
-    if i%NUM_PULSE_PARAMS==3:
-        return (0, None)
-    else:
-        return (None, None)
-
-def _deal_bounds(num_params:int) -> int: 
-    # Define bounds:
-    bounds = [_bound_rule(i) for i in range(num_params)]
-    return bounds
-
-def _deal_constraints(num_params:int) -> int:    
-    # Constants:
-    NUM_PULSE_PARAMS : Final = 4
-    # Init list:
-    constraints : List[dict] = []
-    # Iterate:
-    for i in range(3, num_params, NUM_PULSE_PARAMS):
-        print(i)
-
-        constraints.append(
-            dict(
-                type = 'ineq',
-                fun  = _inequality_func,
-                args = [i]
-            )
-        )
-
-    return constraints
-
 # ==================================================================================== #
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
-def _test_learn_pi_pulse(num_moments:int=4, max_iter:int=1000) -> float:
+def main(
+    num_moments:int=4, 
+    max_iter:int=1000, 
+    num_pulses:int=5, 
+):
+
+    ## Learning Inputs:
+    ####################
     assertions.even(num_moments)
-    initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0.0, output='density_matrix', type_='normal')    
-    target_state = Fock(num_moments).to_density_matrix(num_moments=num_moments)
-    results = learn_pulse(initial_state, target_state, max_iter=max_iter, x=True)
-    print(results)
-
-
-def main(num_moments:int=4, max_iter:int=1000, num_pulses:int=5, plot_on:bool=False, video_on:bool=True):
-
-    assertions.even(num_moments)
-    initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
-    target_state = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
-
-    if plot_on:
+    initial_state = Fock( num_moments  ).to_density_matrix(num_moments=num_moments)
+    target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
+    initial_guess = None  # [0]*CoherentControl.num_params_for_pulse_sequence(num_pulses) 
+    if False:
         visuals.plot_city(initial_state)
         visuals.plot_city(target_state)
 
-    results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses)
+    ## STUDY:
+    ##########
+    results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses, initial_guess=initial_guess)
     
+
+    ## Plot and print results:
+    ###########################
     print(f"==========================")
     print(f"num_pulses = {num_pulses}")
     print(f"run_time = {timedelta(seconds=results.time)} [hh:mm:ss]")
-    print(f"similarity = {results.similarity}")
-
-          
+    print(f"similarity = {results.similarity}")          
     coherent_control = CoherentControl(num_moments=num_moments)
     final_state = coherent_control.coherent_sequence(initial_state, theta=results.theta, record_movie=True)
     np_utils.print_mat(final_state)
@@ -246,5 +229,5 @@ def main(num_moments:int=4, max_iter:int=1000, num_pulses:int=5, plot_on:bool=Fa
 
 if __name__ == "__main__":
     # _test_learn_pi_pulse(num_moments=4)
-    main(num_pulses=10, max_iter=100000, video_on=True)
+    main()
     print("Done.")
