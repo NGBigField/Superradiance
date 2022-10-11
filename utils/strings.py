@@ -1,3 +1,8 @@
+# ==================================================================================== #
+#|                                    Imports                                         |#
+# ==================================================================================== #
+
+
 import time 
 
 from typing import (
@@ -5,6 +10,11 @@ from typing import (
     Literal,
     Any,
 )
+
+
+# ==================================================================================== #
+#|                              declared functions                                    |#
+# ==================================================================================== #
 
 def formatted(s:Any, fill:str=' ', alignment:Literal['<','^','>']='>', width:Optional[int]=None, decimals:Optional[int]=None) -> str:
     if width is None:
@@ -23,3 +33,35 @@ def num_out_of_num(num1, num2):
 def time_stamp():
     t = time.localtime()
     return f"{t.tm_year}.{t.tm_mon:02}.{t.tm_mday:02}_{t.tm_hour:02}.{t.tm_min:02}.{t.tm_sec:02}"
+
+def insert_spaces_in_newlines(s:str, num_spaces:int) -> str:
+    spaces = ' '*num_spaces
+    s2 = s.replace('\n','\n'+spaces)
+    return s2
+
+def str_width(s:str, last_line_only:bool=False) -> int:
+    lines = s.split('\n')
+    widths = [len(line) for line in lines]
+    if last_line_only:
+        return widths[-1]
+    else:
+        return max(widths)
+        
+
+# ==================================================================================== #
+#|                                      tests                                         |#
+# ==================================================================================== #
+
+def _main_test():
+    import numpy as np
+    mat = np.matrix([
+        [1, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0]
+    ])
+    s = insert_spaces_in_newlines(str(mat), 5)
+    print(s)
+    print(str_width(s))
+
+if __name__ == "__main__":
+    _main_test()

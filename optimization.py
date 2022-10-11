@@ -15,6 +15,7 @@ from typing import (
     Union,
     Dict,
     Final,
+    Optional,
 )
 
 # import our helper modules
@@ -65,6 +66,16 @@ class LearnedResults():
     initial_state : np.matrix = None
     final_state : np.matrix = None
     time : float = None
+
+    def __repr__(self) -> str:
+        newline = '\n'
+        s = ""
+        s += f"similarity={self.similarity}"+newline
+        s += f"theta={self.theta}"+newline
+        s += f"run-time={self.time}"+newline
+        s += np_utils.mat_str_with_leading_text(self.initial_state, text="initial_state: ")+newline       
+        s += np_utils.mat_str_with_leading_text(self.final_state  , text="final_state  : ")+newline  
+        return s
     
 
 
@@ -77,7 +88,14 @@ _MatrixType = Union[np.matrix, np.array]
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
 
-def learn_specific_state(initial_state:_MatrixType, target_state:_MatrixType, max_iter:int=100, num_pulses:int=3, save_results:bool=True) -> LearnedResults:
+def learn_specific_state(
+    initial_state:_MatrixType, 
+    target_state:_MatrixType, 
+    max_iter : int=100, 
+    num_pulses : int=3, 
+    initial_guess : Optional[np.array] = None,
+    save_results : bool=True
+) -> LearnedResults:
 
     # Check inputs:
     for state in [initial_state, target_state]:
@@ -220,7 +238,7 @@ def main(num_moments:int=4, max_iter:int=1000, num_pulses:int=5, plot_on:bool=Fa
 
           
     coherent_control = CoherentControl(num_moments=num_moments)
-    final_state = coherent_control.coherent_sequence(initial_state, theta=results.theta, record_video=video_on)
+    final_state = coherent_control.coherent_sequence(initial_state, theta=results.theta, record_movie=True)
     np_utils.print_mat(final_state)
 
     return results

@@ -48,18 +48,22 @@ from optimization import learn_specific_state, LearnedResults
 
 
 def _observe_saved_data():
-    file_name =  "learned_results 2022.10.08_12.35.11"
+    file_name =  "learned_results 2022.10.11_14.10.14"
     results : LearnedResults = saveload.load(file_name)
     ## Unpack results:
-    theta = results.theta
-    final_state = results.state
-    similarity = results.similarity
+    theta           = results.theta
+    initial_state   = results.initial_state
+    final_state     = results.final_state
+    similarity      = results.similarity
+    print(results)
     ## Derive:
     num_moments = final_state.shape[0]-1
-    initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
     ## Movie:
     coherent_control = CoherentControl(num_moments=num_moments)
-    coherent_control.coherent_sequence(initial_state, theta, record_video=True)
+    coherent_control.coherent_sequence(initial_state, theta, movie_config=CoherentControl.MovieConfig(
+        active=True,
+        show_now=True
+    ))
     ## Plot:
     # draw_now()
     # state_plot = visuals.MatterStatePlot()
@@ -75,5 +79,6 @@ def main():
 
 
 if __name__ == "__main__":
+    np_utils.fix_print_length()
     main()
 
