@@ -38,7 +38,7 @@ from coherentcontrol import (
 )
 
 # for optimization:
-from scipy.optimize import minimize, OptimizeResult  # for optimization:   
+from scipy.optimize import minimize, OptimizeResult, show_options  # for optimization:   
         
 # For measuring time:
 import time
@@ -56,6 +56,7 @@ from dataclasses import dataclass
 # ==================================================================================== #
 OPT_METHOD : Final = 'SLSQP'
 NUM_PULSE_PARAMS : Final = 4  
+TOLERANCE = 10e-10
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
@@ -67,8 +68,10 @@ class LearnedResults():
     initial_state : np.matrix = None
     final_state : np.matrix = None
     time : float = None
+    iterations : int = None
 
     def __repr__(self) -> str:
+        np_utils.fix_print_length()
         newline = '\n'
         s = ""
         s += f"similarity={self.similarity}"+newline
@@ -76,6 +79,7 @@ class LearnedResults():
         s += f"run-time={self.time}"+newline
         s += np_utils.mat_str_with_leading_text(self.initial_state, text="initial_state: ")+newline       
         s += np_utils.mat_str_with_leading_text(self.final_state  , text="final_state  : ")+newline  
+        s += f"num_iterations={self.iterations}"+newline
         return s
     
 
@@ -98,7 +102,7 @@ def _deal_bounds(num_params:int) -> int:
         if i%NUM_PULSE_PARAMS==3:
             return (0, None)
         else:
-            return (None, None)
+            return (-np.pi, +np.pi)
     # Define bounds:
     return [_bound_rule(i) for i in range(num_params)]
 
@@ -125,7 +129,7 @@ def learn_specific_state(
     max_iter : int=100, 
     num_pulses : int=3, 
     initial_guess : Optional[np.array] = None,
-    save_results : bool=True
+    save_results : bool=True,
 ) -> LearnedResults:
 
     # Check inputs:
@@ -156,31 +160,34 @@ def learn_specific_state(
     # Opt Config:
     initial_guess = _deal_initial_guess(num_params, initial_guess)
     options = dict(
-        maxiter = max_iter
+        maxiter = max_iter,
+        ftol = TOLERANCE    
     )      
     bounds = _deal_bounds(num_params)      
 
     # Run optimization:
     start_time = time.time()
-    minimum = minimize(
+    opt_res : OptimizeResult = minimize(
         _cost_func, 
         initial_guess, 
         method=OPT_METHOD, 
         options=options, 
         callback=_after_each, 
-        bounds=bounds
+        bounds=bounds,
+        tol=TOLERANCE,
     )
     finish_time = time.time()
-    optimal_theta = minimum.x
+    optimal_theta = opt_res.x
     prog_bar.close()
     
     # Pack learned-results:
     learned_results = LearnedResults(
         theta = optimal_theta,
-        similarity = minimum.fun,
+        similarity = opt_res.fun,
         time = finish_time-start_time,
         initial_state = initial_state,
         final_state = coherent_control.coherent_sequence(initial_state, optimal_theta),
+        iterations = opt_res.nit,
     )
 
     if save_results:
@@ -194,8 +201,8 @@ def learn_specific_state(
 # ==================================================================================== #
 
 def main(
-    num_moments:int=4, 
-    max_iter:int=1000, 
+    num_moments:int=6, 
+    max_iter:int=100, 
     num_pulses:int=5, 
 ):
 
@@ -216,18 +223,15 @@ def main(
 
     ## Plot and print results:
     ###########################
-    print(f"==========================")
-    print(f"num_pulses = {num_pulses}")
-    print(f"run_time = {timedelta(seconds=results.time)} [hh:mm:ss]")
-    print(f"similarity = {results.similarity}")          
+    print(results)
     coherent_control = CoherentControl(num_moments=num_moments)
     final_state = coherent_control.coherent_sequence(initial_state, theta=results.theta, record_movie=True)
-    np_utils.print_mat(final_state)
 
     return results
 
 
 if __name__ == "__main__":
     # _test_learn_pi_pulse(num_moments=4)
-    main()
+    # show_options(method=OPT_METHOD)
+    results = main()
     print("Done.")
