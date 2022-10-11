@@ -201,13 +201,11 @@ def _test_learn_pi_pulse(num_moments:int=4, max_iter:int=1000) -> float:
     print(results)
 
 
-
-
 def main(num_moments:int=4, max_iter:int=1000, num_pulses:int=5, plot_on:bool=False, video_on:bool=True):
 
     assertions.even(num_moments)
-    initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
-    target_state = Fock.create_coherent_state(num_moments=num_moments, alpha=1.00, output='density_matrix', type_='even_cat')
+    initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
+    target_state = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
 
     if plot_on:
         visuals.plot_city(initial_state)
@@ -230,5 +228,5 @@ def main(num_moments:int=4, max_iter:int=1000, num_pulses:int=5, plot_on:bool=Fa
 
 if __name__ == "__main__":
     # _test_learn_pi_pulse(num_moments=4)
-    main(num_pulses=15, max_iter=100000, video_on=True)
+    main(num_pulses=10, max_iter=100000, video_on=True)
     print("Done.")
