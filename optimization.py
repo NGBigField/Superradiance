@@ -56,7 +56,7 @@ from dataclasses import dataclass
 # ==================================================================================== #
 OPT_METHOD : Final = 'SLSQP'
 NUM_PULSE_PARAMS : Final = 4  
-TOLERANCE = 10e-10
+TOLERANCE = 1e-10
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
@@ -174,7 +174,7 @@ def learn_specific_state(
         options=options, 
         callback=_after_each, 
         bounds=bounds,
-        tol=TOLERANCE,
+        # tol=TOLERANCE,
     )
     finish_time = time.time()
     optimal_theta = opt_res.x
@@ -200,11 +200,30 @@ def learn_specific_state(
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
-def main(
+def run_many_guesses(max_num_pulses:int=16, num_tries:int=10) -> LearnedResults:
+    best_similarity : float = 1e10
+    best_results : LearnedResults = None
+    
+    for num_pulses in range(1, max_num_pulses+1):
+        for _ in range(num_tries):
+            results = run_signle_guess(num_pulses=num_pulses)
+            similarity = results.similarity
+            if similarity < best_similarity:
+                best_results = results
+                
+    saveload.save(best_results, "best_results "+strings.time_stamp())
+    print("\n")
+    print("\n")
+    print("best_results:")
+    print(best_results)
+    return best_results
+
+
+def run_signle_guess(
     num_moments:int=6, 
     max_iter:int=100, 
     num_pulses:int=5, 
-):
+) -> LearnedResults:
 
     ## Learning Inputs:
     ####################
@@ -225,7 +244,15 @@ def main(
     ###########################
     print(results)
     coherent_control = CoherentControl(num_moments=num_moments)
-    final_state = coherent_control.coherent_sequence(initial_state, theta=results.theta, record_movie=True)
+    movie_config = CoherentControl.MovieConfig(
+        active=True,
+        show_now=False,
+        num_transition_frames=5,
+        num_freeze_frames=5,
+        fps=2,
+        bloch_sphere_resolution=10
+    )
+    final_state = coherent_control.coherent_sequence(initial_state, theta=results.theta, movie_config=movie_config)
 
     return results
 
@@ -233,5 +260,5 @@ def main(
 if __name__ == "__main__":
     # _test_learn_pi_pulse(num_moments=4)
     # show_options(method=OPT_METHOD)
-    results = main()
+    results = run_many_guesses()
     print("Done.")

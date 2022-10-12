@@ -307,6 +307,10 @@ class SequenceMovieRecorder():
         if not self.is_active:
             return
         self.video_recorder.write_video()
+        self._close()
+        
+    def _close(self) -> None:
+        self.figure_object.close()
 
     @property
     def is_active(self) -> bool:

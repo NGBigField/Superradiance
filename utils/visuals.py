@@ -294,6 +294,9 @@ class MatterStatePlot():
         if show_now:
             draw_now()
             plt.pause(0.05)
+    
+    def close(self) -> None:
+        plt.close(self.figure)
             
     def refresh_figure(self) -> None :
         plt.figure(self.figure.number)
