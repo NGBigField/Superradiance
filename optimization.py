@@ -56,7 +56,7 @@ from dataclasses import dataclass
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-OPT_METHOD : Final = 'SLSQP'
+OPT_METHOD : Final = 'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
 TOLERANCE = 1e-10
 
@@ -272,8 +272,9 @@ def learn_specific_state(
 # ==================================================================================== #
 
 def run_many_guesses(
+    min_num_pulses:int=2,
     max_num_pulses:int=16, 
-    num_tries:int=10,
+    num_tries:int=5,
     num_moments:int=8
 ) -> LearnedResults:
 
