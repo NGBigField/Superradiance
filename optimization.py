@@ -26,6 +26,7 @@ from utils import (
     visuals,
     saveload,
     strings,
+    errors,
 )
 
 # For defining coherent states:
@@ -59,7 +60,7 @@ from dataclasses import dataclass
 # ==================================================================================== #
 OPT_METHOD : Final = 'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
-TOLERANCE = 1e-10
+TOLERANCE = 1e-20
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
@@ -141,8 +142,10 @@ def _common_learn(
 
     # Progress_bar
     prog_bar = visuals.ProgressBar(max_iter, "Minimizing: ")
-    def _after_each(xk:np.ndarray) -> False:
+    def _after_each(xk:np.ndarray) -> bool:
         prog_bar.next()
+        finish : bool = False
+        return finish
 
     # Opt Config:
     initial_guess = _deal_initial_guess(num_params, initial_guess)
@@ -279,7 +282,7 @@ def learn_specific_state(
 
 def _run_signle_guess(
     num_moments:int=8, 
-    max_iter:int=1, 
+    max_iter:int=1000, 
     num_pulses:int=5, 
 ) -> LearnedResults:
 
@@ -309,10 +312,8 @@ def _run_many_guesses(
     # Track the best results:
     best_results : LearnedResults = LearnedResults(similarity=1e10) 
 
-    # Define Optimization:
-    target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
-
     # For movie:
+    target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
     coherent_control = CoherentControl(num_moments=num_moments)
     movie_config = CoherentControl.MovieConfig(
         active=True,
@@ -328,7 +329,10 @@ def _run_many_guesses(
     for num_pulses in range(min_num_pulses, max_num_pulses+1):
         for _ in range(num_tries):
             # Run:
-            results = _run_signle_guess(num_pulses=num_pulses, num_moments=num_moments)
+            try:
+                results = _run_signle_guess(num_pulses=num_pulses, num_moments=num_moments)
+            except Exception as e:
+                errors.print_traceback(e)
             # Check if better than best:
             if results.similarity < best_results.similarity:
                 best_results = results
