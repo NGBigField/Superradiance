@@ -52,7 +52,7 @@ from evolution import (
 )
 
 # For printing progress:
-from metrics import purity, fidelity, simmilarity
+from metrics import purity
 
 # for copying input:
 from copy import deepcopy

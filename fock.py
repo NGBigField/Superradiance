@@ -90,7 +90,6 @@ class KetBra(Enum):
         return self.name
 
 
-
 @dataclass
 class Fock():
     number : int 

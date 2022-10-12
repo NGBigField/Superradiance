@@ -3,6 +3,7 @@
 # ==================================================================================== #
 import numpy as np
 from scipy.linalg import sqrtm
+from utils import assertions
 
 # ==================================================================================== #
 #|                                   Constants                                        |#
@@ -22,7 +23,7 @@ _DensityMatrixType = np.matrix
 # ==================================================================================== #
 #|                                Declared Functions                                  |#
 # ==================================================================================== #
-def simmilarity(rho:_DensityMatrixType, sigma:_DensityMatrixType) -> float:
+def distance(rho:_DensityMatrixType, sigma:_DensityMatrixType) -> float:
     diff = np.linalg.norm(rho - sigma)
     return diff**2
         
@@ -30,12 +31,13 @@ def fidelity(rho:_DensityMatrixType, sigma:_DensityMatrixType) -> float:
     root_rho = sqrtm(rho)
     root_prod = sqrtm(root_rho@sigma@root_rho)
     tr = np.trace(root_prod)
-    return tr**2
+    fidel = assertions.real(tr**2, reason="Fidelity should be a real number") 
+    return fidel
 
 def purity(rho:_DensityMatrixType) -> float:
     tr = np.trace(rho@rho)
-    assert np.imag(tr)<EPS, f"Purity should be a real number"
-    return np.real(tr)
+    pur = assertions.real(tr, reason="Purity should be a real number")
+    return pur
 
 # ==================================================================================== #
 #|                                     Tests                                          |#

@@ -301,7 +301,7 @@ class MatterStatePlot():
         if show_now:
             draw_now()
         if score_str is not None:
-            self.axis_bloch_sphere.text(x=0 ,y=0, z=-2, s=score_str)
+            self.axis_bloch_sphere.text(x=-0.5 ,y=-0.5, z=-2, s=score_str, fontsize=12)
     
     def close(self) -> None:
         plt.close(self.figure)

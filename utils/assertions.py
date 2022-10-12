@@ -60,6 +60,10 @@ def _is_hermitian(m:np.matrix) -> bool:
 # |                              Declared Functions                                  | #
 # ==================================================================================== #
 
+def real(x:_T, reason:Optional[str]=None) -> _T:
+    _assert(np.imag(x)<EPSILON, reason=reason, default_reason=f"Must be real")
+    return np.real(x)
+
 def integer(x:_T, reason:Optional[str]=None) -> _T:
     _assert( isinstance(x, (int, float)), reason=reason )
     _assert( round(x) == x, reason=reason )

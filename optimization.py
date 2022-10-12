@@ -41,7 +41,7 @@ from coherentcontrol import (
 
 # for optimization:
 from scipy.optimize import minimize, OptimizeResult, show_options  # for optimization:   
-import metrics
+from metrics import fidelity, distance, purity
         
 # For measuring time:
 import time
@@ -182,6 +182,12 @@ def _common_learn(
 
     return learned_results
 
+def _score_str_func(crnt_state:_DensityMatrixType, target_state:_DensityMatrixType) -> str:
+    s =  f"Purity   = {purity(crnt_state)} \n"
+    s += f"Fidelity = {fidelity(crnt_state, target_state)} \n"
+    s += f"Distance = {distance(crnt_state, target_state)} "
+    return s
+
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
@@ -201,7 +207,7 @@ def learn_midladder_state(
     @dataclass
     class _Cost():
         midvalue   = -1.0
-        diagonal   = +2.0
+        diagonal   = +5.0
         every_else = +0.5
 
     # cost function:
@@ -254,7 +260,8 @@ def learn_specific_state(
     coherent_control = _coherent_control_from_mat(initial_state)
     def _cost_func(theta:np.ndarray) -> float :  
         final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
-        return metrics.simmilarity(initial_state, final_state)
+        cost = fidelity(initial_state, final_state) * -1
+        return cost
     # Call base function:
     return _common_learn(
         initial_state=initial_state,
@@ -270,7 +277,29 @@ def learn_specific_state(
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
-def run_many_guesses(
+def _run_signle_guess(
+    num_moments:int=8, 
+    max_iter:int=1, 
+    num_pulses:int=5, 
+) -> LearnedResults:
+
+    ## Learning Inputs:
+    ####################
+    assertions.even(num_moments)
+    initial_state = Fock( num_moments  ).to_density_matrix(num_moments=num_moments)
+    target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
+    if False:
+        visuals.plot_city(initial_state)
+        visuals.plot_city(target_state)
+
+    ## STUDY:
+    ##########
+    results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses)
+    # results = learn_midladder_state(initial_state=initial_state, max_iter=max_iter, num_pulses=num_pulses)
+    
+    return results
+
+def _run_many_guesses(
     min_num_pulses:int=3,
     max_num_pulses:int=16, 
     num_tries:int=5,
@@ -280,20 +309,27 @@ def run_many_guesses(
     # Track the best results:
     best_results : LearnedResults = LearnedResults(similarity=1e10) 
 
+    # Define Optimization:
+    target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
+
     # For movie:
     coherent_control = CoherentControl(num_moments=num_moments)
     movie_config = CoherentControl.MovieConfig(
         active=True,
         show_now=False,
-        num_transition_frames=5,
+        num_transition_frames=10,
         num_freeze_frames=5,
-        fps=2,
-        bloch_sphere_resolution=10
+        fps=3,
+        bloch_sphere_resolution=25,
+        score_str_func = lambda state: _score_str_func(state, target_state)
     )    
+    
     
     for num_pulses in range(min_num_pulses, max_num_pulses+1):
         for _ in range(num_tries):
-            results = run_signle_guess(num_pulses=num_pulses, num_moments=num_moments)
+            # Run:
+            results = _run_signle_guess(num_pulses=num_pulses, num_moments=num_moments)
+            # Check if better than best:
             if results.similarity < best_results.similarity:
                 best_results = results
                 # Print and record movie:
@@ -308,33 +344,11 @@ def run_many_guesses(
     return best_results
 
 
-def run_signle_guess(
-    num_moments:int=8, 
-    max_iter:int=1000, 
-    num_pulses:int=5, 
-) -> LearnedResults:
 
-    ## Learning Inputs:
-    ####################
-    assertions.even(num_moments)
-    initial_state = Fock( num_moments  ).to_density_matrix(num_moments=num_moments)
-    # target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
-    # initial_guess = None  # [0]*CoherentControl.num_params_for_pulse_sequence(num_pulses) 
-    if False:
-        visuals.plot_city(initial_state)
-        visuals.plot_city(target_state)
-
-    ## STUDY:
-    ##########
-    # results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses, initial_guess=initial_guess)
-    results = learn_midladder_state(initial_state=initial_state, max_iter=max_iter, num_pulses=num_pulses)
-    
-
-    return results
-
+def main():
+    results = _run_many_guesses()
 
 if __name__ == "__main__":
-    # _test_learn_pi_pulse(num_moments=4)
-    # show_options(method=OPT_METHOD)
-    results = run_many_guesses()
+    main()
+    # _test_learn_pi_pulse(num_moments=4)    
     print("Done.")
