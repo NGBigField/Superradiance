@@ -55,7 +55,7 @@ from evolution import (
 from copy import deepcopy
 
 # For checking on real fock states:
-from quantum_states.fock import Fock
+from fock import Fock
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
@@ -189,7 +189,7 @@ def _deal_params(theta: Union[List[float], np.ndarray]) -> List[_PulseSequencePa
 
     # end:
     return result
-        
+    
 
 # ==================================================================================== #
 # |                            Declared Functions                                    | #
@@ -245,6 +245,11 @@ class SPulses():
 
 class SequenceMovieRecorder():
     
+    def _default_score_str_func(staet:_DensityMatrixType) -> str:
+        purity = 0
+        s = f"purity = {purity}"
+        return s
+
     @dataclass
     class Config():
         active : bool = False
@@ -253,11 +258,12 @@ class SequenceMovieRecorder():
         num_transition_frames : int = 10
         num_freeze_frames : int = 5
         bloch_sphere_resolution : int = 25
+        score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
+
     
     def __init__(
         self, 
         initial_state : _DensityMatrixType,
-        score_string_function : Optional[Callable[[np.matrix], str]] = None,
         config : Optional[Config] = None,
     ) -> None:
         # Base properties:        
@@ -270,16 +276,19 @@ class SequenceMovieRecorder():
             )            
         else:
             self.figure_object = None
-        self.score_string_function : Optional[Callable[[np.matrix], str]] = score_string_function
+        # Score strung func:
+        if self.config.score_str_func is None:
+            self.config.score_str_func = SequenceMovieRecorder._default_score_str_func
+        self.score_str_func : Callable[[np.matrix], str] = self.config.score_str_func
         
     def _record_single_state(
         self,
         state : _DensityMatrixType,
         duration : int,  # number of repetitions of the same frame:
         title : Optional[str]=None,
-        similarity_str : Optional[str] = None,
+        score_str : Optional[str] = None,
     ) -> None:
-        self.figure_object.update(state, title=title, show_now=self.config.show_now)
+        self.figure_object.update(state, title=title, show_now=self.config.show_now, score_str=score_str)
         self.video_recorder.capture(fig=self.figure_object.figure, duration=duration)
         
     def record_transition(
@@ -292,14 +301,14 @@ class SequenceMovieRecorder():
             return  # We don't want to record a video
         final_state = transition_states[-1]
         # Add similarity string:
-        if self.score_string_function is None:
-            similarity_str = None
+        if self.score_str_func is None:
+            score_str = None
         else:
-            similarity_str = self.score_string_function(final_state)
+            score_str = self.score_str_func(final_state)
         # Capture shots: (transition and freezed state)
         for transition_state in transition_states:
             self._record_single_state(transition_state, title=title, duration=1 )
-        self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames, similarity_str=similarity_str)
+        self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames, score_str=score_str)
         # Keep info for next call:
         self.last_state = deepcopy(transition_states)
         
@@ -380,10 +389,10 @@ class CoherentControl():
     # ==================================================== #
     #|                 declared functions                 |#
     # ==================================================== #
-    def pulse_on_state_final_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0) -> _DensityMatrixType: 
-        return self.pulse_on_state(state=state, num_intermediate_states=0, x=x, y=y, z=z)[-1]
+    def pulse_on_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0) -> _DensityMatrixType: 
+        return self.pulse_on_state_with_intermediate_states(state=state, num_intermediate_states=0, x=x, y=y, z=z)[-1]
 
-    def pulse_on_state(self, state:_DensityMatrixType, num_intermediate_states:int=0, x:float=0.0, y:float=0.0, z:float=0.0) -> List[_DensityMatrixType]: 
+    def pulse_on_state_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate_states:int=0, x:float=0.0, y:float=0.0, z:float=0.0) -> List[_DensityMatrixType]: 
         # Check input:
         num_intermediate_states_error_msg = f"`num_intermediate_states` must be a non-negative number."
         num_intermediate_states = assertions.integer(num_intermediate_states)
@@ -410,10 +419,10 @@ class CoherentControl():
             states.append(crnt_state)
         return states
 
-    def state_decay_final_state(self, state:_DensityMatrixType, time:float, time_steps_resolution:Optional[int]=None,) -> _DensityMatrixType: 
-        return self.state_decay(state=state, time=time, num_intermediate_states=0, time_steps_resolution=time_steps_resolution)[-1]        
+    def state_decay(self, state:_DensityMatrixType, time:float, time_steps_resolution:Optional[int]=None,) -> _DensityMatrixType: 
+        return self.state_decay_with_intermediate_states(state=state, time=time, num_intermediate_states=0, time_steps_resolution=time_steps_resolution)[-1]        
 
-    def state_decay(
+    def state_decay_with_intermediate_states(
         self, 
         state:_DensityMatrixType, 
         time:float, 
@@ -493,11 +502,11 @@ class CoherentControl():
             t = pulse_params.pause
             # Apply pulse and delay:
             if x != 0 or y != 0 or z != 0:
-                transition_states = self.pulse_on_state(state=crnt_state, x=x, y=y, z=z, num_intermediate_states=num_intermediate_states)
+                transition_states = self.pulse_on_state_with_intermediate_states(state=crnt_state, x=x, y=y, z=z, num_intermediate_states=num_intermediate_states)
                 sequence_recorder.record_transition(transition_states, f"Pulse = [{num2str(x)}, {num2str(y)}, {num2str(z)}]")
                 crnt_state = transition_states[-1]
             if t != 0:
-                transition_states = self.state_decay(state=crnt_state, time=t, num_intermediate_states=num_intermediate_states)
+                transition_states = self.state_decay_with_intermediate_states(state=crnt_state, time=t, num_intermediate_states=num_intermediate_states)
                 sequence_recorder.record_transition(transition_states, f"Decay-Time = {num2str(t)}")
                 crnt_state = transition_states[-1]
         
@@ -552,9 +561,9 @@ def _test_pulse_in_steps():
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
     coherent_control = CoherentControl(num_moments=num_moments)
     # Apply pulse:
-    all_pulse_states = coherent_control.pulse_on_state(state=initial_state, num_intermediate_states=num_steps, x=np.pi )
+    all_pulse_states = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps, x=np.pi )
     # Apply decay time:
-    all_decay_states = coherent_control.state_decay(state=all_pulse_states[-1], num_intermediate_states=num_steps, time=0.5)
+    all_decay_states = coherent_control.state_decay_with_intermediate_states(state=all_pulse_states[-1], num_intermediate_states=num_steps, time=0.5)
     # Movie:
     visuals.draw_now()
     state_plot = visuals.MatterStatePlot(block_sphere_resolution=100, initial_state=initial_state)
@@ -581,18 +590,19 @@ if __name__ == "__main__":
 
     
 
+""" #TODO:
+1. Add to movie:
+    1. purity of state = trace(rho^2):
+        1 - if pure
+        1/N - maximally not pure 
+    2. fidelity  =  trace( sqrt(rho) @ sigma @ sqrt(rho) ) 
 
-#NOTE:
+2. Run optimization based on the two above
+"""
 
-""" 
 
+
+""" #NOTE:
 possible cost functions:
-
-* Even\odd cat states (atomic density matrix)  (poisonic dist. pure state as a |ket><bra| )
-
-* purity measure:  trace(rho^2)
-    1 - if pure
-    1/N - maximally not pure 
-
 * BSV light
 """

@@ -29,7 +29,7 @@ from utils import (
 )
 
 # For defining coherent states:
-from quantum_states.fock import Fock
+from fock import Fock
 
 # For coherent control
 from coherentcontrol import (
@@ -272,7 +272,7 @@ def learn_specific_state(
 # ==================================================================================== #
 
 def run_many_guesses(
-    min_num_pulses:int=2,
+    min_num_pulses:int=3,
     max_num_pulses:int=16, 
     num_tries:int=5,
     num_moments:int=8
@@ -292,7 +292,7 @@ def run_many_guesses(
         bloch_sphere_resolution=10
     )    
     
-    for num_pulses in range(1, max_num_pulses+1):
+    for num_pulses in range(min_num_pulses, max_num_pulses+1):
         for _ in range(num_tries):
             results = run_signle_guess(num_pulses=num_pulses, num_moments=num_moments)
             if results.similarity < best_results.similarity:

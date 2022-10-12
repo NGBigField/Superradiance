@@ -25,7 +25,7 @@ from utils import (
 )
 
 # For defining coherent states:
-from quantum_states.fock import Fock
+from fock import Fock
 
 # For coherent control
 from coherentcontrol import CoherentControl
