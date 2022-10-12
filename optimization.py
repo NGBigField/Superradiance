@@ -16,6 +16,7 @@ from typing import (
     Dict,
     Final,
     Optional,
+    Callable,
 )
 
 # import our helper modules
@@ -35,6 +36,7 @@ from coherentcontrol import (
     S_mats,
     pulse,
     CoherentControl,
+    _DensityMatrixType,
 )
 
 # for optimization:
@@ -87,7 +89,6 @@ class LearnedResults():
 # ==================================================================================== #
 # |                                  Typing hints                                    | #
 # ==================================================================================== #
-_MatrixType = Union[np.matrix, np.array]
 
 
 
@@ -95,6 +96,11 @@ _MatrixType = Union[np.matrix, np.array]
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
 
+def _coherent_control_from_mat(mat:_DensityMatrixType) -> CoherentControl:
+    # Set basic properties:
+    matrix_size = mat.shape[0]
+    max_state_num = matrix_size-1
+    return CoherentControl(max_state_num)
 
 def _deal_bounds(num_params:int) -> int: 
     def _bound_rule(i:int) -> Tuple[Any, Any]:
@@ -119,38 +125,18 @@ def _deal_initial_guess(num_params:int, initial_guess:Optional[np.array]) -> np.
     return initial_guess
     
 
-# ==================================================================================== #
-# |                               Declared Functions                                 | #
-# ==================================================================================== #
-
-def learn_specific_state(
-    initial_state:_MatrixType, 
-    target_state:_MatrixType, 
-    max_iter : int=100, 
-    num_pulses : int=3, 
+def _common_learn(
+    initial_state : _DensityMatrixType, 
+    cost_function : Callable[[_DensityMatrixType], float],
+    max_iter : int,
+    num_pulses : int,
     initial_guess : Optional[np.array] = None,
-    save_results : bool=True,
+    save_results : bool=True
 ) -> LearnedResults:
-
-    # Check inputs:
-    for state in [initial_state, target_state]:
-        assertions.density_matrix(state)
-        assert len(state.shape)==2
-        assert state.shape[0] == state.shape[1]
-    assert initial_state.shape[0] == target_state.shape[0]
     
     # Set basic properties:
-    matrix_size = state.shape[0]
-    max_state_num = matrix_size-1
-    coherent_control = CoherentControl(max_state_num)
+    coherent_control = _coherent_control_from_mat(initial_state)
     num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
-
-    # cost function:
-    def _cost_func(theta:np.ndarray) -> float :  
-        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
-        diff = np.linalg.norm(final_state - target_state)
-        cost = diff**2
-        return cost
 
     # Progress_bar
     prog_bar = visuals.ProgressBar(max_iter, "Minimizing: ")
@@ -161,20 +147,19 @@ def learn_specific_state(
     initial_guess = _deal_initial_guess(num_params, initial_guess)
     options = dict(
         maxiter = max_iter,
-        ftol = TOLERANCE    
+        ftol=TOLERANCE,
     )      
     bounds = _deal_bounds(num_params)      
 
     # Run optimization:
     start_time = time.time()
     opt_res : OptimizeResult = minimize(
-        _cost_func, 
+        cost_function, 
         initial_guess, 
         method=OPT_METHOD, 
         options=options, 
         callback=_after_each, 
-        bounds=bounds,
-        # tol=TOLERANCE,
+        bounds=bounds    
     )
     finish_time = time.time()
     optimal_theta = opt_res.x
@@ -195,21 +180,125 @@ def learn_specific_state(
 
 
     return learned_results
+
+# ==================================================================================== #
+# |                               Declared Functions                                 | #
+# ==================================================================================== #
+
+def learn_midladder_state(
+    initial_state:_DensityMatrixType,  
+    max_iter : int=1000, 
+    num_pulses : int=5, 
+    initial_guess : Optional[np.array] = None,
+    save_results : bool=True,
+) -> LearnedResults:
+
+    # Check inputs:
+    assertions.density_matrix(initial_state)
+
+    # Constants:
+    @dataclass
+    class _Cost():
+        midvalue   = -1.0
+        diagonal   = +2.0
+        every_else = +0.5
+
+    # cost function:
+    coherent_control = _coherent_control_from_mat(initial_state)
+    num_moments = coherent_control.num_moments
+    target_state = Fock(num_moments//2).to_density_matrix(num_moments)
+    def _cost_func(theta:np.ndarray) -> float :  
+        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
+        total_cost = 0.0
+        shape = final_state.shape
+        for i in range(shape[0]):
+            for j in range(shape[1]):
+                val = final_state[i,j]
+                if i==j: # diagonal
+                    if i==shape[0]//2:
+                        cost = _Cost.midvalue
+                    else:
+                        cost = _Cost.diagonal
+                else:
+                    cost = _Cost.every_else
+                total_cost += cost*abs(val)
+        return total_cost
+
+    # Call base function:
+    return _common_learn(
+        initial_state=initial_state,
+        max_iter=max_iter,
+        num_pulses=num_pulses,
+        cost_function=_cost_func,
+        save_results=save_results,
+        initial_guess=initial_guess,
+    )
+
+
+def learn_specific_state(
+    initial_state:_DensityMatrixType, 
+    target_state:_DensityMatrixType, 
+    max_iter : int=100, 
+    num_pulses : int=3, 
+    initial_guess : Optional[np.array] = None,
+    save_results : bool=True,
+) -> LearnedResults:
+
+    # Check inputs:
+    assertions.density_matrix(initial_state)
+    assertions.density_matrix(target_state)
+    assert initial_state.shape == target_state.shape
+ 
+    # cost function:
+    coherent_control = _coherent_control_from_mat(initial_state)
+    def _cost_func(theta:np.ndarray) -> float :  
+        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
+        diff = np.linalg.norm(final_state - target_state)
+        cost = diff**2
+        return cost
+    # Call base function:
+    return _common_learn(
+        initial_state=initial_state,
+        max_iter=max_iter,
+        num_pulses=num_pulses,
+        cost_function=_cost_func,
+        save_results=save_results,
+        initial_guess=initial_guess,
+    )
+
     
 # ==================================================================================== #
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
-def run_many_guesses(max_num_pulses:int=16, num_tries:int=10) -> LearnedResults:
-    best_similarity : float = 1e10
-    best_results : LearnedResults = None
+def run_many_guesses(
+    max_num_pulses:int=16, 
+    num_tries:int=10,
+    num_moments:int=8
+) -> LearnedResults:
+
+    # Track the best results:
+    best_results : LearnedResults = LearnedResults(similarity=1e10) 
+
+    # For movie:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    movie_config = CoherentControl.MovieConfig(
+        active=True,
+        show_now=False,
+        num_transition_frames=5,
+        num_freeze_frames=5,
+        fps=2,
+        bloch_sphere_resolution=10
+    )    
     
     for num_pulses in range(1, max_num_pulses+1):
         for _ in range(num_tries):
-            results = run_signle_guess(num_pulses=num_pulses)
-            similarity = results.similarity
-            if similarity < best_similarity:
+            results = run_signle_guess(num_pulses=num_pulses, num_moments=num_moments)
+            if results.similarity < best_results.similarity:
                 best_results = results
+                # Print and record movie:
+                print(results)
+                coherent_control.coherent_sequence(results.initial_state, theta=results.theta, movie_config=movie_config)
                 
     saveload.save(best_results, "best_results "+strings.time_stamp())
     print("\n")
@@ -220,8 +309,8 @@ def run_many_guesses(max_num_pulses:int=16, num_tries:int=10) -> LearnedResults:
 
 
 def run_signle_guess(
-    num_moments:int=6, 
-    max_iter:int=100, 
+    num_moments:int=8, 
+    max_iter:int=1000, 
     num_pulses:int=5, 
 ) -> LearnedResults:
 
@@ -229,30 +318,17 @@ def run_signle_guess(
     ####################
     assertions.even(num_moments)
     initial_state = Fock( num_moments  ).to_density_matrix(num_moments=num_moments)
-    target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
-    initial_guess = None  # [0]*CoherentControl.num_params_for_pulse_sequence(num_pulses) 
+    # target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
+    # initial_guess = None  # [0]*CoherentControl.num_params_for_pulse_sequence(num_pulses) 
     if False:
         visuals.plot_city(initial_state)
         visuals.plot_city(target_state)
 
     ## STUDY:
     ##########
-    results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses, initial_guess=initial_guess)
+    # results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses, initial_guess=initial_guess)
+    results = learn_midladder_state(initial_state=initial_state, max_iter=max_iter, num_pulses=num_pulses)
     
-
-    ## Plot and print results:
-    ###########################
-    print(results)
-    coherent_control = CoherentControl(num_moments=num_moments)
-    movie_config = CoherentControl.MovieConfig(
-        active=True,
-        show_now=False,
-        num_transition_frames=5,
-        num_freeze_frames=5,
-        fps=2,
-        bloch_sphere_resolution=10
-    )
-    final_state = coherent_control.coherent_sequence(initial_state, theta=results.theta, movie_config=movie_config)
 
     return results
 
