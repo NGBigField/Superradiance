@@ -41,6 +41,7 @@ from coherentcontrol import (
 
 # for optimization:
 from scipy.optimize import minimize, OptimizeResult, show_options  # for optimization:   
+import metrics
         
 # For measuring time:
 import time
@@ -253,9 +254,7 @@ def learn_specific_state(
     coherent_control = _coherent_control_from_mat(initial_state)
     def _cost_func(theta:np.ndarray) -> float :  
         final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
-        diff = np.linalg.norm(final_state - target_state)
-        cost = diff**2
-        return cost
+        return metrics.simmilarity(initial_state, final_state)
     # Call base function:
     return _common_learn(
         initial_state=initial_state,

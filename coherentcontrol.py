@@ -51,6 +51,9 @@ from evolution import (
     Params as evolution_params,
 )
 
+# For printing progress:
+from metrics import purity, fidelity, simmilarity
+
 # for copying input:
 from copy import deepcopy
 
@@ -245,10 +248,8 @@ class SPulses():
 
 class SequenceMovieRecorder():
     
-    def _default_score_str_func(staet:_DensityMatrixType) -> str:
-        purity = 0
-        s = f"purity = {purity}"
-        return s
+    def _default_score_str_func(state:_DensityMatrixType) -> str:
+        return f"Purity = {purity(state)}"
 
     @dataclass
     class Config():
@@ -285,12 +286,18 @@ class SequenceMovieRecorder():
         self,
         state : _DensityMatrixType,
         duration : int,  # number of repetitions of the same frame:
-        title : Optional[str]=None,
-        score_str : Optional[str] = None,
+        title : Optional[str]=None
     ) -> None:
+        score_str = self._derive_score_str(state)
         self.figure_object.update(state, title=title, show_now=self.config.show_now, score_str=score_str)
         self.video_recorder.capture(fig=self.figure_object.figure, duration=duration)
-        
+
+    def _derive_score_str(self, state:_DensityMatrixType) -> Union[str, None]:
+        if self.score_str_func is None:
+            return None
+        else:
+            return self.score_str_func(state)
+
     def record_transition(
         self, 
         transition_states:np.matrix, 
@@ -300,15 +307,10 @@ class SequenceMovieRecorder():
         if not self.is_active:
             return  # We don't want to record a video
         final_state = transition_states[-1]
-        # Add similarity string:
-        if self.score_str_func is None:
-            score_str = None
-        else:
-            score_str = self.score_str_func(final_state)
         # Capture shots: (transition and freezed state)
         for transition_state in transition_states:
             self._record_single_state(transition_state, title=title, duration=1 )
-        self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames, score_str=score_str)
+        self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames)
         # Keep info for next call:
         self.last_state = deepcopy(transition_states)
         
