@@ -27,6 +27,7 @@ from utils import (
     saveload,
     strings,
     errors,
+    args,
 )
 
 # For defining coherent states:
@@ -42,7 +43,7 @@ from coherentcontrol import (
 
 # for optimization:
 from scipy.optimize import minimize, OptimizeResult, show_options  # for optimization:   
-from metrics import fidelity, distance, purity
+from metrics import fidelity, distance, purity, negativity
         
 # For measuring time:
 import time
@@ -54,6 +55,7 @@ from light_wigner.main import visualize_light_from_atomic_density_matrix
 
 # For OOP:
 from dataclasses import dataclass
+from enum import Enum, auto
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
@@ -68,7 +70,7 @@ TOLERANCE = 1e-20
 @dataclass
 class LearnedResults():
     theta : np.array = None
-    similarity : float = None
+    score : float = None
     initial_state : np.matrix = None
     final_state : np.matrix = None
     time : float = None
@@ -78,7 +80,7 @@ class LearnedResults():
         np_utils.fix_print_length()
         newline = '\n'
         s = ""
-        s += f"similarity={self.similarity}"+newline
+        s += f"similarity={self.score}"+newline
         s += f"theta={self.theta}"+newline
         s += f"run-time={self.time}"+newline
         s += np_utils.mat_str_with_leading_text(self.initial_state, text="initial_state: ")+newline       
@@ -86,7 +88,10 @@ class LearnedResults():
         s += f"num_iterations={self.iterations}"+newline
         return s
     
-
+class Metric(Enum):
+    NEGATIVITY = auto
+    PURITY = auto
+    
 
 # ==================================================================================== #
 # |                                  Typing hints                                    | #
@@ -172,7 +177,7 @@ def _common_learn(
     # Pack learned-results:
     learned_results = LearnedResults(
         theta = optimal_theta,
-        similarity = opt_res.fun,
+        score = opt_res.fun,
         time = finish_time-start_time,
         initial_state = initial_state,
         final_state = coherent_control.coherent_sequence(initial_state, optimal_theta),
@@ -185,15 +190,50 @@ def _common_learn(
 
     return learned_results
 
-def _score_str_func(crnt_state:_DensityMatrixType, target_state:_DensityMatrixType) -> str:
-    s =  f"Purity   = {purity(crnt_state)} \n"
-    s += f"Fidelity = {fidelity(crnt_state, target_state)} \n"
-    s += f"Distance = {distance(crnt_state, target_state)} "
+def _score_str_func(state:_DensityMatrixType) -> str:
+    s =  f"Purity     = {purity(state)} \n"
+    s += f"Negativity = {negativity(state)}"
+    # s += f"Fidelity = {fidelity(crnt_state, target_state)} \n"
+    # s += f"Distance = {distance(crnt_state, target_state)} "
     return s
 
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
+
+def learn_optimized_metric(
+    initial_state : _DensityMatrixType,
+    metric : Metric = Metric.NEGATIVITY,
+    max_iter : int=1000, 
+    num_pulses : int=5, 
+    initial_guess : Optional[np.array] = None,
+    save_results : bool=True,
+) -> LearnedResults:
+    
+    # Choose cost-function:
+    if metric is Metric.PURITY:
+        measure = lambda state: purity(state)
+    elif metric is Metric.NEGATIVITY:
+        measure = lambda state: (-1)*negativity(state)
+    else:
+        raise ValueError("Not a valid option")
+    
+    coherent_control = _coherent_control_from_mat(initial_state)
+    def _cost_func(theta) -> float:
+        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)        
+        return measure(final_state)        
+
+    # Call base function:
+    return _common_learn(
+        initial_state=initial_state,
+        max_iter=max_iter,
+        num_pulses=num_pulses,
+        cost_function=_cost_func,
+        save_results=save_results,
+        initial_guess=initial_guess,
+    )
+    
+    
 
 def learn_midladder_state(
     initial_state:_DensityMatrixType,  
@@ -280,24 +320,25 @@ def learn_specific_state(
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
-def _run_signle_guess(
+def _run_single_guess(
     num_moments:int=8, 
-    max_iter:int=1000, 
     num_pulses:int=5, 
+    max_iter:int=1000, 
 ) -> LearnedResults:
 
     ## Learning Inputs:
     ####################
     assertions.even(num_moments)
     initial_state = Fock( num_moments  ).to_density_matrix(num_moments=num_moments)
-    target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
+    # target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
     if False:
         visuals.plot_city(initial_state)
-        visuals.plot_city(target_state)
+        # visuals.plot_city(target_state)
 
     ## STUDY:
     ##########
-    results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses)
+    results = learn_optimized_metric(initial_state, metric=Metric.PURITY, max_iter=max_iter, num_pulses=num_pulses)
+    # results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses)
     # results = learn_midladder_state(initial_state=initial_state, max_iter=max_iter, num_pulses=num_pulses)
     
     return results
@@ -310,10 +351,10 @@ def _run_many_guesses(
 ) -> LearnedResults:
 
     # Track the best results:
-    best_results : LearnedResults = LearnedResults(similarity=1e10) 
+    best_results : LearnedResults = LearnedResults(score=1e10) 
 
     # For movie:
-    target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
+    # target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
     coherent_control = CoherentControl(num_moments=num_moments)
     movie_config = CoherentControl.MovieConfig(
         active=True,
@@ -322,7 +363,7 @@ def _run_many_guesses(
         num_freeze_frames=5,
         fps=3,
         bloch_sphere_resolution=25,
-        score_str_func = lambda state: _score_str_func(state, target_state)
+        score_str_func = lambda state: _score_str_func(state)
     )    
     
     
@@ -330,11 +371,11 @@ def _run_many_guesses(
         for _ in range(num_tries):
             # Run:
             try:
-                results = _run_signle_guess(num_pulses=num_pulses, num_moments=num_moments)
+                results = _run_single_guess(num_pulses=num_pulses, num_moments=num_moments)
             except Exception as e:
                 errors.print_traceback(e)
             # Check if better than best:
-            if results.similarity < best_results.similarity:
+            if results.score < best_results.score:
                 best_results = results
                 # Print and record movie:
                 print(results)
@@ -350,7 +391,8 @@ def _run_many_guesses(
 
 
 def main():
-    results = _run_many_guesses()
+    # results = _run_many_guesses()
+    results = _run_single_guess()
 
 if __name__ == "__main__":
     main()

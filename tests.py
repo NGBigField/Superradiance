@@ -54,7 +54,7 @@ def _observe_saved_data():
     theta           = results.theta
     initial_state   = results.initial_state
     final_state     = results.final_state
-    similarity      = results.similarity
+    similarity      = results.score
     print(results)
     ## Derive:
     num_moments = final_state.shape[0]-1
