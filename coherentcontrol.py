@@ -52,7 +52,7 @@ from evolution import (
 )
 
 # For printing progress:
-from metrics import purity
+from metrics import purity, negativity
 
 # for copying input:
 from copy import deepcopy
@@ -249,7 +249,12 @@ class SPulses():
 class SequenceMovieRecorder():
     
     def _default_score_str_func(state:_DensityMatrixType) -> str:
-        return f"Purity = {purity(state)}"
+        s = f"Purity = {purity(state)}"
+        try:
+            s += f"Negativity = {negativity(state)}"
+        except NotImplementedError:
+            pass
+        return s
 
     @dataclass
     class Config():

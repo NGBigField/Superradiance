@@ -54,6 +54,23 @@ def purity(rho:_DensityMatrixType) -> float:
 
 def negativity(rho:_DensityMatrixType) -> float:
     raise NotImplementedError()
+    return _negativity(rho)
+
+# def _negativity(
+#     rho: DensityMatrix, 
+#     num_qubits_on_first_part:Optional[int]=None, 
+#     part_to_transpose:Literal['first', 'second']='first',
+#     validate:bool=True
+# ) -> float:
+#     rho_pt = rho.partial_transpose(num_qubits_on_first_part, part_to_transpose, validate) # default to half of qubits are transposed
+#     res1 = _method1(rho_pt)
+#     if IS_VALIDATE_CORRECT_METHOD:        
+#         res2 = _method2(rho_pt)    
+#         _assert_same_results([res1, res2])
+#     result = utils.Assertion.real(res1)
+#     return result
+
+
 
 # ==================================================================================== #
 #|                                     Tests                                          |#

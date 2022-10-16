@@ -329,7 +329,7 @@ def _run_single_guess(
     ## Learning Inputs:
     ####################
     assertions.even(num_moments)
-    initial_state = Fock( num_moments  ).to_density_matrix(num_moments=num_moments)
+    initial_state = Fock( 0 ).to_density_matrix(num_moments=num_moments)
     # target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
     if False:
         visuals.plot_city(initial_state)

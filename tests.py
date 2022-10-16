@@ -34,7 +34,7 @@ from coherentcontrol import CoherentControl
 import matplotlib.pyplot as plt  # for plotting test results:
 
 # For optimizations:
-from optimization import learn_specific_state, LearnedResults
+from optimization import learn_specific_state, LearnedResults, _coherent_control_from_mat
 
 # ==================================================================================== #
 #|                                helper functions                                    |#
@@ -48,21 +48,20 @@ from optimization import learn_specific_state, LearnedResults
 
 
 def _observe_saved_data():
-    file_name =  "learned_results 2022.10.11_14.10.14"
+    file_name =  "learned_results 2022.10.16_10.50.17"
     results : LearnedResults = saveload.load(file_name)
     ## Unpack results:
     theta           = results.theta
     initial_state   = results.initial_state
     final_state     = results.final_state
-    similarity      = results.score
+    score           = results.score
     print(results)
-    ## Derive:
-    num_moments = final_state.shape[0]-1
     ## Movie:
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = _coherent_control_from_mat(final_state)
     coherent_control.coherent_sequence(initial_state, theta, movie_config=CoherentControl.MovieConfig(
         active=True,
-        show_now=True
+        show_now=False,
+        num_transition_frames=3,        
     ))
     ## Done:
     print("Done")
