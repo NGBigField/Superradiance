@@ -4,6 +4,12 @@
 import numpy as np
 from scipy.linalg import sqrtm
 from utils import assertions
+from densitymats import DensityMatrix
+
+from typing import (
+    Optional,
+    Literal,
+)
 
 # ==================================================================================== #
 #|                                   Constants                                        |#
@@ -18,6 +24,20 @@ _DensityMatrixType = np.matrix
 # ==================================================================================== #
 #|                                 Inner Functions                                    |#
 # ==================================================================================== #
+
+def _negativity(
+    rho: DensityMatrix, 
+    num_qubits_on_first_part:Optional[int]=None, 
+    part_to_transpose:Literal['first', 'second']='first',
+    validate:bool=True
+) -> float:
+    rho_pt = rho.partial_transpose(num_qubits_on_first_part, part_to_transpose, validate) # default to half of qubits are transposed
+    rho_pt_dagger = rho_pt.dagger()
+    m = DensityMatrix( rho_pt_dagger @ rho_pt )
+    sqrt_of_mat = sqrtm(m)
+    _sum = np.trace(sqrt_of_mat)
+    res = (_sum - 1)/2
+    return res
 
 
 # ==================================================================================== #
@@ -53,23 +73,12 @@ def purity(rho:_DensityMatrixType) -> float:
     return pur
 
 def negativity(rho:_DensityMatrixType) -> float:
-    raise NotImplementedError()
-    return _negativity(rho)
-
-# def _negativity(
-#     rho: DensityMatrix, 
-#     num_qubits_on_first_part:Optional[int]=None, 
-#     part_to_transpose:Literal['first', 'second']='first',
-#     validate:bool=True
-# ) -> float:
-#     rho_pt = rho.partial_transpose(num_qubits_on_first_part, part_to_transpose, validate) # default to half of qubits are transposed
-#     res1 = _method1(rho_pt)
-#     if IS_VALIDATE_CORRECT_METHOD:        
-#         res2 = _method2(rho_pt)    
-#         _assert_same_results([res1, res2])
-#     result = utils.Assertion.real(res1)
-#     return result
-
+    # Convert to DensityMatrix object:
+    density_mat = DensityMatrix(rho)
+    # Compute negativit
+    neg = _negativity(density_mat)
+    return assertions.real(neg)
+    
 
 
 # ==================================================================================== #
@@ -78,7 +87,10 @@ def negativity(rho:_DensityMatrixType) -> float:
 
 def _main_tests():
     from fock import Fock
-    rho = Fock(0).to_density_matrix(num_moments=2)
+    ket = ( Fock(0) + Fock(2) )*(1/np.sqrt(2))
+    rho = ket.to_density_matrix(num_moments=2)
+    neg = negativity(rho)
+    print(neg)
 
 if __name__ == "__main__" :
     _main_tests()
