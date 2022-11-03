@@ -7,12 +7,8 @@ from typing import (
 
 
 # Matlab engine
-try:
-    import matlab.engine
-except ImportError:
-    _matlab_engine_on = False
-else:
-    _matlab_engine_on = True
+_matlab_engine_on = False
+# import matlab.engine
 
 
 # For type hints:

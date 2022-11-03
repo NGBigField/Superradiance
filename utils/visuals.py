@@ -29,6 +29,7 @@ from typing import (
     Union,
     Generator,
     List,
+    ClassVar,
 )
 
 # Import our tools and utils:
@@ -87,6 +88,7 @@ else:
 
 def draw_now():
     plt.show(block=False)
+    plt.pause(0.1)
 
 def new_axis(is_3d:bool=False):
     fig = plt.figure()
@@ -116,7 +118,7 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
 
 def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None) -> None:
     # Constants:
-    radius = 1.5
+    radius = 1
 
     # Check inputs:
     if ax is None:
@@ -239,6 +241,7 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
     M = mat.shape[0]//2
     m_range = range(-M,M+1)
     pos_range = range(mat.shape[0]) 
+    plt.sca(ax)
     plt.xticks( pos_range, [ f"|{m}>" for m in m_range] )
     plt.yticks( pos_range, [ f"<{m}|" for m in m_range] )
 
@@ -275,7 +278,10 @@ def plot_superradiance_evolution(times, energies, intensities):
 # ==================================================================================== #
 
 class MatterStatePlot():
-    def __init__(self, block_sphere_resolution:int=100, initial_state:Optional[np.matrix]=None) -> None:
+
+    _separate_colorbar_axis : ClassVar[bool] = True
+
+    def __init__(self, block_sphere_resolution:int=100, initial_state:Optional[np.matrix]=None, show_now:bool=False) -> None:
         self.block_sphere_resolution = block_sphere_resolution
         fig, ax1, ax2, ax3 = MatterStatePlot._init_figure()
         self.axis_bloch_sphere : Axes3D = ax1
@@ -283,17 +289,22 @@ class MatterStatePlot():
         self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
         if initial_state is not None:
-            self.update(initial_state, title="Initial-State")
+            self.update(initial_state, title="Initial-State", show_now=show_now)
     
-    def update(self, state:np.matrix, title:Optional[str]=None, fontsize:int=16, show_now:bool=False) -> None:
+    def update(self, state:np.matrix, title:Optional[str]=None, score_str:Optional[str]=None, fontsize:int=16, show_now:bool=False) -> None:
+        assertions.density_matrix(state, robust_check=False)
         self.refresh_figure()
-        plot_wigner_bloch_sphere(state, ax=self.axis_bloch_sphere, num_points=self.block_sphere_resolution)
+        plot_wigner_bloch_sphere(state, ax=self.axis_bloch_sphere, num_points=self.block_sphere_resolution, colorbar_ax=self.axis_bloch_sphere_colorbar)
         plot_city(state, ax=self.axis_block_city)
         if title is not None:
             self.figure.suptitle(title, fontsize=fontsize)
         if show_now:
             draw_now()
-            plt.pause(0.05)
+        if score_str is not None:
+            self.axis_bloch_sphere.text(x=-0.5 ,y=-0.5, z=-2, s=score_str, fontsize=12)
+    
+    def close(self) -> None:
+        plt.close(self.figure)
             
     def refresh_figure(self) -> None :
         plt.figure(self.figure.number)
@@ -306,22 +317,23 @@ class MatterStatePlot():
         
     @staticmethod
     def _init_figure(fig:Optional[Figure]=None):
-        # Constants:
-        separate_colorbar_axis : bool = False
+        # Control
+        separate_colorbar_axis : bool = MatterStatePlot._separate_colorbar_axis
         # fig:
         if fig is None:
             fig = plt.figure(figsize=(11,6))
         # Create axes:
-        ax_bloch = fig.add_subplot(1,2,1, projection='3d')        
+        ax_block_city = _axes3D(fig)
+        ax_bloch_sphe = fig.add_subplot(1,2,1, projection='3d')        
         if separate_colorbar_axis:
-            ax_color = ax_bloch.inset_axes([1.03, 0, 0.1, 1], transform=ax_bloch.transAxes) 
+            ax_color_bar = fig.add_axes([0.0, 0.1, 0.02, 0.8])
         else:
-            ax_color = None
-        ax_block = _axes3D(fig)
+            ax_color_bar = None
         # set dims:
-        ax_bloch.set_position(Bbox([[0.00, 0.2], [0.45, 0.8]])) 
-        ax_block.set_position(Bbox([[0.45, 0.0], [0.95, 0.9]]))  
-        return fig, ax_bloch, ax_color, ax_block
+        ax_bloch_sphe.set_position(Bbox([[0.00, 0.0], [0.45, 1.0]])) 
+        ax_block_city.set_position(Bbox([[0.45, 0.0], [0.95, 0.9]]))  
+        # Return:
+        return fig, ax_bloch_sphe, ax_color_bar, ax_block_city
 
 class VideoRecorder():
     def __init__(self, fps:float=10.0) -> None:
@@ -464,7 +476,7 @@ def _test_bloch_sphere():
     # Specific imports:
     import pathlib, sys
     sys.path.append(str(pathlib.Path(__file__).parent.parent))
-    from quantum_states.fock import Fock
+    from fock import Fock
     # Figure:
     plt.show(block=False)
     fig = plt.figure(figsize=(11,6))
@@ -487,19 +499,19 @@ def _test_bloch_sphere_object():
     # Specific imports:
     import pathlib, sys
     sys.path.append(str(pathlib.Path(__file__).parent.parent))
-    from quantum_states.fock import Fock
+    from fock import Fock
     from coherentcontrol import CoherentControl
     # Define state:
     num_moments = 2
     initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
     # Init figure object:
-    state_fig = MatterStatePlot(block_sphere_resolution=10)
-    state_fig.update(initial_state, title="Ground State")
+    state_fig = MatterStatePlot(block_sphere_resolution=10, show_now=True)
+    state_fig.update(initial_state, title="Ground State", show_now=True)
     plt.show(block=False)
     # apply pulse:
     coherent_control = CoherentControl(num_moments=num_moments)
     final_state = coherent_control.pulse_on_state(initial_state, x=0.56)
-    state_fig.update(final_state, title="Final State")
+    state_fig.update(final_state, title="Final State", show_now=True)
     # Show
     print(f"Plotted")
     
