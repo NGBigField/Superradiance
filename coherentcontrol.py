@@ -597,17 +597,15 @@ if __name__ == "__main__":
 
     
 
-""" #TODO:
-1. Add to movie:
-    1. purity of state = trace(rho^2):
-        1 - if pure
-        1/N - maximally not pure 
-    2. fidelity  =  trace( sqrt(rho) @ sigma @ sqrt(rho) ) 
 
-2. Run optimization based on the two above
+"""" #TODO:
+1.  create: x^2 * Sigma  pulse.
+2.  Make a video to show how it works.
+3.  Create a paramaterized sequence: P1, P2, Delay, P1, P2, Delay, P1, P2, Delay, ....
+4.  Study:
+    4.1. Midladder state
+    4.2. Low oddity Big Eventy or opposite.
 """
-
-
 
 """ #NOTE:
 possible cost functions:

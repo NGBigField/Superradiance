@@ -233,7 +233,7 @@ class DensityMatrix(SquareMatrix):
 
     def validate(self) -> None:
         assert _is_square(self), "Density Matrix must be a square matrix"  
-        assertions.integer(np.log2(self.shape[0]))  # Must have indices of 2 to the power of the qubits
+        assertions.integer(np.log2(self.shape[0]), reason="Density Matrix must have indices of 2 to the power of the qubits") 
         assert abs(self.trace()-1)<EPSILON, "Density Matrix must have trace==1"
         assert _is_hermitian(self, EPSILON), "Density Matrix must be hermitian"
         assert _is_positive_semidefinite(self, EPSILON), "Density Matrix must be positive semidefinite"
