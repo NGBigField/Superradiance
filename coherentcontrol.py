@@ -5,8 +5,9 @@
 # Everyone needs numpy:
 import numpy as np
 
-# For matrix exponential: 
-from scipy.linalg import expm
+# For matrix-operations: 
+from scipy.linalg import expm  # matrix exponential
+from numpy.linalg import matrix_power  
 
 # For typing hints:
 from typing import (
@@ -365,10 +366,15 @@ class CoherentControl():
     #|                   inner functions                  |#
     # ==================================================== #
 
-    def _pulse(self, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix:
-        Sx = self.s_pulses.Sx 
-        Sy = self.s_pulses.Sy 
-        Sz = self.s_pulses.Sz
+    def _pulse(self, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> np.matrix:
+        # Check inputs:
+        reason = "`power` must be a positive integer"
+        assertions.integer(power, reason=reason)
+        assert power>0, reason
+        # Derive Operators (with powers, if needed)        
+        Sx = matrix_power(self.s_pulses.Sx, power) 
+        Sy = matrix_power(self.s_pulses.Sy, power) 
+        Sz = matrix_power(self.s_pulses.Sz, power)
         return pulse(x,y,z, Sx,Sy,Sz)
 
     def _state_decay_old_iterative_method(
@@ -396,10 +402,10 @@ class CoherentControl():
     # ==================================================== #
     #|                 declared functions                 |#
     # ==================================================== #
-    def pulse_on_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0) -> _DensityMatrixType: 
-        return self.pulse_on_state_with_intermediate_states(state=state, num_intermediate_states=0, x=x, y=y, z=z)[-1]
+    def pulse_on_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> _DensityMatrixType: 
+        return self.pulse_on_state_with_intermediate_states(state=state, num_intermediate_states=0, x=x, y=y, z=z, power=power)[-1]
 
-    def pulse_on_state_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate_states:int=0, x:float=0.0, y:float=0.0, z:float=0.0) -> List[_DensityMatrixType]: 
+    def pulse_on_state_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate_states:int=0, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> List[_DensityMatrixType]: 
         # Check input:
         num_intermediate_states_error_msg = f"`num_intermediate_states` must be a non-negative number."
         num_intermediate_states = assertions.integer(num_intermediate_states)
@@ -413,7 +419,7 @@ class CoherentControl():
         frac_x = x / num_divides
         frac_y = y / num_divides
         frac_z = z / num_divides
-        p = self._pulse(frac_x, frac_y, frac_z)
+        p = self._pulse(frac_x, frac_y, frac_z, power=power)
         pH = p.getH()
         # prepare outputs:
         states : List[_DensityMatrixType] = []
@@ -587,11 +593,37 @@ def _test_pulse_in_steps():
     capture(state, duration=fps)
     video_recorder.write_video()
 
+def _test_power_pulse():
+    # Define params:
+    power:int=2
+    num_moments:int=8
+    num_steps:int=40
+    fps:int=8
+    block_sphere_resolution:int=200
+    # Init state:
+    initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
+    coherent_control = CoherentControl(num_moments=num_moments)
+    # Apply pulse:
+    all_pulse_states = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps, x=np.pi/4, power=power )
+    # Movie:
+    visuals.draw_now()
+    state_plot = visuals.MatterStatePlot(block_sphere_resolution=block_sphere_resolution, initial_state=initial_state)
+    video_recorder = visuals.VideoRecorder(fps=fps)
+    video_recorder.capture(state_plot.figure, duration=fps)
+    def capture(state, duration:int=1):
+        state_plot.update(state)
+        video_recorder.capture(state_plot.figure, duration=duration)
+    for state in all_pulse_states:
+        capture(state)
+    capture(state, duration=fps)
+    video_recorder.write_video()   
+
 if __name__ == "__main__":    
     np_utils.fix_print_length()
 
     # _test_pulse_in_steps()
-    _test_record_sequence()
+    # _test_record_sequence()
+    _test_power_pulse()
 
     print("Done.")
 
