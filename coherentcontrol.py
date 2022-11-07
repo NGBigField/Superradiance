@@ -596,9 +596,9 @@ def _test_pulse_in_steps():
 def _test_power_pulse():
     # Define params:
     power:int=2
-    num_moments:int=8
-    num_steps:int=40
-    fps:int=8
+    num_moments:int=4
+    num_steps:int=4
+    fps:int=5
     block_sphere_resolution:int=200
     # Init state:
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)

@@ -4,7 +4,6 @@
 import numpy as np
 from scipy.linalg import sqrtm
 from utils import assertions
-from densitymats import DensityMatrix
 
 from typing import (
     Optional,
@@ -24,20 +23,6 @@ _DensityMatrixType = np.matrix
 # ==================================================================================== #
 #|                                 Inner Functions                                    |#
 # ==================================================================================== #
-
-def _negativity(
-    rho: DensityMatrix, 
-    num_qubits_on_first_part:Optional[int]=None, 
-    part_to_transpose:Literal['first', 'second']='first',
-    validate:bool=True
-) -> float:
-    rho_pt = rho.partial_transpose(num_qubits_on_first_part, part_to_transpose, validate) # default to half of qubits are transposed
-    rho_pt_dagger = rho_pt.dagger()
-    m = DensityMatrix( rho_pt_dagger @ rho_pt )
-    sqrt_of_mat = sqrtm(m)
-    _sum = np.trace(sqrt_of_mat)
-    res = (_sum - 1)/2
-    return res
 
 
 # ==================================================================================== #
@@ -71,15 +56,6 @@ def purity(rho:_DensityMatrixType) -> float:
     tr = np.trace(rho2)
     pur = assertions.real(tr, reason="Purity should be a real number")
     return pur
-
-def negativity(rho:_DensityMatrixType) -> float:
-    # Convert to DensityMatrix object:
-    density_mat = DensityMatrix(rho)
-    # Compute negativit
-    neg = _negativity(density_mat)
-    return assertions.real(neg)
-    
-
 
 # ==================================================================================== #
 #|                                     Tests                                          |#
