@@ -1,3 +1,4 @@
+
 # ==================================================================================== #
 # |                                 Imports                                          | #
 # ==================================================================================== #
@@ -53,7 +54,7 @@ from evolution import (
 )
 
 # For printing progress:
-from metrics import purity, negativity
+from metrics import purity
 
 # for copying input:
 from copy import deepcopy
@@ -66,9 +67,7 @@ from fock import Fock
 # ==================================================================================== #
 OPT_METHOD : Final = 'COBYLA'
 
-# ==================================================================================== #
-# |                                 Helper Types                                     | #
-# ==================================================================================== #
+
 # ==================================================================================== #
 # |                                 Helper Types                                     | #
 # ==================================================================================== #
@@ -595,25 +594,32 @@ def _test_pulse_in_steps():
 
 def _test_power_pulse():
     # Define params:
-    power:int=2
-    num_moments:int=4
-    num_steps:int=4
+    draw_now:bool=True
+    num_moments:int=40
+    num_steps1:int=5
+    num_steps2:int=20
     fps:int=5
-    block_sphere_resolution:int=200
+    block_sphere_resolution:int=100
     # Init state:
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
     coherent_control = CoherentControl(num_moments=num_moments)
     # Apply pulse:
-    all_pulse_states = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps, x=np.pi/4, power=power )
-    # Movie:
-    visuals.draw_now()
+    pi_half_transition = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps1, x=np.pi/2, power=1 )
+    sz2_transition     = coherent_control.pulse_on_state_with_intermediate_states(state=pi_half_transition[-1], num_intermediate_states=num_steps2, z=np.pi/8, power=2 )
+    # Prepare Movie:
     state_plot = visuals.MatterStatePlot(block_sphere_resolution=block_sphere_resolution, initial_state=initial_state)
     video_recorder = visuals.VideoRecorder(fps=fps)
     video_recorder.capture(state_plot.figure, duration=fps)
+    # Helper function:
     def capture(state, duration:int=1):
         state_plot.update(state)
         video_recorder.capture(state_plot.figure, duration=duration)
-    for state in all_pulse_states:
+        if draw_now:
+            visuals.draw_now()
+    # Capture Movie:
+    for state in pi_half_transition:
+        capture(state)
+    for state in sz2_transition:
         capture(state)
     capture(state, duration=fps)
     video_recorder.write_video()   

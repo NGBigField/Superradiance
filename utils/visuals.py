@@ -116,7 +116,7 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     fig.savefig(fullpath_str)
     return 
 
-def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None) -> None:
+def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False) -> None:
     # Constants:
     radius = 1
 
@@ -158,7 +158,7 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
                             np.complex(wigner_3j(j, k, j, -m1, q, m2)))
             W = W + Ykq * Gkq;
 
-    if np.max(abs(np.imag(W))) > 1e-3:
+    if warn_imaginary_part and ( np.max(abs(np.imag(W))) > 1e-3 ):
         print('The wigner function has non negligible imaginary part ', str(np.max(abs(np.imag(W)))))
     W = np.real(W)
 
@@ -516,13 +516,29 @@ def _test_bloch_sphere_object():
     print(f"Plotted")
     
 
+def _test_gkp_state():
+    # Constants:
+    num_moments = 8
+    # Imports:
+    from pathlib import Path
+    sys.path.append( str(Path(__file__).parent.parent) )
+    from gkp import goal_gkp_state
+    # Get and plot:
+    gkp_state = goal_gkp_state(num_moments=num_moments)
+    plot_city(gkp_state)
+    plot_wigner_bloch_sphere(gkp_state)
+    # Print:
+    print("Plotted GKP State")
+
 def tests():
     # _test_prog_bar_as_iterator()
     # _test_prog_bar_as_object()
     # _test_bloch_sphere()
-    _test_bloch_sphere_object()
+    # _test_bloch_sphere_object()
+    _test_gkp_state()
     
     print("Done tests.")
 
 if __name__ == "__main__":
     tests()
+    print("Done.")
