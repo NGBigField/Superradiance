@@ -5,6 +5,7 @@
 
 # Everyone needs numpy:
 import numpy as np
+from numpy import pi
 
 # For matrix-operations: 
 from scipy.linalg import expm  # matrix exponential
@@ -624,12 +625,28 @@ def _test_power_pulse():
     capture(state, duration=fps)
     video_recorder.write_video()   
 
+def _test_goal_gkp():
+    # Import:
+    from gkp import goal_gkp_state
+    # Define params:
+    num_moments:int=40
+    block_sphere_resolution:int=200
+    # Init state:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    gkp = goal_gkp_state(num_moments=num_moments)
+    # Plot:
+    visuals.plot_city(gkp)
+    visuals.draw_now()
+    visuals.plot_wigner_bloch_sphere(gkp, num_points=block_sphere_resolution)
+    print("Done")
+
 if __name__ == "__main__":    
     np_utils.fix_print_length()
 
     # _test_pulse_in_steps()
     # _test_record_sequence()
-    _test_power_pulse()
+    # _test_power_pulse()
+    _test_goal_gkp()
 
     print("Done.")
 

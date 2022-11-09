@@ -2,13 +2,18 @@ import qutip
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
+from coherentcontrol import CoherentControl
 
 
 def goal_gkp_state(num_moments:int):
+    # Get un-rotated state:
     psi = _goal_gkp_state_ket(num_moments)
     rho = qutip.ket2dm(psi).full()
-    return rho
-
+    # Rotate the state:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    gkp = coherent_control.pulse_on_state(rho, x=pi/2)
+    return gkp
+    
 def _goal_gkp_state_ket(num_moments:int):
     n = num_moments + 1 
     alpha =  np.sqrt(2*pi)
