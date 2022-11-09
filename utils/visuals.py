@@ -142,7 +142,10 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     floor = math.floor
     
     # Iterate:
-    for k in np.linspace(0, 2 * j, floor(2 * j + 1)):
+    k_vals = np.linspace(0, 2 * j, floor(2 * j + 1))
+    pb = ProgressBar(len(k_vals))
+    for k in k_vals :
+        pb.next()
         for q in np.linspace(-k, k, floor(2 * k + 1)):
 
             if q >= 0:
@@ -518,7 +521,7 @@ def _test_bloch_sphere_object():
 
 def _test_gkp_state():
     # Constants:
-    num_moments = 8
+    num_moments = 40
     # Imports:
     from pathlib import Path
     sys.path.append( str(Path(__file__).parent.parent) )
@@ -527,6 +530,7 @@ def _test_gkp_state():
     gkp_state = goal_gkp_state(num_moments=num_moments)
     plot_city(gkp_state)
     plot_wigner_bloch_sphere(gkp_state)
+    draw_now()
     # Print:
     print("Plotted GKP State")
 
