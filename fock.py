@@ -368,7 +368,11 @@ def coherent_state(num_moments:int, alpha:float, type_:Literal['normal', 'even_c
     # Iterate
     for n in iterator:
         # choose coeficient
-        coef = np.exp( -(abs(alpha)**2)/2 ) * np.power(alpha, n) / np.sqrt( math.factorial(n) )
+        power = np.power(alpha, n) 
+        if power == 0:
+            coef = 0
+        else:
+            coef = np.exp( -(abs(alpha)**2)/2 ) * power / np.sqrt( math.factorial(n) )
         fock += Fock(n)*coef
     
     # Normalize:

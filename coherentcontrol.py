@@ -77,7 +77,16 @@ class _PulseSequenceParams():
     xyz : Tuple[float]
     pause : float
 
+
 _DensityMatrixType = np.matrix
+
+@dataclass
+class Operation():
+    num_params : int 
+    function : Callable[[_DensityMatrixType, List[float] ], _DensityMatrixType]
+    string_func : Callable[[List[float]], str] = None
+    string : str = None
+
 
 
 # ==================================================================================== #
@@ -144,6 +153,31 @@ def _Sz_mat(N:int) -> np.matrix :
         M = _M(m, J)
         Sz[m,m] = M
     return Sz
+  
+def _deal_costum_params(
+    theta: Union[List[float], np.ndarray],
+    operations: List[Operation]
+) -> List[List[float]]:
+    # Check lengths:
+    if isinstance(theta, np.ndarray):
+        # Assert 1D array:
+        assert theta.ndim==1
+        theta = theta.tolist()
+        # Assert correct total length
+    total_num_params = sum([op.num_params for op in operations])
+    assert len(theta)==total_num_params
+    # init:
+    all_ops_params : list = []
+    # iterate:
+    i = 0
+    for operation in operations:
+        num_params = operation.num_params
+        op_params = theta[i:(i+num_params)]
+        all_ops_params.append(op_params)
+        i = i + num_params
+    return all_ops_params
+        
+    
         
 def _deal_params(theta: Union[List[float], np.ndarray]) -> List[_PulseSequenceParams] :
     # Constants:
@@ -251,10 +285,6 @@ class SequenceMovieRecorder():
     
     def _default_score_str_func(state:_DensityMatrixType) -> str:
         s = f"Purity = {purity(state)}"
-        try:
-            s += f"Negativity = {negativity(state)}"
-        except NotImplementedError:
-            pass
         return s
 
     @dataclass
@@ -287,6 +317,8 @@ class SequenceMovieRecorder():
         if self.config.score_str_func is None:
             self.config.score_str_func = SequenceMovieRecorder._default_score_str_func
         self.score_str_func : Callable[[np.matrix], str] = self.config.score_str_func
+        # Keep last state:
+        self.last_state = initial_state
         
     def _record_single_state(
         self,
@@ -315,6 +347,8 @@ class SequenceMovieRecorder():
         final_state = transition_states[-1]
         # Capture shots: (transition and freezed state)
         for transition_state in transition_states:
+            if np.array_equal(transition_state, self.last_state):
+                continue
             self._record_single_state(transition_state, title=title, duration=1 )
         self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames)
         # Keep info for next call:
@@ -333,6 +367,7 @@ class SequenceMovieRecorder():
     def is_active(self) -> bool:
         return self.config.active
 
+    
 class CoherentControl():   
 
     # Class Attributes:
@@ -469,6 +504,55 @@ class CoherentControl():
             raise ValueError(f"`num_intermediate_states` must be a non-negative integer")
         return [rho_at_all_times[:,:,ind] for ind in indices ]
 
+
+    def custom_sequence(
+        self, 
+        state:np.matrix, 
+        theta: Union[ List[float], np.ndarray ],
+        operations: List[Operation],
+        movie_config : Optional[MovieConfig] = None
+    ) -> _DensityMatrixType :
+        
+        # Check and prepare inputs:
+        assertions.density_matrix(state, robust_check=True)
+        all_params = _deal_costum_params(theta, operations)
+        crnt_state = deepcopy(state)
+        movie_config = args.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
+
+        # For sequence recording:
+        sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
+        if sequence_recorder.is_active:
+            num_intermediate_states = sequence_recorder.config.num_transition_frames
+        else:
+            num_intermediate_states = 0
+
+        # iterate:
+        for params, operation in zip(all_params, operations):    
+            # Check params:
+            assert operation.num_params == len(params)
+            # Apply operation:
+            op_output = operation.function(crnt_state, *params)                
+            if isinstance(op_output, list):
+                crnt_state = op_output[-1]
+                transition_states = op_output
+            elif isinstance(op_output, (np.matrix, np.ndarray) ):
+                crnt_state = op_output
+                transition_states = [op_output]                
+            # Get title:
+            if operation.string_func is not None:
+                title = operation.string_func(params)
+            elif operation.string is not None:
+                title = operation.string
+            else:
+                title = None
+            # Record:
+            sequence_recorder.record_transition(transition_states, title=title)
+
+        sequence_recorder.write_video()
+
+        # End:
+        return crnt_state
+    
     def coherent_sequence(
         self, 
         state:np.matrix, 
@@ -639,14 +723,58 @@ def _test_goal_gkp():
     visuals.draw_now()
     visuals.plot_wigner_bloch_sphere(gkp, num_points=block_sphere_resolution)
     print("Done")
-
+    
+def _test_custom_sequence():
+    # Const:
+    num_moments:int=10
+    num_transition_frames=8
+    active_movie_recorder:bool=True
+    # Movie config:
+    movie_config=CoherentControl.MovieConfig(
+        active=active_movie_recorder,
+        show_now=True,
+        num_freeze_frames=10,
+        fps=5,
+        bloch_sphere_resolution=50
+    )
+    # Prepare coherent control
+    coherent_control = CoherentControl(num_moments=num_moments)
+    # Operations:
+    operations = [
+        Operation(
+            num_params=0, 
+            function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=2, x=pi/2), 
+            string="pi/2 Sx"
+        ),
+        Operation(
+            num_params=0, 
+            function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=2, z=pi/4, power=2), 
+            string="pi/4 Sz^2"
+        ),
+        Operation(
+            num_params=1, 
+            function=lambda rho, t: coherent_control.state_decay_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, time=t), 
+            string_func=lambda t: f"decay_time {t}"
+        ),
+    ]
+    # init params:
+    num_params = sum([op.num_params for op in operations])
+    theta = [0.1]
+    initial_state = Fock.ground_state_density_matrix(num_moments)
+    # Apply:
+    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
+    # plot
+    visuals.plot_wigner_bloch_sphere(final_state)
+    print("Movie is ready in folder 'video' ")
+    
 if __name__ == "__main__":    
     np_utils.fix_print_length()
 
     # _test_pulse_in_steps()
     # _test_record_sequence()
     # _test_power_pulse()
-    _test_goal_gkp()
+    # _test_goal_gkp()
+    _test_custom_sequence()
 
     print("Done.")
 
