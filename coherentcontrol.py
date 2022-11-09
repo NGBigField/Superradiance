@@ -726,16 +726,16 @@ def _test_goal_gkp():
     
 def _test_custom_sequence():
     # Const:
-    num_moments:int=10
-    num_transition_frames=8
+    num_moments:int=20
+    num_transition_frames=20
     active_movie_recorder:bool=True
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
         active=active_movie_recorder,
-        show_now=True,
+        show_now=False,
         num_freeze_frames=10,
         fps=5,
-        bloch_sphere_resolution=50
+        bloch_sphere_resolution=100
     )
     # Prepare coherent control
     coherent_control = CoherentControl(num_moments=num_moments)
@@ -743,12 +743,12 @@ def _test_custom_sequence():
     operations = [
         Operation(
             num_params=0, 
-            function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=2, x=pi/2), 
+            function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, x=pi/2), 
             string="pi/2 Sx"
         ),
         Operation(
             num_params=0, 
-            function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=2, z=pi/4, power=2), 
+            function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, z=pi/4, power=2), 
             string="pi/4 Sz^2"
         ),
         Operation(
@@ -759,7 +759,7 @@ def _test_custom_sequence():
     ]
     # init params:
     num_params = sum([op.num_params for op in operations])
-    theta = [0.1]
+    theta = [0.3]
     initial_state = Fock.ground_state_density_matrix(num_moments)
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
