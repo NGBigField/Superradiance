@@ -48,7 +48,7 @@ from optimization import learn_specific_state, LearnedResults, _coherent_control
 
 
 def _observe_saved_data():
-    file_name =  "learned_results 2022.10.16_10.50.17"
+    file_name =  "learned_results 2022.11.10_16.13.24"
     results : LearnedResults = saveload.load(file_name)
     ## Unpack results:
     theta           = results.theta
@@ -56,6 +56,8 @@ def _observe_saved_data():
     final_state     = results.final_state
     score           = results.score
     print(results)
+    ## Plot:
+    visuals.plot_wigner_bloch_sphere(final_state, title="Final State")
     ## Movie:
     coherent_control = _coherent_control_from_mat(final_state)
     coherent_control.coherent_sequence(initial_state, theta, movie_config=CoherentControl.MovieConfig(

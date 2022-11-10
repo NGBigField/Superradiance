@@ -86,6 +86,7 @@ class Operation():
     function : Callable[[_DensityMatrixType, List[float] ], _DensityMatrixType]
     string_func : Callable[[List[float]], str] = None
     string : str = None
+    positive_params_only : bool = False
 
 
 
@@ -155,16 +156,18 @@ def _Sz_mat(N:int) -> np.matrix :
     return Sz
   
 def _deal_costum_params(
-    theta: Union[List[float], np.ndarray],
-    operations: List[Operation]
+    operations: List[Operation],
+    theta: Optional[Union[List[float], np.ndarray]]=None
 ) -> List[List[float]]:
     # Check lengths:
+    total_num_params = sum([op.num_params for op in operations])
     if isinstance(theta, np.ndarray):
         # Assert 1D array:
         assert theta.ndim==1
         theta = theta.tolist()
         # Assert correct total length
-    total_num_params = sum([op.num_params for op in operations])
+    elif theta is None and total_num_params==0:
+        theta = np.array([])
     assert len(theta)==total_num_params
     # init:
     all_ops_params : list = []
@@ -508,23 +511,19 @@ class CoherentControl():
     def custom_sequence(
         self, 
         state:np.matrix, 
-        theta: Union[ List[float], np.ndarray ],
+        theta: Union[ List[float], np.ndarray, None ],
         operations: List[Operation],
         movie_config : Optional[MovieConfig] = None
     ) -> _DensityMatrixType :
         
         # Check and prepare inputs:
         assertions.density_matrix(state, robust_check=True)
-        all_params = _deal_costum_params(theta, operations)
+        all_params = _deal_costum_params(operations, theta)
         crnt_state = deepcopy(state)
         movie_config = args.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
 
         # For sequence recording:
         sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
-        if sequence_recorder.is_active:
-            num_intermediate_states = sequence_recorder.config.num_transition_frames
-        else:
-            num_intermediate_states = 0
 
         # iterate:
         for params, operation in zip(all_params, operations):    
@@ -540,7 +539,7 @@ class CoherentControl():
                 transition_states = [op_output]                
             # Get title:
             if operation.string_func is not None:
-                title = operation.string_func(params)
+                title = operation.string_func(*params)
             elif operation.string is not None:
                 title = operation.string
             else:

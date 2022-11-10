@@ -2,8 +2,31 @@ import qutip
 import numpy as np
 from numpy import pi
 import matplotlib.pyplot as plt
-from coherentcontrol import CoherentControl
+from coherentcontrol import CoherentControl, Operation
+from fock import Fock
 
+
+def initial_guess(num_moments:int):
+    # Prepare coherent control
+    coherent_control = CoherentControl(num_moments=num_moments)
+    # Operations:
+    operations = [
+        Operation(
+            num_params=0, 
+            function=lambda rho: coherent_control.pulse_on_state(rho, x=pi/2), 
+            string="pi/2 Sx"
+        ),
+        Operation(
+            num_params=0, 
+            function=lambda rho: coherent_control.pulse_on_state(rho, z=pi/4, power=2), 
+            string="pi/4 Sz^2"
+        ),
+    ]
+    # init params:
+    initial_state = Fock.ground_state_density_matrix(num_moments)
+    # Apply:
+    final_state = coherent_control.custom_sequence(state=initial_state, theta=None, operations=operations)
+    return final_state
 
 def goal_gkp_state(num_moments:int):
     # Get un-rotated state:

@@ -102,7 +102,7 @@ class Fock():
     
     @staticmethod
     def ground_state_density_matrix(num_moments:int) -> np.matrix:
-        return Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
+        return Fock(0).to_density_matrix(num_moments=num_moments)
 
     @overload
     @staticmethod

@@ -37,12 +37,13 @@ from fock import Fock
 from coherentcontrol import (
     CoherentControl,
     _DensityMatrixType,
+    Operation,
 )
 
 # for optimization:
 from scipy.optimize import minimize, OptimizeResult, show_options  # for optimization:   
 from metrics import fidelity, purity
-from gkp import goal_gkp_state
+import gkp 
         
 # For measuring time:
 import time
@@ -56,7 +57,7 @@ from enum import Enum, auto
 # ==================================================================================== #
 OPT_METHOD : Final = 'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
-TOLERANCE = 1e-20
+TOLERANCE = 1e-25
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
@@ -74,7 +75,7 @@ class LearnedResults():
         np_utils.fix_print_length()
         newline = '\n'
         s = ""
-        s += f"similarity={self.score}"+newline
+        s += f"score={self.score}"+newline
         s += f"theta={self.theta}"+newline
         s += f"run-time={self.time}"+newline
         s += np_utils.mat_str_with_leading_text(self.initial_state, text="initial_state: ")+newline       
@@ -103,28 +104,35 @@ def _coherent_control_from_mat(mat:_DensityMatrixType) -> CoherentControl:
     max_state_num = matrix_size-1
     return CoherentControl(max_state_num)
 
-def _deal_bounds(num_params:int) -> int: 
+def _deal_bounds(num_params:int, positive_indices:np.ndarray) -> int: 
     def _bound_rule(i:int) -> Tuple[Any, Any]:
         # Derive:
-        if i%NUM_PULSE_PARAMS==3:
+        if i in positive_indices:
             return (0, None)
         else:
             return (-np.pi, +np.pi)
     # Define bounds:
     return [_bound_rule(i) for i in range(num_params)]
 
-def _deal_initial_guess(num_params:int, initial_guess:Optional[np.array]) -> np.array :
-    time_indices = np.arange(NUM_PULSE_PARAMS-1, num_params, NUM_PULSE_PARAMS)
+def _positive_indices_from_operations(operations:List[Operation]) -> np.ndarray:
+    return np.array([ i for i, op in enumerate(operations) if op.positive_params_only ])
+
+def _deal_initial_guess(num_params:int, initial_guess:Optional[np.array]) -> np.ndarray :
+    positive_indices = np.arange(NUM_PULSE_PARAMS-1, num_params, NUM_PULSE_PARAMS)
+    return _deal_initial_guess_common(num_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
+    
+def _deal_initial_guess_common(num_params:int, initial_guess:Optional[np.array], positive_indices:np.ndarray) -> np.ndarray:
     if initial_guess is not None:  # If guess is given:
         assert len(initial_guess) == num_params, f"Needed number of parameters for the initial guess is {num_params}"
         if isinstance(initial_guess, list):
             initial_guess = np.array(initial_guess)
-        assert np.all(initial_guess[time_indices]>=0), f"All decay-times must be non-negative!"    
+        if len(positive_indices)>0:
+            assert np.all(initial_guess[positive_indices]>=0), f"All decay-times must be non-negative!"    
     else:  # if we need to create a guess:    
         initial_guess = np.random.normal(0, np.pi/2, (num_params))
-        initial_guess[time_indices] = np.abs(initial_guess[time_indices])
+        if len(positive_indices)>0:
+            initial_guess[positive_indices] = np.abs(initial_guess[positive_indices])
     return initial_guess
-    
 
 def _common_learn(
     initial_state : _DensityMatrixType, 
@@ -190,6 +198,33 @@ def _score_str_func(state:_DensityMatrixType) -> str:
     # s += f"Fidelity = {fidelity(crnt_state, target_state)} \n"
     # s += f"Distance = {distance(crnt_state, target_state)} "
     return s
+
+
+
+
+def power_pulse_operations_creator(num_moments:int) \
+    -> Callable[[int], 
+            Callable[[int], 
+                Callable[[_DensityMatrixType, List[float]], 
+                    _DensityMatrixType
+                ] 
+            ] 
+        ] :
+
+    coherent_control = CoherentControl(num_moments=num_moments)
+
+    def _power_pulse(rho:_DensityMatrixType, power:int, theta) -> _DensityMatrixType:
+        return coherent_control.pulse_on_state(rho, x=theta[0], y=theta[1], z=theta[2], power=power)
+        
+    def power_pulse_operation(power:int) -> Callable[[_DensityMatrixType, List[float]], _DensityMatrixType] :
+        op = Operation(
+            num_params = 3,
+            function = lambda rho, *theta: _power_pulse(rho, power=power, theta=theta),
+            string_func = lambda *theta: f"Power-{power} pulse: [{theta[0]}, {theta[1]}, {theta[2]}]"
+        )
+        return op
+
+    return power_pulse_operation
 
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
@@ -309,33 +344,97 @@ def learn_specific_state(
         initial_guess=initial_guess,
     )
 
-def learn_custom_operation(
-    initial_state : _DensityMatrixType, 
-    cost_function : Callable[[_DensityMatrixType], float], 
-      max_iter : int=100, 
+def learn_custom_operation(    
+    num_moments : int,
+    operations : List[Operation],
+    max_iter : int=100, 
+    initial_guess : Optional[np.array] = None,
+    save_results : bool=True,
 ) -> LearnedResults:
+
+    # Progress_bar
+    prog_bar = visuals.ProgressBar(max_iter, "Minimizing: ")
+    def _after_each(xk:np.ndarray) -> bool:
+        prog_bar.next()
+        finish : bool = False
+        return finish
+
+    # Opt Config:
+    options = dict(
+        maxiter = max_iter,
+        ftol=TOLERANCE,
+    )      
+    positive_indices = _positive_indices_from_operations(operations)
+    num_params = sum([op.num_params for op in operations])
+    initial_guess = _deal_initial_guess_common(num_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
+    bounds = _deal_bounds(num_params, positive_indices)  
+
+    # Cost function:
+    initial_state = gkp.initial_guess(num_moments)
+    target_state  = gkp.goal_gkp_state(num_moments)
+    coherent_control = CoherentControl(num_moments)
+    def cost_function(theta:np.ndarray) -> float : 
+        final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
+        cost = (-1)*fidelity(final_state, target_state)
+        return cost
+
+    # Run optimization:
+    start_time = time.time()
+    opt_res : OptimizeResult = minimize(
+        cost_function, 
+        initial_guess, 
+        method=OPT_METHOD, 
+        options=options, 
+        callback=_after_each, 
+        bounds=bounds    
+    )
+    finish_time = time.time()
+    prog_bar.close()
+    
+    # Pack learned-results:
+    optimal_theta = opt_res.x
+    final_state = coherent_control.custom_sequence(initial_state, theta=optimal_theta, operations=operations )
+    learned_results = LearnedResults(
+        theta = optimal_theta,
+        score = opt_res.fun,
+        time = finish_time-start_time,
+        initial_state = initial_state,
+        final_state = final_state,
+        iterations = opt_res.nit
+    )
+
+    if save_results:
+        saveload.save(learned_results, "learned_results "+strings.time_stamp())
+
+
+    return learned_results    
     
 # ==================================================================================== #
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
 def _run_single_guess(
-    num_moments:int=8, 
+    num_moments:int=40, 
     max_iter:int=1000, 
 ) -> LearnedResults:
 
-    ## Inputs:
-    ##########
+    ## Check inputs:
     assertions.even(num_moments)
-    initial_state = Fock( 0 ).to_density_matrix(num_moments=num_moments)
-    target_state  = goal_gkp_state(num_moments))
 
-    ## Pulses:
-    #########
+    ## Define operations:
+    power_pulse_operation = power_pulse_operations_creator(num_moments=num_moments)
+
+    operations = [
+        power_pulse_operation(power=1),
+        power_pulse_operation(power=2)
+    ]
 
     ## Learn:
-    #########
-    results = learn_custom_operation(initial_state, cost_function, max_iter=max_iter )
+    results = learn_custom_operation(num_moments=num_moments, operations=operations, max_iter=max_iter )
+
+    ## Plot:
+    visuals.plot_wigner_bloch_sphere(results.final_state, title="Final State", num_points=150)
+    visuals.draw_now()
     
     return results
 

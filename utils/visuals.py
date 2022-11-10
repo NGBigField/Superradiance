@@ -116,7 +116,7 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     fig.savefig(fullpath_str)
     return 
 
-def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False) -> None:
+def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False, title:str=None) -> None:
     # Constants:
     radius = 1
 
@@ -160,6 +160,7 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
                         Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * np.conj(
                             np.complex(wigner_3j(j, k, j, -m1, q, m2)))
             W = W + Ykq * Gkq;
+    pb.close()
 
     if warn_imaginary_part and ( np.max(abs(np.imag(W))) > 1e-3 ):
         print('The wigner function has non negligible imaginary part ', str(np.max(abs(np.imag(W)))))
@@ -174,7 +175,9 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     m.set_array(fcolors)
     m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
     
-    
+    if title is not None:
+        ax.set_title(title, y=1.10)
+
     # Color bar:
     if colorbar_ax is None:
         colorbar = plt.colorbar(mappable=m, shrink=0.5, ax=ax)
