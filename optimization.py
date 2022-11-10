@@ -35,23 +35,17 @@ from fock import Fock
 
 # For coherent control
 from coherentcontrol import (
-    S_mats,
-    pulse,
     CoherentControl,
     _DensityMatrixType,
 )
 
 # for optimization:
 from scipy.optimize import minimize, OptimizeResult, show_options  # for optimization:   
-from metrics import fidelity, distance, purity, negativity
+from metrics import fidelity, purity
+from gkp import goal_gkp_state
         
 # For measuring time:
 import time
-from datetime import timedelta
-
-# For visualizations:
-import matplotlib.pyplot as plt  # for plotting test results:
-from light_wigner.main import visualize_light_from_atomic_density_matrix
 
 # For OOP:
 from dataclasses import dataclass
@@ -315,6 +309,11 @@ def learn_specific_state(
         initial_guess=initial_guess,
     )
 
+def learn_custom_operation(
+    initial_state : _DensityMatrixType, 
+    cost_function : Callable[[_DensityMatrixType], float], 
+      max_iter : int=100, 
+) -> LearnedResults:
     
 # ==================================================================================== #
 # |                                  main tests                                      | #
@@ -322,24 +321,21 @@ def learn_specific_state(
 
 def _run_single_guess(
     num_moments:int=8, 
-    num_pulses:int=5, 
     max_iter:int=1000, 
 ) -> LearnedResults:
 
-    ## Learning Inputs:
-    ####################
+    ## Inputs:
+    ##########
     assertions.even(num_moments)
     initial_state = Fock( 0 ).to_density_matrix(num_moments=num_moments)
-    # target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
-    if False:
-        visuals.plot_city(initial_state)
-        # visuals.plot_city(target_state)
+    target_state  = goal_gkp_state(num_moments))
 
-    ## STUDY:
-    ##########
-    results = learn_optimized_metric(initial_state, metric=Metric.PURITY, max_iter=max_iter, num_pulses=num_pulses)
-    # results = learn_specific_state(initial_state, target_state, max_iter=max_iter, num_pulses=num_pulses)
-    # results = learn_midladder_state(initial_state=initial_state, max_iter=max_iter, num_pulses=num_pulses)
+    ## Pulses:
+    #########
+
+    ## Learn:
+    #########
+    results = learn_custom_operation(initial_state, cost_function, max_iter=max_iter )
     
     return results
 
@@ -387,7 +383,6 @@ def _run_many_guesses(
     print("best_results:")
     print(best_results)
     return best_results
-
 
 
 def main():
