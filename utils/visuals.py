@@ -116,7 +116,7 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     fig.savefig(fullpath_str)
     return 
 
-def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False, title:str=None) -> None:
+def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False, title:str=None) :
     # Constants:
     radius = 1
 
@@ -143,7 +143,7 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     
     # Iterate:
     k_vals = np.linspace(0, 2 * j, floor(2 * j + 1))
-    pb = ProgressBar(len(k_vals))
+    pb = ProgressBar(len(k_vals), print_prefix="calculating wigner-function")
     for k in k_vals :
         pb.next()
         for q in np.linspace(-k, k, floor(2 * k + 1)):

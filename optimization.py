@@ -425,16 +425,18 @@ def _run_single_guess(
     power_pulse_operation = power_pulse_operations_creator(num_moments=num_moments)
 
     operations = [
+        power_pulse_operation(power=2),
         power_pulse_operation(power=1),
-        power_pulse_operation(power=2)
     ]
 
     ## Learn:
     results = learn_custom_operation(num_moments=num_moments, operations=operations, max_iter=max_iter )
 
     ## Plot:
-    visuals.plot_wigner_bloch_sphere(results.final_state, title="Final State", num_points=150)
+    print(f"score={results.score}")
+    axis = visuals.plot_wigner_bloch_sphere(results.final_state, title="Final State", num_points=150)
     visuals.draw_now()
+    
     
     return results
 
