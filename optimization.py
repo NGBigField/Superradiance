@@ -42,7 +42,7 @@ from coherentcontrol import (
 
 # for optimization:
 from scipy.optimize import minimize, OptimizeResult, show_options  # for optimization:   
-from metrics import fidelity, purity
+import metrics 
 import gkp 
         
 # For measuring time:
@@ -350,7 +350,7 @@ def learn_custom_operation(
     coherent_control = CoherentControl(num_moments)
     def cost_function(theta:np.ndarray) -> float : 
         final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
-        cost = (-1)*fidelity(final_state, target_state)
+        cost = metrics.distance(final_state, target_state)
         return cost
 
     # Run optimization:
@@ -402,8 +402,8 @@ def _run_single_guess(
 
     operations = [
         standard_operations.power_pulse_on_specific_directions(power=2, indices=[2]),  # Sz^2 only
-        standard_operations.stark_shift(indices=[1,2])
-        standard_operations.power_pulse(power=1),
+        standard_operations.stark_shift(indices=[1,2]),
+        standard_operations.power_pulse(power=1)
     ]
 
     ## Learn:
@@ -411,7 +411,7 @@ def _run_single_guess(
 
     ## Plot:
     print(f"score={results.score}")
-    axis = visuals.plot_wigner_bloch_sphere(results.final_state, title="Final State", num_points=150)
+    fig = visuals.plot_matter_state(results.final_state)
     visuals.draw_now()
     
     

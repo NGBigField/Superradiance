@@ -278,6 +278,9 @@ def plot_superradiance_evolution(times, energies, intensities):
     save_figure()
     plt.show()
 
+def plot_matter_state(state:np.matrix, block_sphere_resolution:int=100):
+    matter_state_obj = MatterStatePlot(initial_state=state, block_sphere_resolution=block_sphere_resolution, show_now=True)
+    return matter_state_obj.figure
 
 # ==================================================================================== #
 #|                                     Classes                                        |#

@@ -15,12 +15,7 @@ def initial_guess(num_moments:int):
             num_params=0, 
             function=lambda rho: coherent_control.pulse_on_state(rho, x=pi/2), 
             string="pi/2 Sx"
-        ),
-        Operation(
-            num_params=0, 
-            function=lambda rho: coherent_control.pulse_on_state(rho, z=pi/4, power=2), 
-            string="pi/4 Sz^2"
-        ),
+        )
     ]
     # init params:
     initial_state = Fock.ground_state_density_matrix(num_moments)

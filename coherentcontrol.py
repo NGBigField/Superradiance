@@ -470,10 +470,10 @@ class CoherentControl():
     def standard_operations(self, num_intermediate_states:int=0) -> StandardOperationCreators:
 
         def _deal_values_to_indices(values:List[float], indices:List[int]) -> List[float]:
-            values = [0, 0, 0]
+            out = [0, 0, 0]
             for ind, val in zip(indices, values):
-                values[ind] = val
-            return values
+                out[ind] = val
+            return out
 
         def _power_pulse_string_func(theta:List[float], indices:List[int], power:int):
             values = _deal_values_to_indices(values=theta, indices=indices)
@@ -491,12 +491,12 @@ class CoherentControl():
 
         def power_pulse_on_specific_directions(power:int, indices:List[int]) -> Operation:
             return Operation(
-                num_params = 3,
+                num_params = len(indices),
                 function = lambda rho, *theta: _power_pulse_func(rho, power=power, theta=theta, indices=indices),
-                string_func = lambda *theta: _power_pulse_string_func(theta=theta, indices=indices )
+                string_func = lambda *theta: _power_pulse_string_func(theta=theta, indices=indices, power=power )
             )
         
-        def stark_shift_operation(indices:List[int]) -> Operation:
+        def stark_shift_operation(indices:List[int]=None) -> Operation:
             return Operation(
                 num_params = len(indices),
                 function = lambda rho, *theta: self.stark_shift_with_intermediate_states(
@@ -516,7 +516,7 @@ class CoherentControl():
             )
 
         # Pack operations:
-        output = CoherentControl.StandardOperationsCreator(
+        output = CoherentControl.StandardOperationCreators(
             power_pulse=power_pulse_operation,
             power_pulse_on_specific_directions=power_pulse_on_specific_directions,
             stark_shift=stark_shift_operation,
@@ -526,11 +526,18 @@ class CoherentControl():
         return output
 
 
-    def stark_shift_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate_states:int=0, indices:List[int]=[], shifts:List[float]=[]) -> List[_DensityMatrixType]:
+    def stark_shift_with_intermediate_states(
+        self, 
+        state:_DensityMatrixType, 
+        shifts:List[float],
+        num_intermediate_states:int=0, 
+        indices:Optional[List[int]]=None,  # Defaults to all matrix indices
+    ) -> List[_DensityMatrixType]:
         # Check input:
+        matrix_size = state.shape[0]
+        indices = args.default_value(indices, list(range(matrix_size+1)))
         assert len(indices)==len(shifts), "Lists `indices` and `shifts` must be of the same length."
         assert state.shape[0]==state.shape[1]
-        matrix_size = state.shape[0]
         # Create fractional pulse strength
         num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
         frac_shift = [shift/num_divides for shift in shifts]
@@ -826,16 +833,16 @@ def _test_goal_gkp():
     
 def _test_custom_sequence():
     # Const:
-    num_moments:int=40
-    num_transition_frames=10
+    num_moments:int=6
+    num_transition_frames=20
     active_movie_recorder:bool=True
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
         active=active_movie_recorder,
         show_now=False,
-        num_freeze_frames=10,
-        fps=5,
-        bloch_sphere_resolution=100
+        num_freeze_frames=3,
+        fps=10,
+        bloch_sphere_resolution=50
     )
     # Prepare coherent control
     coherent_control = CoherentControl(num_moments=num_moments)
@@ -843,7 +850,7 @@ def _test_custom_sequence():
     operations = [
         Operation(
             num_params=0, 
-            function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, x=pi/2), 
+            function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, x=pi/2+0.3), 
             string="pi/2 Sx"
         ),
         # Operation(
@@ -864,12 +871,11 @@ def _test_custom_sequence():
     ]
     # init params:
     num_params = sum([op.num_params for op in operations])
-    theta = [2.0, 0.0]
+    theta = [4.23, 0.0]
     initial_state = Fock.ground_state_density_matrix(num_moments)
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     # plot
-    visuals.plot_wigner_bloch_sphere(final_state)
     visuals.draw_now()
     print("Movie is ready in folder 'video' ")
     
