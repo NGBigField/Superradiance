@@ -201,31 +201,6 @@ def _score_str_func(state:_DensityMatrixType) -> str:
 
 
 
-
-def power_pulse_operations_creator(num_moments:int) \
-    -> Callable[[int], 
-            Callable[[int], 
-                Callable[[_DensityMatrixType, List[float]], 
-                    _DensityMatrixType
-                ] 
-            ] 
-        ] :
-
-    coherent_control = CoherentControl(num_moments=num_moments)
-
-    def _power_pulse(rho:_DensityMatrixType, power:int, theta) -> _DensityMatrixType:
-        return coherent_control.pulse_on_state(rho, x=theta[0], y=theta[1], z=theta[2], power=power)
-        
-    def power_pulse_operation(power:int) -> Callable[[_DensityMatrixType, List[float]], _DensityMatrixType] :
-        op = Operation(
-            num_params = 3,
-            function = lambda rho, *theta: _power_pulse(rho, power=power, theta=theta),
-            string_func = lambda *theta: f"Power-{power} pulse: [{theta[0]}, {theta[1]}, {theta[2]}]"
-        )
-        return op
-
-    return power_pulse_operation
-
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
@@ -422,11 +397,13 @@ def _run_single_guess(
     assertions.even(num_moments)
 
     ## Define operations:
-    power_pulse_operation = power_pulse_operations_creator(num_moments=num_moments)
+    coherent_control = CoherentControl(num_moments=num_moments)
+    standard_operations = coherent_control.standard_operations(num_intermediate_states=0)
 
     operations = [
-        power_pulse_operation(power=2),
-        power_pulse_operation(power=1),
+        standard_operations.power_pulse_on_specific_directions(power=2, indices=[2]),  # Sz^2 only
+        standard_operations.stark_shift(indices=[1,2])
+        standard_operations.power_pulse(power=1),
     ]
 
     ## Learn:
