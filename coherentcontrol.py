@@ -231,6 +231,16 @@ def _deal_params(theta: Union[List[float], np.ndarray]) -> List[_PulseSequencePa
     # end:
     return result
     
+def _num_divisions_from_num_intermediate_states(num_intermediate_states:int) -> int:
+    num_intermediate_states_error_msg = f"`num_intermediate_states` must be a non-negative number."
+    num_intermediate_states = assertions.integer(num_intermediate_states)
+    if num_intermediate_states > 0:
+        num_divides = num_intermediate_states
+    elif num_intermediate_states == 0:
+        num_divides = 1
+    else:
+        raise ValueError(num_intermediate_states_error_msg)
+    return num_divides
 
 # ==================================================================================== #
 # |                            Declared Functions                                    | #
@@ -247,6 +257,14 @@ def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
     Sz = _Sz_mat(N)
     # Return:
     return Sx, Sy, Sz
+
+def stark_shift_mat(mat_size:int, indices:List[int], shifts:List[float]) -> np.matrix:
+    mat = np.zeros(shape=(mat_size, mat_size), dtype=np.complex64)
+    for i in range(mat_size):
+        mat[i, i] = 1
+    for i, shift in zip(indices, shifts):
+        mat[i, i] = np.exp( 1j * shift )
+    return mat
 
 def pulse(
     x  : float, 
@@ -440,19 +458,31 @@ class CoherentControl():
     # ==================================================== #
     #|                 declared functions                 |#
     # ==================================================== #
+
+
+    def stark_shift_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate_states:int=0, indices:List[int]=[], shifts:List[float]=[]) -> List[_DensityMatrixType]:
+        # Check input:
+        assert len(indices)==len(shifts)
+        assert state.shape[0]==state.shape[1]
+        matrix_size = state.shape[0]
+
+        # Create fractional pulse strength
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
+        frac_shift = [shift/num_divides for shift in shifts]
+
+        # Create Matrix:
+        mat = stark_shift_mat(matrix_size, indices=indices, shifts=frac_shift)
+
+        # Apply 
+
+        
+
     def pulse_on_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> _DensityMatrixType: 
         return self.pulse_on_state_with_intermediate_states(state=state, num_intermediate_states=0, x=x, y=y, z=z, power=power)[-1]
 
     def pulse_on_state_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate_states:int=0, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> List[_DensityMatrixType]: 
         # Check input:
-        num_intermediate_states_error_msg = f"`num_intermediate_states` must be a non-negative number."
-        num_intermediate_states = assertions.integer(num_intermediate_states)
-        if num_intermediate_states > 0:
-            num_divides = num_intermediate_states
-        elif num_intermediate_states == 0:
-            num_divides = 1
-        else:
-            raise ValueError(num_intermediate_states_error_msg)
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
         # Divide requested pulse into fragments
         frac_x = x / num_divides
         frac_y = y / num_divides
@@ -726,7 +756,7 @@ def _test_goal_gkp():
 def _test_custom_sequence():
     # Const:
     num_moments:int=20
-    num_transition_frames=20
+    num_transition_frames=0
     active_movie_recorder:bool=True
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
@@ -745,16 +775,21 @@ def _test_custom_sequence():
             function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, x=pi/2), 
             string="pi/2 Sx"
         ),
+        # Operation(
+        #     num_params=0, 
+        #     function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, z=pi/4, power=2), 
+        #     string="pi/4 Sz^2"
+        # ),
+        # Operation(
+        #     num_params=1, 
+        #     function=lambda rho, t: coherent_control.state_decay_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, time=t), 
+        #     string_func=lambda t: f"decay_time {t}"
+        # ),
         Operation(
-            num_params=0, 
-            function=lambda rho: coherent_control.pulse_on_state_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, z=pi/4, power=2), 
-            string="pi/4 Sz^2"
-        ),
-        Operation(
-            num_params=1, 
-            function=lambda rho, t: coherent_control.state_decay_with_intermediate_states(rho, num_intermediate_states=num_transition_frames, time=t), 
-            string_func=lambda t: f"decay_time {t}"
-        ),
+            num_params=2,
+            function=lambda rho, d1, d2: coherent_control.stark_shift_with_intermediate_states(rho, [1, 2], [d1, d2]),
+            string_func=lambda d1, d2: f"stark-shift d1:{d1}, d2:{d2}"
+        )
     ]
     # init params:
     num_params = sum([op.num_params for op in operations])
