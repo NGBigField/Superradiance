@@ -497,8 +497,12 @@ class CoherentControl():
             )
         
         def stark_shift_operation(indices:List[int]=None) -> Operation:
+            if indices is None:
+                num_params = self.density_matrix_size
+            else:
+                num_params = len(indices)
             return Operation(
-                num_params = len(indices),
+                num_params = num_params,
                 function = lambda rho, *theta: self.stark_shift_with_intermediate_states(
                     rho, num_intermediate_states=num_intermediate_states, indices=indices, shifts=theta
                 ),
@@ -535,7 +539,7 @@ class CoherentControl():
     ) -> List[_DensityMatrixType]:
         # Check input:
         matrix_size = state.shape[0]
-        indices = args.default_value(indices, list(range(matrix_size+1)))
+        indices = args.default_value(indices, list(range(matrix_size)))
         assert len(indices)==len(shifts), "Lists `indices` and `shifts` must be of the same length."
         assert state.shape[0]==state.shape[1]
         # Create fractional pulse strength
@@ -730,6 +734,10 @@ class CoherentControl():
     def num_moments(self, val:Any) -> None:
         self._num_moments = val
         self.s_pulses = SPulses(val)
+
+    @property
+    def density_matrix_size(self) -> int:
+        return self.num_moments + 1
 
 # ==================================================================================== #
 # |                                   main                                           | #

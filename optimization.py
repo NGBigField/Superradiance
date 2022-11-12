@@ -401,8 +401,8 @@ def _run_single_guess(
     standard_operations = coherent_control.standard_operations(num_intermediate_states=0)
 
     operations = [
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[2]),  # Sz^2 only
-        standard_operations.stark_shift(indices=[1,2]),
+        standard_operations.power_pulse(power=2), 
+        standard_operations.stark_shift(),
         standard_operations.power_pulse(power=1)
     ]
 
@@ -411,7 +411,7 @@ def _run_single_guess(
 
     ## Plot:
     print(f"score={results.score}")
-    fig = visuals.plot_matter_state(results.final_state)
+    fig = visuals.plot_matter_state(results.final_state, block_sphere_resolution=150)
     visuals.draw_now()
     
     
