@@ -115,7 +115,15 @@ def _deal_bounds(num_params:int, positive_indices:np.ndarray) -> int:
     return [_bound_rule(i) for i in range(num_params)]
 
 def _positive_indices_from_operations(operations:List[Operation]) -> np.ndarray:
-    return np.array([ i for i, op in enumerate(operations) if op.positive_params_only ])
+    low = 0
+    positive_indices : List[int] = []
+    for op in operations:
+        high = low + op.num_params 
+        if op.positive_params_only:
+            indices = list( range(low, high) )
+            positive_indices.extend(indices)
+        low = high
+    return positive_indices
 
 def _deal_initial_guess(num_params:int, initial_guess:Optional[np.array]) -> np.ndarray :
     positive_indices = np.arange(NUM_PULSE_PARAMS-1, num_params, NUM_PULSE_PARAMS)
@@ -350,7 +358,8 @@ def learn_custom_operation(
     coherent_control = CoherentControl(num_moments)
     def cost_function(theta:np.ndarray) -> float : 
         final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
-        cost = metrics.distance(final_state, target_state)
+        # cost = metrics.distance(final_state, target_state)
+        cost = (-1)*metrics.fidelity(final_state, target_state)
         return cost
 
     # Run optimization:
@@ -403,7 +412,11 @@ def _run_single_guess(
     operations = [
         standard_operations.power_pulse(power=2), 
         standard_operations.stark_shift(),
-        standard_operations.power_pulse(power=1)
+        standard_operations.power_pulse(power=1),
+        standard_operations.decay(),
+        standard_operations.power_pulse(power=2), 
+        standard_operations.stark_shift(),
+        standard_operations.power_pulse(power=1),
     ]
 
     ## Learn:

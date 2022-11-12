@@ -544,9 +544,9 @@ class CoherentControl():
         assert state.shape[0]==state.shape[1]
         # Create fractional pulse strength
         num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
-        frac_shift = [shift/num_divides for shift in shifts]
+        frac_shifts = [shift/num_divides for shift in shifts]
         # Create Matrix:
-        p = stark_shift_mat(matrix_size, indices=indices, shifts=frac_shift)
+        p = stark_shift_mat(matrix_size, indices=indices, shifts=frac_shifts)
         pH = p.getH()
         # prepare outputs:
         states : List[_DensityMatrixType] = []
