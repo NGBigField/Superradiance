@@ -3,7 +3,6 @@
 # ==================================================================================== #
 
 # For plotting:
-from symbol import argument
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure

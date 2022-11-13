@@ -399,7 +399,7 @@ class CoherentControl():
     class StandardOperationCreators():
         power_pulse : Callable[[Any], Operation]
         stark_shift : Callable[[Any], Operation]
-        decay : Callable[[Any], Operation]
+        decay : Callable[[Any], Operation] 
         power_pulse_on_specific_directions : Callable[[Any], Operation]
 
     # ==================================================== #
@@ -509,11 +509,11 @@ class CoherentControl():
                 string_func = lambda *theta: f"Stark-shift on indices {indices} with values {theta}"
             )
 
-        def decay_operation() -> Operation:
+        def decay_operation(time_steps_resolution:int=10001) -> Operation:
             return Operation(
                 num_params = 1,
                 function = lambda rho, t: self.state_decay_with_intermediate_states(
-                    rho, time=t, num_intermediate_states=num_intermediate_states
+                    rho, time=t, num_intermediate_states=num_intermediate_states, time_steps_resolution=time_steps_resolution
                 ),
                 string_func = lambda t: f"Decay with time={t}",
                 positive_params_only=True
@@ -582,7 +582,7 @@ class CoherentControl():
             states.append(crnt_state)
         return states
 
-    def state_decay(self, state:_DensityMatrixType, time:float, time_steps_resolution:Optional[int]=None,) -> _DensityMatrixType: 
+    def state_decay(self, state:_DensityMatrixType, time:float, time_steps_resolution:int=10001) -> _DensityMatrixType: 
         return self.state_decay_with_intermediate_states(state=state, time=time, num_intermediate_states=0, time_steps_resolution=time_steps_resolution)[-1]        
 
     def state_decay_with_intermediate_states(
@@ -590,7 +590,7 @@ class CoherentControl():
         state:_DensityMatrixType, 
         time:float, 
         num_intermediate_states:int=0,
-        time_steps_resolution:Optional[int]=None
+        time_steps_resolution:int=10001
     ) -> List[_DensityMatrixType] :
         # Check inputs:
         assertions.density_matrix(state, robust_check=True)  # allow matrices to be non-PSD or non-Hermitian
@@ -599,7 +599,6 @@ class CoherentControl():
             return [state]
         assert time>0, f"decay time must be a positive number. got {time}"
         # Complete missing inputs:
-        time_steps_resolution = args.default_value(time_steps_resolution, 10001)        
         assertions.integer(time_steps_resolution)            
         # Convert matrix to ndarray:
         if isinstance(state, np.matrix):

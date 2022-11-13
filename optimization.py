@@ -55,7 +55,7 @@ from enum import Enum, auto
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-OPT_METHOD : Final = 'SLSQP' # 'Nelder-Mead'
+OPT_METHOD : Final = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
 TOLERANCE = 1e-25
 
@@ -460,7 +460,7 @@ def _run_single_guess(
         standard_operations.power_pulse(power=2), 
         standard_operations.stark_shift(),
         standard_operations.power_pulse(power=1),
-        standard_operations.decay(),
+        standard_operations.decay(time_steps_resolution=501),
         standard_operations.power_pulse(power=2), 
         standard_operations.stark_shift(),
         standard_operations.power_pulse(power=1),
