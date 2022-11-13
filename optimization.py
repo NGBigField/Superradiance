@@ -397,39 +397,6 @@ def learn_custom_operation(
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
-def _run_single_guess(
-    num_moments:int=40, 
-    max_iter:int=1000, 
-) -> LearnedResults:
-
-    ## Check inputs:
-    assertions.even(num_moments)
-
-    ## Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)
-    standard_operations = coherent_control.standard_operations(num_intermediate_states=0)
-
-    operations = [
-        standard_operations.power_pulse(power=2), 
-        standard_operations.stark_shift(),
-        standard_operations.power_pulse(power=1),
-        standard_operations.decay(),
-        standard_operations.power_pulse(power=2), 
-        standard_operations.stark_shift(),
-        standard_operations.power_pulse(power=1),
-    ]
-
-    ## Learn:
-    results = learn_custom_operation(num_moments=num_moments, operations=operations, max_iter=max_iter )
-
-    ## Plot:
-    print(f"score={results.score}")
-    fig = visuals.plot_matter_state(results.final_state, block_sphere_resolution=150)
-    visuals.draw_now()
-    
-    
-    return results
-
 def _run_many_guesses(
     min_num_pulses:int=3,
     max_num_pulses:int=16, 
@@ -475,6 +442,39 @@ def _run_many_guesses(
     print(best_results)
     return best_results
 
+
+
+def _run_single_guess(
+    num_moments:int=40, 
+    max_iter:int=1000, 
+) -> LearnedResults:
+
+    ## Check inputs:
+    assertions.even(num_moments)
+
+    ## Define operations:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    standard_operations = coherent_control.standard_operations(num_intermediate_states=0)
+
+    operations = [
+        standard_operations.power_pulse(power=2), 
+        standard_operations.stark_shift(),
+        standard_operations.power_pulse(power=1),
+        standard_operations.decay(),
+        standard_operations.power_pulse(power=2), 
+        standard_operations.stark_shift(),
+        standard_operations.power_pulse(power=1),
+    ]
+
+    ## Learn:
+    results = learn_custom_operation(num_moments=num_moments, operations=operations, max_iter=max_iter )
+
+    ## Plot:
+    print(f"score={results.score}")
+    fig = visuals.plot_matter_state(results.final_state, block_sphere_resolution=150)
+    visuals.draw_now()
+    
+    return results
 
 def main():
     # results = _run_many_guesses()

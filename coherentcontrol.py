@@ -595,7 +595,9 @@ class CoherentControl():
         # Check inputs:
         assertions.density_matrix(state, robust_check=True)  # allow matrices to be non-PSD or non-Hermitian
         num_intermediate_states = assertions.integer(num_intermediate_states, reason=f"`num_intermediate_states` must be a non-negative integer")
-        assert time>=0, f"decay time must be a positive number. got {time}"
+        if time==0:
+            return [state]
+        assert time>0, f"decay time must be a positive number. got {time}"
         # Complete missing inputs:
         time_steps_resolution = args.default_value(time_steps_resolution, 10001)        
         assertions.integer(time_steps_resolution)            
