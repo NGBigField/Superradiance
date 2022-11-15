@@ -100,6 +100,21 @@ class Metric(Enum):
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
 
+def _initial_guess() -> List[float] :
+    omega = 0.2 * 2 * np.pi
+    t_1 = 2.074 * omega
+    t_2 = 0.285 * omega
+    t_3 = 0.191 * omega
+    t_4 = 2.084 * omega
+    delta_1 =  -4.0 * 2 * np.pi / omega 
+    delta_2 = -18.4 * 2 * np.pi / omega
+    phi_3 = 0.503
+    phi_4 = 0.257
+
+    return [t_1, t_2, delta_1, t_3, phi_3, t_4, phi_4, delta_2 ]
+
+
+
 def _coherent_control_from_mat(mat:_DensityMatrixType) -> CoherentControl:
     # Set basic properties:
     matrix_size = mat.shape[0]
@@ -360,6 +375,9 @@ def learn_custom_operation(
     # Cost function:
     # initial_state = gkp.initial_guess(num_moments)
     initial_state = Fock.ground_state_density_matrix(num_moments)
+    initial_state[0,0] = 0
+    initial_state[-1,-1] = 1
+    
     coherent_control = CoherentControl(num_moments)
     # target_state  = gkp.goal_gkp_state(num_moments)
     # def cost_function(theta:np.ndarray) -> float : 
@@ -375,8 +393,9 @@ def learn_custom_operation(
             target_state[i,j]=0.5
     def cost_function(theta:np.ndarray) -> float : 
         final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
-        diff = np.abs(final_state) - target_state        
-        cost = np.sum(abs(diff))
+        cost = (-1) * metrics.fidelity(final_state, target_state)
+        # diff = np.abs(final_state) - target_state        
+        # cost = np.sum(abs(diff))
         return cost
 
     # Run optimization:
@@ -479,9 +498,10 @@ def _run_single_guess(
         standard_operations.stark_shift_and_rot_operation(stark_shift_indices=[],  rotation_indices=[0, 1]),
         standard_operations.stark_shift_and_rot_operation(stark_shift_indices=[1],  rotation_indices=[0, 1]),
     ]
+    initial_guess = _initial_guess()
 
     ## Learn:
-    results = learn_custom_operation(num_moments=num_moments, operations=operations, max_iter=max_iter )
+    results = learn_custom_operation(num_moments=num_moments, operations=operations, max_iter=max_iter, initial_guess=initial_guess)
 
     ## Plot:
     print(f"score={results.score}")
