@@ -70,6 +70,7 @@ class LearnedResults():
     final_state : np.matrix = None
     time : float = None
     iterations : int = None
+    operations : List[Operation] = None
 
     def __repr__(self) -> str:
         np_utils.fix_print_length()
@@ -81,6 +82,7 @@ class LearnedResults():
         s += np_utils.mat_str_with_leading_text(self.initial_state, text="initial_state: ")+newline       
         s += np_utils.mat_str_with_leading_text(self.final_state  , text="final_state  : ")+newline  
         s += f"num_iterations={self.iterations}"+newline
+        s += f"operations: {self.operations}"+newline
         return s
     
 class Metric(Enum):
@@ -104,13 +106,16 @@ def _coherent_control_from_mat(mat:_DensityMatrixType) -> CoherentControl:
     max_state_num = matrix_size-1
     return CoherentControl(max_state_num)
 
-def _deal_bounds(num_params:int, positive_indices:np.ndarray) -> int: 
+def _deal_bounds(num_params:int, positive_indices:np.ndarray, rotation_indices:List[int]=[]) -> int: 
     def _bound_rule(i:int) -> Tuple[Any, Any]:
         # Derive:
         if i in positive_indices:
             return (0, None)
-        else:
+        elif i in rotation_indices:
             return (-np.pi, +np.pi)
+        else:
+            return (None, None)
+
     # Define bounds:
     return [_bound_rule(i) for i in range(num_params)]
 
@@ -353,13 +358,25 @@ def learn_custom_operation(
     bounds = _deal_bounds(num_params, positive_indices)  
 
     # Cost function:
-    initial_state = gkp.initial_guess(num_moments)
-    target_state  = gkp.goal_gkp_state(num_moments)
+    # initial_state = gkp.initial_guess(num_moments)
+    initial_state = Fock.ground_state_density_matrix(num_moments)
     coherent_control = CoherentControl(num_moments)
+    # target_state  = gkp.goal_gkp_state(num_moments)
+    # def cost_function(theta:np.ndarray) -> float : 
+    #     final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
+    #     # cost = metrics.distance(final_state, target_state)
+    #     cost = (-1)*metrics.fidelity(final_state, target_state)
+    #     return cost
+
+    matrix_size = initial_state.shape[0]
+    target_state = np.zeros(shape=(matrix_size,matrix_size))
+    for i in [0, matrix_size-1]:
+        for j in [0, matrix_size-1]:
+            target_state[i,j]=0.5
     def cost_function(theta:np.ndarray) -> float : 
         final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
-        # cost = metrics.distance(final_state, target_state)
-        cost = (-1)*metrics.fidelity(final_state, target_state)
+        diff = np.abs(final_state) - target_state        
+        cost = np.sum(abs(diff))
         return cost
 
     # Run optimization:
@@ -445,7 +462,7 @@ def _run_many_guesses(
 
 
 def _run_single_guess(
-    num_moments:int=40, 
+    num_moments:int=20, 
     max_iter:int=1000, 
 ) -> LearnedResults:
 
@@ -454,16 +471,13 @@ def _run_single_guess(
 
     ## Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)
-    standard_operations = coherent_control.standard_operations(num_intermediate_states=0)
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
 
     operations = [
-        standard_operations.power_pulse(power=2), 
-        standard_operations.stark_shift(),
-        standard_operations.power_pulse(power=1),
-        standard_operations.decay(time_steps_resolution=501),
-        standard_operations.power_pulse(power=2), 
-        standard_operations.stark_shift(),
-        standard_operations.power_pulse(power=1),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.stark_shift_and_rot_operation(stark_shift_indices=[1], rotation_indices=[0]),
+        standard_operations.stark_shift_and_rot_operation(stark_shift_indices=[],  rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot_operation(stark_shift_indices=[1],  rotation_indices=[0, 1]),
     ]
 
     ## Learn:
