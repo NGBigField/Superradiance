@@ -243,6 +243,20 @@ def _num_divisions_from_num_intermediate_states(num_intermediate_states:int) -> 
         raise ValueError(num_intermediate_states_error_msg)
     return num_divides
 
+def _list_of_intermediate_pulsed_states(state:_DensityMatrixType, p:np.matrix, num_divides:int, num_intermediate_states:int) -> List[_DensityMatrixType]:
+    # Hermitian conj of pulse:
+    pH = p.getH()
+    # prepare outputs:
+    states : List[_DensityMatrixType] = []
+    crnt_state = deepcopy(state)
+    if num_intermediate_states>0:
+        states.append(crnt_state)   # add initial state
+    # Apply pulse:
+    for time_step in range(num_divides):            
+        crnt_state = p * crnt_state * pH
+        states.append(crnt_state)
+    return states
+
 # ==================================================================================== #
 # |                            Declared Functions                                    | #
 # ==================================================================================== #
@@ -259,7 +273,7 @@ def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
     # Return:
     return Sx, Sy, Sz
 
-def stark_shift_mat(mat_size:int, indices:List[int], shifts:List[float]) -> np.matrix:
+def _stark_shift_mat(mat_size:int, indices:List[int], shifts:List[float]) -> np.matrix:
     mat =  np.matrix( np.zeros(shape=(mat_size, mat_size), dtype=np.complex64) )
     for i in range(mat_size):
         mat[i, i] = 1
@@ -288,9 +302,12 @@ class SPulses():
     def __init__(self, N:int) -> None:
         self.N = N
         Sx, Sy, Sz = S_mats(N)
+        D_plus, D_minus = _D_plus_minus_mats(N)
         self.Sx = Sx 
         self.Sy = Sy 
         self.Sz = Sz
+        self.Sp = D_plus
+        self.Sm = D_minus
 
     def __repr__(self) -> str:
         res = f"S Pulses with N={self.N}: \n"
@@ -508,7 +525,7 @@ class CoherentControl():
                 rho, x=values[0], y=values[1], z=values[2], power=power, num_intermediate_states=self.num_intermediate_states
             )
             
-        def power_pulse_operation(self, power:int) -> Operation:
+        def power_pulse(self, power:int) -> Operation:
             indices = [0, 1, 2]  # all indices
             return self.power_pulse_on_specific_directions(power=power, indices=indices)
 
@@ -519,7 +536,38 @@ class CoherentControl():
                 string_func = lambda *theta: self._power_pulse_string_func(theta=theta, indices=indices, power=power )
             )
         
-        def stark_shift_operation(self, indices:List[int]=None) -> Operation:
+        def squeezing(self, axis:Optional[Tuple[float, float]]) -> Operation:
+            # Define num params:
+            if axis is None:
+                num_params = 3
+            else:
+                num_params = 1
+            # Define functions:
+            def _deal_inputs(*theta) -> Tuple[ float, Tuple[float, float]]:
+                strength = theta[0]
+                if axis is None:
+                    assert len(theta)==3
+                    axis_input = (theta[1], theta[2])
+                else:
+                    assert len(theta)==1
+                    axis_input = (1, 0) 
+                return strength, axis_input
+            def _func(rho, *theta):
+                strength, axis_input = _deal_inputs(*theta)
+                return self.coherent_control.squeezing_with_intermediate_states(
+                    rho, strength=strength, axis=axis_input, num_intermediate_states=self.num_intermediate_states
+                )
+            def _str_func(*theta):
+                strength, axis_input = _deal_inputs(*theta)
+                return f"squeezing on direction {axis_input} with strength {strength}"
+
+            return Operation(
+                num_params=num_params,
+                function=_func,
+                string_func=str_func
+            )
+
+        def stark_shift(self, indices:List[int]=None) -> Operation:
             if indices is None:
                 num_params = self.density_matrix_size
             else:
@@ -532,7 +580,7 @@ class CoherentControl():
                 string_func = lambda *theta: f"Stark-shift on indices {indices} with values {theta}"
             )
 
-        def stark_shift_and_rot_operation(self, stark_shift_indices:List[int]=[1], rotation_indices:List[int] = [0, 1] ):
+        def stark_shift_and_rot(self, stark_shift_indices:List[int]=[1], rotation_indices:List[int] = [0, 1] ):
             # Check inputs:
             num_stark_shifts = len(stark_shift_indices)
             assert num_stark_shifts<2
@@ -592,7 +640,7 @@ class CoherentControl():
                 rotation_params=[]
             )
 
-        def decay_operation(self, time_steps_resolution:int=10001) -> Operation:
+        def decay(self, time_steps_resolution:int=10001) -> Operation:
             return Operation(
                 num_params = 1,
                 function = lambda rho, t: self.coherent_control.state_decay_with_intermediate_states(
@@ -626,18 +674,7 @@ class CoherentControl():
             mat_size=matrix_size, global_strength=strength_frac, stark_shift_indices=stark_shift_indices, 
             rotation_indices=rotation_indices, rotation_angle=rotation_angle, stark_shift_strength=stark_shift_strength
         )
-        pH = p.getH()
-        # prepare outputs:
-        states : List[_DensityMatrixType] = []
-        crnt_state = deepcopy(state)
-        if num_intermediate_states>0:
-            states.append(crnt_state)   # add initial state
-        # Apply pulse:
-        for time_step in range(num_divides):            
-            crnt_state = p * crnt_state * pH
-            states.append(crnt_state)
-        return states
-
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
 
     def stark_shift_with_intermediate_states(
         self, 
@@ -655,18 +692,8 @@ class CoherentControl():
         num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
         frac_shifts = [shift/num_divides for shift in shifts]
         # Create Matrix:
-        p = stark_shift_mat(matrix_size, indices=indices, shifts=frac_shifts)
-        pH = p.getH()
-        # prepare outputs:
-        states : List[_DensityMatrixType] = []
-        crnt_state = deepcopy(state)
-        if num_intermediate_states>0:
-            states.append(crnt_state)   # add initial state
-        # Apply pulse:
-        for time_step in range(num_divides):            
-            crnt_state = p * crnt_state * pH
-            states.append(crnt_state)
-        return states
+        p = _stark_shift_mat(matrix_size, indices=indices, shifts=frac_shifts)
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
 
     def pulse_on_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> _DensityMatrixType: 
         return self.pulse_on_state_with_intermediate_states(state=state, num_intermediate_states=0, x=x, y=y, z=z, power=power)[-1]
@@ -679,17 +706,7 @@ class CoherentControl():
         frac_y = y / num_divides
         frac_z = z / num_divides
         p = self._pulse(frac_x, frac_y, frac_z, power=power)
-        pH = p.getH()
-        # prepare outputs:
-        states : List[_DensityMatrixType] = []
-        crnt_state = deepcopy(state)
-        if num_intermediate_states>0:
-            states.append(crnt_state)   # add initial state
-        # Apply pulse:
-        for time_step in range(num_divides):            
-            crnt_state = p * crnt_state * pH
-            states.append(crnt_state)
-        return states
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)  
 
     def state_decay(self, state:_DensityMatrixType, time:float, time_steps_resolution:int=10001) -> _DensityMatrixType: 
         return self.state_decay_with_intermediate_states(state=state, time=time, num_intermediate_states=0, time_steps_resolution=time_steps_resolution)[-1]        
@@ -729,6 +746,27 @@ class CoherentControl():
             raise ValueError(f"`num_intermediate_states` must be a non-negative integer")
         return [rho_at_all_times[:,:,ind] for ind in indices ]
 
+    def _squeezing_operator(self, strength:float, axis:Tuple[float, float]) -> np.matrix:
+        # Bring matrices
+        Sp = self.s_pulses.Sp
+        Sm = self.s_pulses.Sm
+        # Define axis:
+        xi = axis[0] + 1j*axis[1]
+        # exponent
+        exponent = 1j * ( Sp@Sp * xi - Sm@Sm * np.conj(xi) ) * strength
+        # op
+        op = expm(exponent)
+        return op
+
+    def squeezing_with_intermediate_states(self, state:_DensityMatrixType, strength:float, num_intermediate_states:int=0, axis:Tuple[float, float]=(1,0)) -> _DensityMatrixType :
+        # Check input:
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
+        axis = args.default_value(axis, (1,0))
+        # Divide requested pulse into fragments
+        strength_frac = strength/num_divides
+        p = self._squeezing_operator(strength=strength_frac, axis=axis)
+        # Return output:
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
 
     def custom_sequence(
         self, 
@@ -953,31 +991,52 @@ def _test_goal_gkp():
     
 def _test_custom_sequence():
     # Const:
-    num_moments:int=6
-    num_transition_frames=20
-    active_movie_recorder:bool=True
+    num_moments:int=20
+    num_transition_frames=15
+    active_movie_recorder:bool=False
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
         active=active_movie_recorder,
-        show_now=False,
+        show_now=True,
         num_freeze_frames=3,
         fps=10,
         bloch_sphere_resolution=50
     )
-    # Prepare coherent control
+
+    ## Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)
-    standard_operations = coherent_control.standard_operations(3)
-    # Operations:
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
+
     operations = [
-        standard_operations.power_pulse(power=1)
+        # These 4 pulses create a cat state:
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
+        # Bring in to the top of the bloch-sphere
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        # 4 Pulses again:
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
     ]
-    # init params:
-    num_params = sum([op.num_params for op in operations])
+    from optimization import _initial_guess
+    theta_cat_pulses = _initial_guess()
+
+    theta = []
+    theta.extend(theta_cat_pulses)
+    theta.append(pi)  # x pi pulse
+    theta.extend(theta_cat_pulses)
+
 
     initial_state = Fock.ground_state_density_matrix(num_moments)
+    initial_state[0,0] = 0.0
+    initial_state[-1,-1] = 1.0
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     # plot
+    visuals.plot_matter_state(final_state, block_sphere_resolution=150)
     visuals.draw_now()
     print("Movie is ready in folder 'video' ")
     

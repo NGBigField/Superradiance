@@ -6,6 +6,7 @@
 
 # Everyone needs numpy:
 import numpy as np
+from numpy import pi
 
 # For typing hints:
 from typing import (
@@ -111,7 +112,8 @@ def _initial_guess() -> List[float] :
     phi_3 = 0.503
     phi_4 = 0.257
 
-    return [t_1, t_2, delta_1, t_3, phi_3, t_4, phi_4, delta_2 ]
+    # return [  t _1,     t_2,     delta_1,     t_3,       phi_3,    t_4,        phi_4,    delta_2 ]
+    return [  2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576/4,    0.1602, -107.5689]
 
 
 
@@ -349,7 +351,9 @@ def learn_specific_state(
 
 def learn_custom_operation(    
     num_moments : int,
+    initial_state : _DensityMatrixType,
     operations : List[Operation],
+    cost_function : Callable[[_DensityMatrixType], float],
     max_iter : int=100, 
     initial_guess : Optional[np.array] = None,
     save_results : bool=True,
@@ -372,11 +376,6 @@ def learn_custom_operation(
     initial_guess = _deal_initial_guess_common(num_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
     bounds = _deal_bounds(num_params, positive_indices)  
 
-    # Cost function:
-    # initial_state = gkp.initial_guess(num_moments)
-    initial_state = Fock.ground_state_density_matrix(num_moments)
-    initial_state[0,0] = 0
-    initial_state[-1,-1] = 1
     
     coherent_control = CoherentControl(num_moments)
     # target_state  = gkp.goal_gkp_state(num_moments)
@@ -386,14 +385,15 @@ def learn_custom_operation(
     #     cost = (-1)*metrics.fidelity(final_state, target_state)
     #     return cost
 
-    matrix_size = initial_state.shape[0]
-    target_state = np.zeros(shape=(matrix_size,matrix_size))
-    for i in [0, matrix_size-1]:
-        for j in [0, matrix_size-1]:
-            target_state[i,j]=0.5
-    def cost_function(theta:np.ndarray) -> float : 
+    # matrix_size = initial_state.shape[0]
+    # target_state = np.zeros(shape=(matrix_size,matrix_size))
+    # for i in [0, matrix_size-1]:
+    #     for j in [0, matrix_size-1]:
+    #         target_state[i,j]=0.5
+    def total_cost_function(theta:np.ndarray) -> float : 
         final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
-        cost = (-1) * metrics.fidelity(final_state, target_state)
+        cost = cost_function(final_state)
+        # cost = (-1) * metrics.fidelity(final_state, target_state)
         # diff = np.abs(final_state) - target_state        
         # cost = np.sum(abs(diff))
         return cost
@@ -401,7 +401,7 @@ def learn_custom_operation(
     # Run optimization:
     start_time = time.time()
     opt_res : OptimizeResult = minimize(
-        cost_function, 
+        total_cost_function, 
         initial_guess, 
         method=OPT_METHOD, 
         options=options, 
@@ -481,7 +481,7 @@ def _run_many_guesses(
 
 
 def _run_single_guess(
-    num_moments:int=20, 
+    num_moments:int=4, 
     max_iter:int=1000, 
 ) -> LearnedResults:
 
@@ -492,20 +492,59 @@ def _run_single_guess(
     coherent_control = CoherentControl(num_moments=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
 
+
+    # Define new initial state:
     operations = [
+        # These 4 pulses create a cat state:
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.stark_shift_and_rot_operation(stark_shift_indices=[1], rotation_indices=[0]),
-        standard_operations.stark_shift_and_rot_operation(stark_shift_indices=[],  rotation_indices=[0, 1]),
-        standard_operations.stark_shift_and_rot_operation(stark_shift_indices=[1],  rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
+        # Bring in to the top of the bloch-sphere
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        # 4 Pulses again:
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
     ]
-    initial_guess = _initial_guess()
+    theta_cat_pulses = _initial_guess()
+
+    theta = []
+    theta.extend(theta_cat_pulses)
+    theta.append(pi)  # x pi pulse
+    theta.extend(theta_cat_pulses)
+
+    initial_state = Fock.ground_state_density_matrix(num_moments)
+    initial_state[0,0] = 0.0
+    initial_state[-1,-1] = 1.0   # Fully excited
+    # our almost gkp state:
+    initial_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations)
+
+    operations = [
+        # These 4 pulses create a cat state:
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+    ]
+
+    def cost_function(final_state:_DensityMatrixType) -> float : 
+        # cost = (-1) * metrics.fidelity(final_state, target_state)
+        # diff = np.abs(final_state) - target_state        
+        # cost = np.sum(abs(diff))
+        Sp = coherent_control.s_pulses.Sp
+        observation_mean = np.trace( final_state @ Sp )
+        cost = abs(observation_mean)
+        return cost
 
     ## Learn:
-    results = learn_custom_operation(num_moments=num_moments, operations=operations, max_iter=max_iter, initial_guess=initial_guess)
+    results = learn_custom_operation(
+        num_moments=num_moments, initial_state=initial_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
+    )
+
+
 
     ## Plot:
     print(f"score={results.score}")
-    fig = visuals.plot_matter_state(results.final_state, block_sphere_resolution=150)
+    fig = visuals.plot_matter_state(results.final_state, block_sphere_resolution=15)
     visuals.draw_now()
     
     return results
