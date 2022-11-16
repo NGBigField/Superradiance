@@ -484,7 +484,7 @@ def _run_many_guesses(
 
 
 def creating_gkp_algo(
-    num_moments:int=40, 
+    num_moments:int=100, 
     max_iter:int=10000, 
 ) -> LearnedResults:
 
@@ -517,7 +517,7 @@ def creating_gkp_algo(
             target_state[i,j]=0.5
     def cost_function(final_state:_DensityMatrixType) -> float : 
         return (-1) * metrics.fidelity(final_state, target_state)
-    results = learn_custom_operation(
+    noon_results = learn_custom_operation(
         num_moments=num_moments, 
         initial_state=initial_state, 
         cost_function=cost_function, 
@@ -525,7 +525,7 @@ def creating_gkp_algo(
         max_iter=max_iter, 
         initial_guess=initial_guess
     )
-    noon_creation_params = results.theta
+    noon_creation_params = noon_results.theta
     noon_creation_params[T4_PARAM_INDEX] = noon_creation_params[T4_PARAM_INDEX] / 4
 
 
@@ -576,12 +576,12 @@ def creating_gkp_algo(
     cat_state = results.final_state
 
 
-    trial_state = coherent_control.pulse_on_state(cat_state, x=-0.6)
+    trial_state = coherent_control.pulse_on_state(cat_state, x=+0.35)
     _wigner(trial_state)
 
     # visuals.close_all()
     visuals.draw_now()
-    for s in np.linspace(0, 0.02, 6):
+    for s in np.linspace(0.008, 0.016, 6):
         gkp = coherent_control.squeezing(trial_state, strength=s, axis=(1,0) )
         _wigner(gkp, title=f"s={s}")
 
@@ -597,24 +597,6 @@ def creating_gkp_algo(
 def main():
     # results = _run_many_guesses()
     results = creating_gkp_algo()
-
-
-    # Load state:
-    state_on_buttom = saveload.load("state_on_buttom")
-
-    num_moments = state_on_buttom.shape[0]-1
-
-    ## Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)
-    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
-
-    for s in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]:
-        squeezed_state = coherent_control.squeezing(state_on_buttom, strength=s, axis=(0,1))
-        qutip.plot_wigner(qutip.Qobj(squeezed_state))
-        plt.text(0,0, f"{s}")
-
-    visuals.plot_matter_state(squeezed_state)
-
     print("End")
 
 if __name__ == "__main__":
