@@ -481,7 +481,7 @@ def _run_many_guesses(
 
 
 def _run_single_guess(
-    num_moments:int=4, 
+    num_moments:int=20, 
     max_iter:int=1000, 
 ) -> LearnedResults:
 
@@ -542,10 +542,48 @@ def _run_single_guess(
 
 
 
-    ## Plot:
-    print(f"score={results.score}")
-    fig = visuals.plot_matter_state(results.final_state, block_sphere_resolution=15)
-    visuals.draw_now()
+
+    Sp = coherent_control.s_pulses.Sp
+    Sx = coherent_control.s_pulses.Sx
+    Sy = coherent_control.s_pulses.Sy
+
+    final_state = results.final_state
+    operations = [
+        # These 4 pulses create a cat state:
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
+    ]
+    def cost_function(final_state:_DensityMatrixType) -> float : 
+        Sx = coherent_control.s_pulses.Sx
+        observation_mean = np.trace( final_state @ Sx @ Sx )
+        cost = observation_mean
+        return cost
+
+    ## Learn:
+    results = learn_custom_operation(
+        num_moments=num_moments, initial_state=initial_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
+    )
+    final_state_after_rot = results.final_state
+
+    x = np.trace( Sx@Sx@final_state_after_rot )
+    y = np.trace( Sy@Sy@final_state_after_rot )
+    x = np.real(x)
+    y = np.real(y)
+    # print(f"x={x}, y={y}")
+
+
+    # tan_theta = x / y 
+    # theta = np.arctan(tan_theta)
+
+    # after_rot_state = coherent_control.pulse_on_state(final_state, z=theta)
+
+    # x = np.trace( Sx@Sx@after_rot_state )
+    # y = np.trace( Sy@Sy@after_rot_state )
+
+
+    # ## Plot:
+    # print(f"score={results.score}")
+    # fig = visuals.plot_matter_state(results.final_state, block_sphere_resolution=150)
+    # visuals.draw_now()
     
     return results
 

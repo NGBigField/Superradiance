@@ -12,7 +12,6 @@ from qutip.matplotlib_utilities import complex_phase_cmap
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.axes import Axes
 from matplotlib.transforms import Bbox
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # For defining print std_out or other:
 import sys
@@ -115,7 +114,7 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     fig.savefig(fullpath_str)
     return 
 
-def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False, title:str=None) :
+def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False, title:str=None, with_axes_arrows:bool=True) :
     # Constants:
     radius = 1
 
@@ -169,7 +168,7 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
 
     fcolors = W / np.max(np.abs(W))
     # Set the aspect ratio to 1 so our sphere looks spherical
-    a = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.bwr(fcolors / 2 + 0.5))
+    surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.bwr(fcolors / 2 + 0.5))
     m = cm.ScalarMappable(cmap=cm.bwr)
     m.set_array(fcolors)
     m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
@@ -183,10 +182,23 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     else:
         colorbar = plt.colorbar(m, ax=ax, cax=colorbar_ax, shrink=0.5)        
 
+    # xyz axes:
+    if with_axes_arrows:
+        for i, str_ in enumerate(['x', 'y', 'z']):
+            xyz = [0, 0, 0]
+            xyz[i] = 1.5
+            quiver_inputs = [0,0,0]
+            quiver_inputs.extend(xyz)
+            arrow = ax.quiver(*quiver_inputs,  length=1.2, arrow_length_ratio=0.1, zorder=100+i, alpha=0.5)
+            arrow.set_linewidth(4)
+            xyz[i] = 1.7
+            ax.text(*xyz, str_, font=dict(size=18))
+
+
     ax.set_title('$W(\\theta,\phi)$', fontsize=16)
     # Turn off the axis planes
     ax.set_axis_off()
-    return a
+    return surface_plot
 
 def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=None):
     # Check input type:
@@ -533,8 +545,8 @@ def _test_gkp_state():
     from gkp import goal_gkp_state
     # Get and plot:
     gkp_state = goal_gkp_state(num_moments=num_moments)
+    plot_wigner_bloch_sphere(gkp_state, num_points=200)
     plot_city(gkp_state)
-    plot_wigner_bloch_sphere(gkp_state)
     draw_now()
     # Print:
     print("Plotted GKP State")
