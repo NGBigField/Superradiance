@@ -484,7 +484,7 @@ def _run_many_guesses(
 
 
 def creating_gkp_algo(
-    num_moments:int=20, 
+    num_moments:int=40, 
     max_iter:int=10000, 
 ) -> LearnedResults:
 
@@ -576,15 +576,18 @@ def creating_gkp_algo(
     cat_state = results.final_state
 
 
-    for s in np.linspace(0, 0.08, 9):
-        gkp = coherent_control.squeezing(cat_state, strength=s, axis=(1,0) )
+    trial_state = coherent_control.pulse_on_state(cat_state, x=-0.6)
+    _wigner(trial_state)
+
+    # visuals.close_all()
+    visuals.draw_now()
+    for s in np.linspace(0, 0.02, 6):
+        gkp = coherent_control.squeezing(trial_state, strength=s, axis=(1,0) )
         _wigner(gkp, title=f"s={s}")
 
-    x = np.trace( Sx@Sx@cat_state )
-    y = np.trace( Sy@Sy@cat_state )
-    print(f"x={x}, y={y}")
 
-    visuals.plot_matter_state(cat_state)
+    # visuals.plot_matter_state(cat_state)
+    visuals.plot_matter_state(gkp)
     
 
     

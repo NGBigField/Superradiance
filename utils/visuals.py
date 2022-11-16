@@ -84,6 +84,9 @@ else:
 #|                             Declared Functions                                     |#
 # ==================================================================================== #
 
+def close_all():
+    plt.close('all')
+
 def draw_now():
     plt.show(block=False)
     plt.pause(0.1)
