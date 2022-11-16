@@ -53,12 +53,18 @@ import time
 from dataclasses import dataclass
 from enum import Enum, auto
 
+# for plotting stuff wigner
+import qutip
+import matplotlib.pyplot as plt
+
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
 OPT_METHOD : Final = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
-TOLERANCE = 1e-25
+TOLERANCE = 1e-32
+
+T4_PARAM_INDEX = 5
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
@@ -101,6 +107,11 @@ class Metric(Enum):
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
 
+def _wigner(state:_DensityMatrixType, title:Optional[str]=None)->None:
+    fig, ax = qutip.plot_wigner( qutip.Qobj(state) )
+    if title is not None:
+        ax.set_title(title)
+
 def _initial_guess() -> List[float] :
     omega = 0.2 * 2 * np.pi
     t_1 = 2.074 * omega
@@ -112,8 +123,9 @@ def _initial_guess() -> List[float] :
     phi_3 = 0.503
     phi_4 = 0.257
 
-    # return [  t _1,     t_2,     delta_1,     t_3,       phi_3,    t_4,        phi_4,    delta_2 ]
-    return [  2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576/4,    0.1602, -107.5689]
+    # return [  t_1,     t_2,     delta_1,     t_3,       phi_3,    t_4,        phi_4,    delta_2 ]
+    return [ 2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576,    0.1602, -107.5689]
+    # return [  2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576/4,    0.1602, -107.5689]
 
 
 
@@ -378,12 +390,6 @@ def learn_custom_operation(
 
     
     coherent_control = CoherentControl(num_moments)
-    # target_state  = gkp.goal_gkp_state(num_moments)
-    # def cost_function(theta:np.ndarray) -> float : 
-    #     final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
-    #     # cost = metrics.distance(final_state, target_state)
-    #     cost = (-1)*metrics.fidelity(final_state, target_state)
-    #     return cost
 
     # matrix_size = initial_state.shape[0]
     # target_state = np.zeros(shape=(matrix_size,matrix_size))
@@ -393,9 +399,6 @@ def learn_custom_operation(
     def total_cost_function(theta:np.ndarray) -> float : 
         final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
         cost = cost_function(final_state)
-        # cost = (-1) * metrics.fidelity(final_state, target_state)
-        # diff = np.abs(final_state) - target_state        
-        # cost = np.sum(abs(diff))
         return cost
 
     # Run optimization:
@@ -461,7 +464,7 @@ def _run_many_guesses(
         for _ in range(num_tries):
             # Run:
             try:
-                results = _run_single_guess(num_pulses=num_pulses, num_moments=num_moments)
+                results = creating_gkp_algo(num_pulses=num_pulses, num_moments=num_moments)
             except Exception as e:
                 errors.print_traceback(e)
             # Check if better than best:
@@ -480,9 +483,9 @@ def _run_many_guesses(
 
 
 
-def _run_single_guess(
+def creating_gkp_algo(
     num_moments:int=20, 
-    max_iter:int=1000, 
+    max_iter:int=10000, 
 ) -> LearnedResults:
 
     ## Check inputs:
@@ -491,105 +494,125 @@ def _run_single_guess(
     ## Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
-
-
-    # Define new initial state:
-    operations = [
-        # These 4 pulses create a cat state:
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
-        # Bring in to the top of the bloch-sphere
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        # 4 Pulses again:
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
-    ]
-    theta_cat_pulses = _initial_guess()
-
-    theta = []
-    theta.extend(theta_cat_pulses)
-    theta.append(pi)  # x pi pulse
-    theta.extend(theta_cat_pulses)
-
-    initial_state = Fock.ground_state_density_matrix(num_moments)
-    initial_state[0,0] = 0.0
-    initial_state[-1,-1] = 1.0   # Fully excited
-    # our almost gkp state:
-    initial_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations)
-
-    operations = [
-        # These 4 pulses create a cat state:
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-    ]
-
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        # cost = (-1) * metrics.fidelity(final_state, target_state)
-        # diff = np.abs(final_state) - target_state        
-        # cost = np.sum(abs(diff))
-        Sp = coherent_control.s_pulses.Sp
-        observation_mean = np.trace( final_state @ Sp )
-        cost = abs(observation_mean)
-        return cost
-
-    ## Learn:
-    results = learn_custom_operation(
-        num_moments=num_moments, initial_state=initial_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
-    )
-
-
-
-
     Sp = coherent_control.s_pulses.Sp
     Sx = coherent_control.s_pulses.Sx
     Sy = coherent_control.s_pulses.Sy
+    Sz = coherent_control.s_pulses.Sz
 
-    final_state = results.final_state
+    ## Define initial state and guess:
+    initial_state = Fock.excited_state_density_matrix(num_moments)
+    initial_guess = _initial_guess()
+
+    ## Learn how to prepare a cat state:
+    noon_creation_operations = [
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
+    ]
+    matrix_size = initial_state.shape[0]
+    target_state = np.zeros(shape=(matrix_size,matrix_size))
+    for i in [0, matrix_size-1]:
+        for j in [0, matrix_size-1]:
+            target_state[i,j]=0.5
+    def cost_function(final_state:_DensityMatrixType) -> float : 
+        return (-1) * metrics.fidelity(final_state, target_state)
+    results = learn_custom_operation(
+        num_moments=num_moments, 
+        initial_state=initial_state, 
+        cost_function=cost_function, 
+        operations=noon_creation_operations, 
+        max_iter=max_iter, 
+        initial_guess=initial_guess
+    )
+    noon_creation_params = results.theta
+    noon_creation_params[T4_PARAM_INDEX] = noon_creation_params[T4_PARAM_INDEX] / 4
+
+
+    # Define new initial state:
+    cat_creation_operations = \
+        noon_creation_operations + \
+        [standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])] + \
+        noon_creation_operations
+
+    cat_creation_params = []
+    cat_creation_params.extend(noon_creation_params)
+    cat_creation_params.append(pi)  # x pi pulse
+    cat_creation_params.extend(noon_creation_params)
+
+    # our almost gkp state:
+    cat_state = coherent_control.custom_sequence(state=initial_state, theta=cat_creation_params, operations=cat_creation_operations)
+
+
+    ## Center the cat-state:
     operations = [
-        # These 4 pulses create a cat state:
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+    ]
+    def cost_function(final_state:_DensityMatrixType) -> float : 
+        observation_mean = np.trace( final_state @ Sp )
+        cost = abs(observation_mean)
+        return cost
+    results = learn_custom_operation(
+        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
+    )
+    cat_state = results.final_state
+
+    ## Force cat-state to be on the bottom:
+    z_projection = np.real(np.trace( cat_state @ Sz ))
+    if z_projection>0:
+        cat_state = coherent_control.pulse_on_state(cat_state, x=pi)
+
+    ## Aligning with the y axis:
+    operations = [
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
     ]
     def cost_function(final_state:_DensityMatrixType) -> float : 
-        Sx = coherent_control.s_pulses.Sx
         observation_mean = np.trace( final_state @ Sx @ Sx )
         cost = observation_mean
         return cost
-
-    ## Learn:
     results = learn_custom_operation(
-        num_moments=num_moments, initial_state=initial_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
+        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
     )
-    final_state_after_rot = results.final_state
-
-    x = np.trace( Sx@Sx@final_state_after_rot )
-    y = np.trace( Sy@Sy@final_state_after_rot )
-    x = np.real(x)
-    y = np.real(y)
-    # print(f"x={x}, y={y}")
+    cat_state = results.final_state
 
 
-    # tan_theta = x / y 
-    # theta = np.arctan(tan_theta)
+    for s in np.linspace(0, 0.08, 9):
+        gkp = coherent_control.squeezing(cat_state, strength=s, axis=(1,0) )
+        _wigner(gkp, title=f"s={s}")
 
-    # after_rot_state = coherent_control.pulse_on_state(final_state, z=theta)
+    x = np.trace( Sx@Sx@cat_state )
+    y = np.trace( Sy@Sy@cat_state )
+    print(f"x={x}, y={y}")
 
-    # x = np.trace( Sx@Sx@after_rot_state )
-    # y = np.trace( Sy@Sy@after_rot_state )
+    visuals.plot_matter_state(cat_state)
+    
 
-
-    # ## Plot:
-    # print(f"score={results.score}")
-    # fig = visuals.plot_matter_state(results.final_state, block_sphere_resolution=150)
-    # visuals.draw_now()
     
     return results
 
+
 def main():
     # results = _run_many_guesses()
-    results = _run_single_guess()
+    results = creating_gkp_algo()
+
+
+    # Load state:
+    state_on_buttom = saveload.load("state_on_buttom")
+
+    num_moments = state_on_buttom.shape[0]-1
+
+    ## Define operations:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
+
+    for s in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]:
+        squeezed_state = coherent_control.squeezing(state_on_buttom, strength=s, axis=(0,1))
+        qutip.plot_wigner(qutip.Qobj(squeezed_state))
+        plt.text(0,0, f"{s}")
+
+    visuals.plot_matter_state(squeezed_state)
+
+    print("End")
 
 if __name__ == "__main__":
     main()

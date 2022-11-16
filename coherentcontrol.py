@@ -306,8 +306,8 @@ class SPulses():
         self.Sx = Sx 
         self.Sy = Sy 
         self.Sz = Sz
-        self.Sp = D_plus
-        self.Sm = D_minus
+        self.Sp = D_plus  + 0*1j  # force casting to complex
+        self.Sm = D_minus + 0*1j  # force casting to complex
 
     def __repr__(self) -> str:
         res = f"S Pulses with N={self.N}: \n"
@@ -748,17 +748,21 @@ class CoherentControl():
 
     def _squeezing_operator(self, strength:float, axis:Tuple[float, float]) -> np.matrix:
         # Bring matrices
-        Sp = self.s_pulses.Sp
-        Sm = self.s_pulses.Sm
+        Sp = self.s_pulses.Sp   # force casting to complex
+        Sm = self.s_pulses.Sm   # force casting to complex
         # Define axis:
         xi = axis[0] + 1j*axis[1]
-        # exponent
-        exponent = 1j * ( Sp@Sp * xi - Sm@Sm * np.conj(xi) ) * strength
-        # op
+        # create operator:
+        # exponent = ( Sp@Sp * xi + Sm@Sm * np.conj(xi) ) * strength
+        # op = expm(-1j*exponent)
+        exponent = ( Sp@Sp * np.conj(xi) - Sm@Sm * xi ) * strength
         op = expm(exponent)
-        return op
+        return np.matrix( op )
 
-    def squeezing_with_intermediate_states(self, state:_DensityMatrixType, strength:float, num_intermediate_states:int=0, axis:Tuple[float, float]=(1,0)) -> _DensityMatrixType :
+    def squeezing(self, state:_DensityMatrixType, strength:float, axis:Tuple[float, float]=(1,0)) -> _DensityMatrixType:
+        return self.squeezing_with_intermediate_states(state=state, strength=strength, num_intermediate_states=0, axis=axis)[-1]        
+
+    def squeezing_with_intermediate_states(self, state:_DensityMatrixType, strength:float, num_intermediate_states:int=0, axis:Tuple[float, float]=(1,0)) -> List[_DensityMatrixType] :
         # Check input:
         num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
         axis = args.default_value(axis, (1,0))

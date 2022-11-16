@@ -103,6 +103,13 @@ class Fock():
     @staticmethod
     def ground_state_density_matrix(num_moments:int) -> np.matrix:
         return Fock(0).to_density_matrix(num_moments=num_moments)
+        
+    @staticmethod
+    def excited_state_density_matrix(num_moments:int) -> np.matrix:
+        state = Fock(0).to_density_matrix(num_moments=num_moments)
+        state[0,0] = 0
+        state[-1,-1] = 1
+        return state
 
     @overload
     @staticmethod

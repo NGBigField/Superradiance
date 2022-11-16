@@ -46,7 +46,6 @@ from optimization import learn_specific_state, LearnedResults, _coherent_control
 # ==================================================================================== #
 
 
-
 def _observe_saved_data():
     file_name =  "learned_results 2022.11.15_18.34.18"
     results : LearnedResults = saveload.load(file_name)
@@ -71,7 +70,7 @@ def _observe_saved_data():
     
 
 def main():
-    _observe_saved_data()
+    # _observe_saved_data()
     
 
 
