@@ -526,7 +526,7 @@ def creating_gkp_algo(
         initial_guess=initial_guess
     )
     noon_creation_params = noon_results.theta
-    noon_creation_params[T4_PARAM_INDEX] = noon_creation_params[T4_PARAM_INDEX] / 4
+    noon_creation_params[T4_PARAM_INDEX] = noon_creation_params[T4_PARAM_INDEX] / 10
 
 
     # Define new initial state:
