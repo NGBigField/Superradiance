@@ -1,12 +1,15 @@
+
 # ==================================================================================== #
 # |                                 Imports                                          | #
 # ==================================================================================== #
 
 # Everyone needs numpy:
 import numpy as np
+from numpy import pi
 
-# For matrix exponential: 
-from scipy.linalg import expm
+# For matrix-operations: 
+from scipy.linalg import expm  # matrix exponential
+from numpy.linalg import matrix_power  
 
 # For typing hints:
 from typing import (
@@ -52,7 +55,7 @@ from evolution import (
 )
 
 # For printing progress:
-from metrics import purity, negativity
+from metrics import purity
 
 # for copying input:
 from copy import deepcopy
@@ -65,9 +68,7 @@ from fock import Fock
 # ==================================================================================== #
 OPT_METHOD : Final = 'COBYLA'
 
-# ==================================================================================== #
-# |                                 Helper Types                                     | #
-# ==================================================================================== #
+
 # ==================================================================================== #
 # |                                 Helper Types                                     | #
 # ==================================================================================== #
@@ -76,7 +77,18 @@ class _PulseSequenceParams():
     xyz : Tuple[float]
     pause : float
 
+
 _DensityMatrixType = np.matrix
+
+@dataclass
+class Operation():
+    num_params : int 
+    function : Callable[[_DensityMatrixType, List[float] ], _DensityMatrixType]
+    string_func : Callable[[List[float]], str] = None
+    string : str = None
+    positive_params_only : bool = False
+    rotation_params : List[int] = None
+
 
 
 # ==================================================================================== #
@@ -143,6 +155,33 @@ def _Sz_mat(N:int) -> np.matrix :
         M = _M(m, J)
         Sz[m,m] = M
     return Sz
+  
+def _deal_costum_params(
+    operations: List[Operation],
+    theta: Optional[Union[List[float], np.ndarray]]=None
+) -> List[List[float]]:
+    # Check lengths:
+    total_num_params = sum([op.num_params for op in operations])
+    if isinstance(theta, np.ndarray):
+        # Assert 1D array:
+        assert theta.ndim==1
+        theta = theta.tolist()
+        # Assert correct total length
+    elif theta is None and total_num_params==0:
+        theta = np.array([])
+    assert len(theta)==total_num_params
+    # init:
+    all_ops_params : list = []
+    # iterate:
+    i = 0
+    for operation in operations:
+        num_params = operation.num_params
+        op_params = theta[i:(i+num_params)]
+        all_ops_params.append(op_params)
+        i = i + num_params
+    return all_ops_params
+        
+    
         
 def _deal_params(theta: Union[List[float], np.ndarray]) -> List[_PulseSequenceParams] :
     # Constants:
@@ -193,6 +232,30 @@ def _deal_params(theta: Union[List[float], np.ndarray]) -> List[_PulseSequencePa
     # end:
     return result
     
+def _num_divisions_from_num_intermediate_states(num_intermediate_states:int) -> int:
+    num_intermediate_states_error_msg = f"`num_intermediate_states` must be a non-negative number."
+    num_intermediate_states = assertions.integer(num_intermediate_states)
+    if num_intermediate_states > 0:
+        num_divides = num_intermediate_states
+    elif num_intermediate_states == 0:
+        num_divides = 1
+    else:
+        raise ValueError(num_intermediate_states_error_msg)
+    return num_divides
+
+def _list_of_intermediate_pulsed_states(state:_DensityMatrixType, p:np.matrix, num_divides:int, num_intermediate_states:int) -> List[_DensityMatrixType]:
+    # Hermitian conj of pulse:
+    pH = p.getH()
+    # prepare outputs:
+    states : List[_DensityMatrixType] = []
+    crnt_state = deepcopy(state)
+    if num_intermediate_states>0:
+        states.append(crnt_state)   # add initial state
+    # Apply pulse:
+    for time_step in range(num_divides):            
+        crnt_state = p * crnt_state * pH
+        states.append(crnt_state)
+    return states
 
 # ==================================================================================== #
 # |                            Declared Functions                                    | #
@@ -209,6 +272,14 @@ def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
     Sz = _Sz_mat(N)
     # Return:
     return Sx, Sy, Sz
+
+def _stark_shift_mat(mat_size:int, indices:List[int], shifts:List[float]) -> np.matrix:
+    mat =  np.matrix( np.zeros(shape=(mat_size, mat_size), dtype=np.complex64) )
+    for i in range(mat_size):
+        mat[i, i] = 1
+    for i, shift in zip(indices, shifts):
+        mat[i, i] = np.exp( 1j * shift )
+    return mat
 
 def pulse(
     x  : float, 
@@ -231,9 +302,12 @@ class SPulses():
     def __init__(self, N:int) -> None:
         self.N = N
         Sx, Sy, Sz = S_mats(N)
+        D_plus, D_minus = _D_plus_minus_mats(N)
         self.Sx = Sx 
         self.Sy = Sy 
         self.Sz = Sz
+        self.Sp = D_plus  + 0*1j  # force casting to complex
+        self.Sm = D_minus + 0*1j  # force casting to complex
 
     def __repr__(self) -> str:
         res = f"S Pulses with N={self.N}: \n"
@@ -250,10 +324,6 @@ class SequenceMovieRecorder():
     
     def _default_score_str_func(state:_DensityMatrixType) -> str:
         s = f"Purity = {purity(state)}"
-        try:
-            s += f"Negativity = {negativity(state)}"
-        except NotImplementedError:
-            pass
         return s
 
     @dataclass
@@ -286,6 +356,8 @@ class SequenceMovieRecorder():
         if self.config.score_str_func is None:
             self.config.score_str_func = SequenceMovieRecorder._default_score_str_func
         self.score_str_func : Callable[[np.matrix], str] = self.config.score_str_func
+        # Keep last state:
+        self.last_state = initial_state
         
     def _record_single_state(
         self,
@@ -314,6 +386,8 @@ class SequenceMovieRecorder():
         final_state = transition_states[-1]
         # Capture shots: (transition and freezed state)
         for transition_state in transition_states:
+            if np.array_equal(transition_state, self.last_state):
+                continue
             self._record_single_state(transition_state, title=title, duration=1 )
         self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames)
         # Keep info for next call:
@@ -332,6 +406,7 @@ class SequenceMovieRecorder():
     def is_active(self) -> bool:
         return self.config.active
 
+    
 class CoherentControl():   
 
     # Class Attributes:
@@ -365,10 +440,40 @@ class CoherentControl():
     #|                   inner functions                  |#
     # ==================================================== #
 
-    def _pulse(self, x:float=0.0, y:float=0.0, z:float=0.0) -> np.matrix:
-        Sx = self.s_pulses.Sx 
-        Sy = self.s_pulses.Sy 
-        Sz = self.s_pulses.Sz
+    def stark_shift_and_rot_mat(
+        self,
+        mat_size:int, 
+        global_strength:float,
+        stark_shift_indices:List[int],
+        stark_shift_strength:float,
+        rotation_indices:List[int],
+        rotation_angle:float,
+    ) -> np.matrix:
+
+        mat =  np.matrix( np.zeros(shape=(mat_size, mat_size), dtype=np.complex64) )
+        for i in stark_shift_indices:
+            mat[i, i] = stark_shift_strength 
+
+        if 0 in rotation_indices:
+            mat += self.s_pulses.Sx * np.cos(rotation_angle)
+        if 1 in rotation_indices:
+            mat += self.s_pulses.Sy * np.sin(rotation_angle)
+        if 2 in rotation_indices:
+            mat += self.s_pulses.Sz
+
+        res = expm(1j * mat * global_strength)
+
+        return np.matrix( res )
+
+    def _pulse(self, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> np.matrix:
+        # Check inputs:
+        reason = "`power` must be a positive integer"
+        assertions.integer(power, reason=reason)
+        assert power>0, reason
+        # Derive Operators (with powers, if needed)        
+        Sx = matrix_power(self.s_pulses.Sx, power) 
+        Sy = matrix_power(self.s_pulses.Sy, power) 
+        Sz = matrix_power(self.s_pulses.Sz, power)
         return pulse(x,y,z, Sx,Sy,Sz)
 
     def _state_decay_old_iterative_method(
@@ -396,37 +501,214 @@ class CoherentControl():
     # ==================================================== #
     #|                 declared functions                 |#
     # ==================================================== #
-    def pulse_on_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0) -> _DensityMatrixType: 
-        return self.pulse_on_state_with_intermediate_states(state=state, num_intermediate_states=0, x=x, y=y, z=z)[-1]
 
-    def pulse_on_state_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate_states:int=0, x:float=0.0, y:float=0.0, z:float=0.0) -> List[_DensityMatrixType]: 
+    class StandardOperations():
+
+        def __init__(self, coherent_control:TypeVar("CoherentControl"), num_intermediate_states:int=0) -> None:
+            self.num_intermediate_states = num_intermediate_states
+            self.coherent_control : CoherentControl = coherent_control
+
+
+        def _deal_values_to_indices(self, values:List[float], indices:List[int]) -> List[float]:
+            out = [0, 0, 0]
+            for ind, val in zip(indices, values):
+                out[ind] = val
+            return out
+
+        def _power_pulse_string_func(self, theta:List[float], indices:List[int], power:int):
+            values = self._deal_values_to_indices(values=theta, indices=indices)
+            return f"Power-{power} pulse: [{values[0]}, {values[1]}, {values[2]}]"
+
+        def _power_pulse_func(self, rho:_DensityMatrixType, theta:List[float], indices:List[float], power:int) -> _DensityMatrixType:
+            values = self._deal_values_to_indices(values=theta, indices=indices)
+            return self.coherent_control.pulse_on_state_with_intermediate_states(
+                rho, x=values[0], y=values[1], z=values[2], power=power, num_intermediate_states=self.num_intermediate_states
+            )
+            
+        def power_pulse(self, power:int) -> Operation:
+            indices = [0, 1, 2]  # all indices
+            return self.power_pulse_on_specific_directions(power=power, indices=indices)
+
+        def power_pulse_on_specific_directions(self, power:int, indices:List[int]) -> Operation:
+            return Operation(
+                num_params = len(indices),
+                function = lambda rho, *theta: self._power_pulse_func(rho, power=power, theta=theta, indices=indices),
+                string_func = lambda *theta: self._power_pulse_string_func(theta=theta, indices=indices, power=power )
+            )
+        
+        def squeezing(self, axis:Optional[Tuple[float, float]]) -> Operation:
+            # Define num params:
+            if axis is None:
+                num_params = 3
+            else:
+                num_params = 1
+            # Define functions:
+            def _deal_inputs(*theta) -> Tuple[ float, Tuple[float, float]]:
+                strength = theta[0]
+                if axis is None:
+                    assert len(theta)==3
+                    axis_input = (theta[1], theta[2])
+                else:
+                    assert len(theta)==1
+                    axis_input = (1, 0) 
+                return strength, axis_input
+            def _func(rho, *theta):
+                strength, axis_input = _deal_inputs(*theta)
+                return self.coherent_control.squeezing_with_intermediate_states(
+                    rho, strength=strength, axis=axis_input, num_intermediate_states=self.num_intermediate_states
+                )
+            def _str_func(*theta):
+                strength, axis_input = _deal_inputs(*theta)
+                return f"squeezing on direction {axis_input} with strength {strength}"
+
+            return Operation(
+                num_params=num_params,
+                function=_func,
+                string_func=str_func
+            )
+
+        def stark_shift(self, indices:List[int]=None) -> Operation:
+            if indices is None:
+                num_params = self.density_matrix_size
+            else:
+                num_params = len(indices)
+            return Operation(
+                num_params = num_params,
+                function = lambda rho, *theta: self.coherent_control.stark_shift_with_intermediate_states(
+                    rho, num_intermediate_states=self.num_intermediate_states, indices=indices, shifts=theta
+                ),
+                string_func = lambda *theta: f"Stark-shift on indices {indices} with values {theta}"
+            )
+
+        def stark_shift_and_rot(self, stark_shift_indices:List[int]=[1], rotation_indices:List[int] = [0, 1] ):
+            # Check inputs:
+            num_stark_shifts = len(stark_shift_indices)
+            assert num_stark_shifts<2
+
+            # prepare inputs:
+            if len(rotation_indices) in [0, 1]:
+                num_rotation_directions = 0
+            else:
+                num_rotation_directions = 1
+
+            num_params = num_stark_shifts + num_rotation_directions + 1
+
+            def _func(rho, *theta):
+                # Deal params:
+                global_strength = theta[0]
+
+                if num_rotation_directions == 0:
+                    rotation_angle = 0.0
+
+                    if num_stark_shifts == 0:
+                        stark_shift_strength = 0
+                    elif num_stark_shifts == 1:
+                        stark_shift_strength = theta[1]
+                    else:
+                        raise NotImplementedError(f"We don't yet support many stark-shifts")
+
+                elif num_rotation_directions == 1:
+                    rotation_angle = theta[1]
+
+                    if num_stark_shifts == 0:
+                        stark_shift_strength = 0
+                    elif num_stark_shifts == 1:
+                        stark_shift_strength = theta[2]
+                    else:
+                        raise NotImplementedError(f"We don't yet support many stark-shifts")
+
+                else:
+                    raise NotImplementedError(f"We don't yet support many thetas")
+
+
+                # Call func:
+                return self.coherent_control.stark_shift_and_rot_with_intermediate_states(
+                    state = rho, 
+                    global_strength = global_strength,
+                    num_intermediate_states = self.num_intermediate_states, 
+                    stark_shift_indices = stark_shift_indices,
+                    rotation_indices = rotation_indices,
+                    rotation_angle = rotation_angle,
+                    stark_shift_strength = stark_shift_strength
+                )
+
+            # Return operation
+            return Operation(
+                num_params = num_params,
+                function = _func,
+                string_func = lambda *theta: f"Stark-shift on indices {stark_shift_indices} with delta=[--] with values rotation theta={theta[1]} and global power={theta[0]}",
+                rotation_params=[]
+            )
+
+        def decay(self, time_steps_resolution:int=10001) -> Operation:
+            return Operation(
+                num_params = 1,
+                function = lambda rho, t: self.coherent_control.state_decay_with_intermediate_states(
+                    rho, time=t, num_intermediate_states=self.num_intermediate_states, time_steps_resolution=time_steps_resolution
+                ),
+                string_func = lambda t: f"Decay with time={t}",
+                positive_params_only=True
+            )
+
+    def standard_operations(self, num_intermediate_states:int=0) -> StandardOperations:
+        return CoherentControl.StandardOperations(self, num_intermediate_states=num_intermediate_states)
+
+    def stark_shift_and_rot_with_intermediate_states(
+        self, 
+        state:_DensityMatrixType, 
+        global_strength:float,
+        num_intermediate_states:int = 0, 
+        stark_shift_indices:List[int] = [1],
+        rotation_indices:List[int] = [0, 1],
+        rotation_angle:float=1.0,
+        stark_shift_strength:float=1.0
+    ) -> List[_DensityMatrixType]:
         # Check input:
-        num_intermediate_states_error_msg = f"`num_intermediate_states` must be a non-negative number."
-        num_intermediate_states = assertions.integer(num_intermediate_states)
-        if num_intermediate_states > 0:
-            num_divides = num_intermediate_states
-        elif num_intermediate_states == 0:
-            num_divides = 1
-        else:
-            raise ValueError(num_intermediate_states_error_msg)
+        matrix_size = state.shape[0]
+        assert state.shape[0]==state.shape[1]
+        # Create fractional pulse strength
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
+        strength_frac = global_strength/num_divides
+        # Create Matrix:
+        p = self.stark_shift_and_rot_mat(
+            mat_size=matrix_size, global_strength=strength_frac, stark_shift_indices=stark_shift_indices, 
+            rotation_indices=rotation_indices, rotation_angle=rotation_angle, stark_shift_strength=stark_shift_strength
+        )
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
+
+    def stark_shift_with_intermediate_states(
+        self, 
+        state:_DensityMatrixType, 
+        shifts:List[float],
+        num_intermediate_states:int=0, 
+        indices:Optional[List[int]]=None,  # Defaults to all matrix indices
+    ) -> List[_DensityMatrixType]:
+        # Check input:
+        matrix_size = state.shape[0]
+        indices = args.default_value(indices, list(range(matrix_size)))
+        assert len(indices)==len(shifts), "Lists `indices` and `shifts` must be of the same length."
+        assert state.shape[0]==state.shape[1]
+        # Create fractional pulse strength
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
+        frac_shifts = [shift/num_divides for shift in shifts]
+        # Create Matrix:
+        p = _stark_shift_mat(matrix_size, indices=indices, shifts=frac_shifts)
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
+
+    def pulse_on_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> _DensityMatrixType: 
+        return self.pulse_on_state_with_intermediate_states(state=state, num_intermediate_states=0, x=x, y=y, z=z, power=power)[-1]
+
+    def pulse_on_state_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate_states:int=0, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> List[_DensityMatrixType]: 
+        # Check input:
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
         # Divide requested pulse into fragments
         frac_x = x / num_divides
         frac_y = y / num_divides
         frac_z = z / num_divides
-        p = self._pulse(frac_x, frac_y, frac_z)
-        pH = p.getH()
-        # prepare outputs:
-        states : List[_DensityMatrixType] = []
-        crnt_state = deepcopy(state)
-        if num_intermediate_states>0:
-            states.append(crnt_state)   # add initial state
-        # Apply pulse:
-        for time_step in range(num_divides):            
-            crnt_state = p * crnt_state * pH
-            states.append(crnt_state)
-        return states
+        p = self._pulse(frac_x, frac_y, frac_z, power=power)
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)  
 
-    def state_decay(self, state:_DensityMatrixType, time:float, time_steps_resolution:Optional[int]=None,) -> _DensityMatrixType: 
+    def state_decay(self, state:_DensityMatrixType, time:float, time_steps_resolution:int=10001) -> _DensityMatrixType: 
         return self.state_decay_with_intermediate_states(state=state, time=time, num_intermediate_states=0, time_steps_resolution=time_steps_resolution)[-1]        
 
     def state_decay_with_intermediate_states(
@@ -434,14 +716,15 @@ class CoherentControl():
         state:_DensityMatrixType, 
         time:float, 
         num_intermediate_states:int=0,
-        time_steps_resolution:Optional[int]=None
+        time_steps_resolution:int=10001
     ) -> List[_DensityMatrixType] :
         # Check inputs:
         assertions.density_matrix(state, robust_check=True)  # allow matrices to be non-PSD or non-Hermitian
         num_intermediate_states = assertions.integer(num_intermediate_states, reason=f"`num_intermediate_states` must be a non-negative integer")
+        if time==0:
+            return [state]
         assert time>0, f"decay time must be a positive number. got {time}"
         # Complete missing inputs:
-        time_steps_resolution = args.default_value(time_steps_resolution, 10001)        
         assertions.integer(time_steps_resolution)            
         # Convert matrix to ndarray:
         if isinstance(state, np.matrix):
@@ -463,6 +746,78 @@ class CoherentControl():
             raise ValueError(f"`num_intermediate_states` must be a non-negative integer")
         return [rho_at_all_times[:,:,ind] for ind in indices ]
 
+    def _squeezing_operator(self, strength:float, axis:Tuple[float, float]) -> np.matrix:
+        # Bring matrices
+        Sp = self.s_pulses.Sp   # force casting to complex
+        Sm = self.s_pulses.Sm   # force casting to complex
+        # Define axis:
+        xi = axis[0] + 1j*axis[1]
+        # create operator:
+        # exponent = ( Sp@Sp * xi + Sm@Sm * np.conj(xi) ) * strength
+        # op = expm(-1j*exponent)
+        exponent = ( Sp@Sp * np.conj(xi) - Sm@Sm * xi ) * strength
+        op = expm(exponent)
+        return np.matrix( op )
+
+    def squeezing(self, state:_DensityMatrixType, strength:float, axis:Tuple[float, float]=(1,0)) -> _DensityMatrixType:
+        return self.squeezing_with_intermediate_states(state=state, strength=strength, num_intermediate_states=0, axis=axis)[-1]        
+
+    def squeezing_with_intermediate_states(self, state:_DensityMatrixType, strength:float, num_intermediate_states:int=0, axis:Tuple[float, float]=(1,0)) -> List[_DensityMatrixType] :
+        # Check input:
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
+        axis = args.default_value(axis, (1,0))
+        # Divide requested pulse into fragments
+        strength_frac = strength/num_divides
+        p = self._squeezing_operator(strength=strength_frac, axis=axis)
+        # Return output:
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
+
+    def custom_sequence(
+        self, 
+        state:np.matrix, 
+        theta: Union[ List[float], np.ndarray, None ],
+        operations: List[Operation],
+        movie_config : Optional[MovieConfig] = None
+    ) -> _DensityMatrixType :
+        
+        # Check and prepare inputs:
+        assertions.density_matrix(state, robust_check=True)
+        all_params = _deal_costum_params(operations, theta)
+        crnt_state = deepcopy(state)
+        movie_config = args.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
+
+        # For sequence recording:
+        sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
+
+        # iterate:
+        for params, operation in zip(all_params, operations):    
+            # Check params:
+            assert operation.num_params == len(params)
+            # Apply operation:
+            op_output = operation.function(crnt_state, *params)                
+            if isinstance(op_output, list):
+                crnt_state = op_output[-1]
+                transition_states = op_output
+            elif isinstance(op_output, (np.matrix, np.ndarray) ):
+                crnt_state = op_output
+                transition_states = [op_output]                
+            else: 
+                raise ValueError(f"Bug")
+            # Get title:
+            if operation.string_func is not None:
+                title = operation.string_func(*params)
+            elif operation.string is not None:
+                title = operation.string
+            else:
+                title = None
+            # Record:
+            sequence_recorder.record_transition(transition_states, title=title)
+
+        sequence_recorder.write_video()
+
+        # End:
+        return crnt_state
+    
     def coherent_sequence(
         self, 
         state:np.matrix, 
@@ -534,6 +889,10 @@ class CoherentControl():
         self._num_moments = val
         self.s_pulses = SPulses(val)
 
+    @property
+    def density_matrix_size(self) -> int:
+        return self.num_moments + 1
+
 # ==================================================================================== #
 # |                                   main                                           | #
 # ==================================================================================== #
@@ -587,11 +946,112 @@ def _test_pulse_in_steps():
     capture(state, duration=fps)
     video_recorder.write_video()
 
+def _test_power_pulse():
+    # Define params:
+    draw_now:bool=True
+    num_moments:int=40
+    num_steps1:int=5
+    num_steps2:int=20
+    fps:int=5
+    block_sphere_resolution:int=100
+    # Init state:
+    initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
+    coherent_control = CoherentControl(num_moments=num_moments)
+    # Apply pulse:
+    pi_half_transition = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps1, x=np.pi/2, power=1 )
+    sz2_transition     = coherent_control.pulse_on_state_with_intermediate_states(state=pi_half_transition[-1], num_intermediate_states=num_steps2, z=np.pi/8, power=2 )
+    # Prepare Movie:
+    state_plot = visuals.MatterStatePlot(block_sphere_resolution=block_sphere_resolution, initial_state=initial_state)
+    video_recorder = visuals.VideoRecorder(fps=fps)
+    video_recorder.capture(state_plot.figure, duration=fps)
+    # Helper function:
+    def capture(state, duration:int=1):
+        state_plot.update(state)
+        video_recorder.capture(state_plot.figure, duration=duration)
+        if draw_now:
+            visuals.draw_now()
+    # Capture Movie:
+    for state in pi_half_transition:
+        capture(state)
+    for state in sz2_transition:
+        capture(state)
+    capture(state, duration=fps)
+    video_recorder.write_video()   
+
+def _test_goal_gkp():
+    # Import:
+    from gkp import goal_gkp_state
+    # Define params:
+    num_moments:int=40
+    block_sphere_resolution:int=200
+    # Init state:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    gkp = goal_gkp_state(num_moments=num_moments)
+    # Plot:
+    visuals.plot_city(gkp)
+    visuals.draw_now()
+    visuals.plot_wigner_bloch_sphere(gkp, num_points=block_sphere_resolution)
+    print("Done")
+    
+def _test_custom_sequence():
+    # Const:
+    num_moments:int=20
+    num_transition_frames=15
+    active_movie_recorder:bool=False
+    # Movie config:
+    movie_config=CoherentControl.MovieConfig(
+        active=active_movie_recorder,
+        show_now=True,
+        num_freeze_frames=3,
+        fps=10,
+        bloch_sphere_resolution=50
+    )
+
+    ## Define operations:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
+
+    operations = [
+        # These 4 pulses create a cat state:
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
+        # Bring in to the top of the bloch-sphere
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        # 4 Pulses again:
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
+    ]
+    from optimization import _initial_guess
+    theta_cat_pulses = _initial_guess()
+
+    theta = []
+    theta.extend(theta_cat_pulses)
+    theta.append(pi)  # x pi pulse
+    theta.extend(theta_cat_pulses)
+
+
+    initial_state = Fock.ground_state_density_matrix(num_moments)
+    initial_state[0,0] = 0.0
+    initial_state[-1,-1] = 1.0
+    # Apply:
+    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
+    # plot
+    visuals.plot_matter_state(final_state, block_sphere_resolution=150)
+    visuals.draw_now()
+    print("Movie is ready in folder 'video' ")
+    
 if __name__ == "__main__":    
     np_utils.fix_print_length()
 
     # _test_pulse_in_steps()
-    _test_record_sequence()
+    # _test_record_sequence()
+    # _test_power_pulse()
+    # _test_goal_gkp()
+    _test_custom_sequence()
 
     print("Done.")
 

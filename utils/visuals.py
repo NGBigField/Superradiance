@@ -3,7 +3,6 @@
 # ==================================================================================== #
 
 # For plotting:
-from symbol import argument
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -13,7 +12,6 @@ from qutip.matplotlib_utilities import complex_phase_cmap
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.axes import Axes
 from matplotlib.transforms import Bbox
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 # For defining print std_out or other:
 import sys
@@ -86,6 +84,9 @@ else:
 #|                             Declared Functions                                     |#
 # ==================================================================================== #
 
+def close_all():
+    plt.close('all')
+
 def draw_now():
     plt.show(block=False)
     plt.pause(0.1)
@@ -116,7 +117,7 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     fig.savefig(fullpath_str)
     return 
 
-def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None) -> None:
+def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False, title:str=None, with_axes_arrows:bool=True) :
     # Constants:
     radius = 1
 
@@ -142,7 +143,11 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     floor = math.floor
     
     # Iterate:
-    for k in np.linspace(0, 2 * j, floor(2 * j + 1)):
+    k_vals = np.linspace(0, 2 * j, floor(2 * j + 1))
+    m_vals = np.linspace(-j, j, floor(2 * j + 1))
+    pb = ProgressBar(len(k_vals), print_prefix="calculating wigner-function")
+    for k in k_vals :
+        pb.next()
         for q in np.linspace(-k, k, floor(2 * k + 1)):
 
             if q >= 0:
@@ -150,15 +155,16 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
             else:
                 Ykq = sph_harm(-q, k, phi, theta)
             Gkq = 0
-            for m1 in np.linspace(-j, j, floor(2 * j + 1)):
-                for m2 in np.linspace(-j, j, floor(2 * j + 1)):
+            for m1 in m_vals:
+                for m2 in m_vals:
                     if -m1 + m2 + q == 0:
                         tracem1m2 = rho[floor(m1 + j), floor(m2 + j)]
                         Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * np.conj(
                             np.complex(wigner_3j(j, k, j, -m1, q, m2)))
             W = W + Ykq * Gkq;
+    pb.close()
 
-    if np.max(abs(np.imag(W))) > 1e-3:
+    if warn_imaginary_part and ( np.max(abs(np.imag(W))) > 1e-3 ):
         print('The wigner function has non negligible imaginary part ', str(np.max(abs(np.imag(W)))))
     W = np.real(W)
 
@@ -166,22 +172,37 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
 
     fcolors = W / np.max(np.abs(W))
     # Set the aspect ratio to 1 so our sphere looks spherical
-    a = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.bwr(fcolors / 2 + 0.5))
+    surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.bwr(fcolors / 2 + 0.5))
     m = cm.ScalarMappable(cmap=cm.bwr)
     m.set_array(fcolors)
     m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
     
-    
+    if title is not None:
+        ax.set_title(title, y=1.10)
+
     # Color bar:
     if colorbar_ax is None:
         colorbar = plt.colorbar(mappable=m, shrink=0.5, ax=ax)
     else:
         colorbar = plt.colorbar(m, ax=ax, cax=colorbar_ax, shrink=0.5)        
 
+    # xyz axes:
+    if with_axes_arrows:
+        for i, str_ in enumerate(['x', 'y', 'z']):
+            xyz = [0, 0, 0]
+            xyz[i] = 1.5
+            quiver_inputs = [0,0,0]
+            quiver_inputs.extend(xyz)
+            arrow = ax.quiver(*quiver_inputs,  length=1.2, arrow_length_ratio=0.1, zorder=100+i, alpha=0.5)
+            arrow.set_linewidth(4)
+            xyz[i] = 1.7
+            ax.text(*xyz, str_, font=dict(size=18))
+
+
     ax.set_title('$W(\\theta,\phi)$', fontsize=16)
     # Turn off the axis planes
     ax.set_axis_off()
-    return a
+    return surface_plot
 
 def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=None):
     # Check input type:
@@ -272,6 +293,9 @@ def plot_superradiance_evolution(times, energies, intensities):
     save_figure()
     plt.show()
 
+def plot_matter_state(state:np.matrix, block_sphere_resolution:int=100):
+    matter_state_obj = MatterStatePlot(initial_state=state, block_sphere_resolution=block_sphere_resolution, show_now=True)
+    return matter_state_obj.figure
 
 # ==================================================================================== #
 #|                                     Classes                                        |#
@@ -516,13 +540,30 @@ def _test_bloch_sphere_object():
     print(f"Plotted")
     
 
+def _test_gkp_state():
+    # Constants:
+    num_moments = 40
+    # Imports:
+    from pathlib import Path
+    sys.path.append( str(Path(__file__).parent.parent) )
+    from gkp import goal_gkp_state
+    # Get and plot:
+    gkp_state = goal_gkp_state(num_moments=num_moments)
+    plot_city(gkp_state)
+    plot_wigner_bloch_sphere(gkp_state, num_points=200)
+    draw_now()
+    # Print:
+    print("Plotted GKP State")
+
 def tests():
     # _test_prog_bar_as_iterator()
     # _test_prog_bar_as_object()
     # _test_bloch_sphere()
-    _test_bloch_sphere_object()
+    # _test_bloch_sphere_object()
+    _test_gkp_state()
     
     print("Done tests.")
 
 if __name__ == "__main__":
     tests()
+    print("Done.")

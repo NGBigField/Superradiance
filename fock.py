@@ -102,7 +102,14 @@ class Fock():
     
     @staticmethod
     def ground_state_density_matrix(num_moments:int) -> np.matrix:
-        return Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
+        return Fock(0).to_density_matrix(num_moments=num_moments)
+        
+    @staticmethod
+    def excited_state_density_matrix(num_moments:int) -> np.matrix:
+        state = Fock(0).to_density_matrix(num_moments=num_moments)
+        state[0,0] = 0
+        state[-1,-1] = 1
+        return state
 
     @overload
     @staticmethod
@@ -368,7 +375,11 @@ def coherent_state(num_moments:int, alpha:float, type_:Literal['normal', 'even_c
     # Iterate
     for n in iterator:
         # choose coeficient
-        coef = np.exp( -(abs(alpha)**2)/2 ) * np.power(alpha, n) / np.sqrt( math.factorial(n) )
+        power = np.power(alpha, n) 
+        if power == 0:
+            coef = 0
+        else:
+            coef = np.exp( -(abs(alpha)**2)/2 ) * power / np.sqrt( math.factorial(n) )
         fock += Fock(n)*coef
     
     # Normalize:
