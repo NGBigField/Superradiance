@@ -29,6 +29,8 @@ from utils import (
     strings,
     errors,
     args,
+    indices,
+    sounds,
 )
 
 # For defining coherent states:
@@ -62,7 +64,7 @@ import matplotlib.pyplot as plt
 # ==================================================================================== #
 OPT_METHOD : Final = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
-TOLERANCE = 1e-32
+TOLERANCE = 1e-14
 
 T4_PARAM_INDEX = 5
 
@@ -381,7 +383,6 @@ def learn_custom_operation(
     # Opt Config:
     options = dict(
         maxiter = max_iter,
-        ftol=TOLERANCE,
     )      
     positive_indices = _positive_indices_from_operations(operations)
     num_params = sum([op.num_params for op in operations])
@@ -409,7 +410,8 @@ def learn_custom_operation(
         method=OPT_METHOD, 
         options=options, 
         callback=_after_each, 
-        bounds=bounds    
+        bounds=bounds,
+        tol=TOLERANCE    
     )
     finish_time = time.time()
     prog_bar.close()
@@ -484,7 +486,7 @@ def _run_many_guesses(
 
 
 def creating_gkp_algo(
-    num_moments:int=100, 
+    num_moments:int=20, 
     max_iter:int=10000, 
 ) -> LearnedResults:
 
@@ -501,6 +503,7 @@ def creating_gkp_algo(
 
     ## Define initial state and guess:
     initial_state = Fock.excited_state_density_matrix(num_moments)
+    # initial_guess = _initial_guess()+np.random.random((1,3)).tolist()[0]
     initial_guess = _initial_guess()
 
     ## Learn how to prepare a cat state:
@@ -510,13 +513,24 @@ def creating_gkp_algo(
         standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
         standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
     ]
+    # Define cost function
     matrix_size = initial_state.shape[0]
     target_state = np.zeros(shape=(matrix_size,matrix_size))
     for i in [0, matrix_size-1]:
         for j in [0, matrix_size-1]:
             target_state[i,j]=0.5
     def cost_function(final_state:_DensityMatrixType) -> float : 
-        return (-1) * metrics.fidelity(final_state, target_state)
+        # return (-1) * metrics.fidelity(final_state, target_state)
+        total_cost = 0.0
+        for i, j in indices.all_possible_indices((matrix_size, matrix_size)):
+            element = final_state[i,j]
+            if (i in [0, matrix_size-1]) and  (j in [0, matrix_size-1]):  # Corners:
+                cost = np.absolute(element-0.5)  # distance from 1/2
+            else: 
+                cost = np.absolute(element)  # distance from 0
+            total_cost += cost
+        return total_cost
+        
     noon_results = learn_custom_operation(
         num_moments=num_moments, 
         initial_state=initial_state, 
@@ -525,6 +539,10 @@ def creating_gkp_algo(
         max_iter=max_iter, 
         initial_guess=initial_guess
     )
+    sounds.ascend()
+    visuals.plot_city(noon_results.final_state)
+    visuals.draw_now()
+    print(f"NOON fidelity is {noon_results.score}")
     noon_creation_params = noon_results.theta
     noon_creation_params[T4_PARAM_INDEX] = noon_creation_params[T4_PARAM_INDEX] / 10
 
@@ -576,12 +594,20 @@ def creating_gkp_algo(
     cat_state = results.final_state
 
 
-    trial_state = coherent_control.pulse_on_state(cat_state, x=+0.35)
-    _wigner(trial_state)
+    def _trial(x:float) -> _DensityMatrixType:
+        trial_state = coherent_control.pulse_on_state(cat_state, x=x)
+        _wigner(trial_state, title=f"x={x}")
+        return trial_state
+        
+        
+        
+    trial_state = _trial(-0.17)
+
+
 
     # visuals.close_all()
     visuals.draw_now()
-    for s in np.linspace(0.008, 0.016, 6):
+    for s in np.linspace(0.010, 0.030, 6):
         gkp = coherent_control.squeezing(trial_state, strength=s, axis=(1,0) )
         _wigner(gkp, title=f"s={s}")
 
