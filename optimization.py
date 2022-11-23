@@ -493,6 +493,8 @@ def creating_gkp_algo(
     ## Check inputs:
     assertions.even(num_moments)
 
+    print("Offek's first change!")
+
     ## Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
