@@ -59,6 +59,7 @@ from enum import Enum, auto
 import qutip
 import matplotlib.pyplot as plt
 
+
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
@@ -109,6 +110,7 @@ class Metric(Enum):
 
 def _wigner(state:_DensityMatrixType, title:Optional[str]=None)->None:
     fig, ax = qutip.plot_wigner( qutip.Qobj(state) )
+    plt.grid(True)
     if title is not None:
         ax.set_title(title)
         
@@ -540,10 +542,6 @@ def creating_gkp_algo(
 
     ## Define initial state and guess:
     initial_state = Fock.excited_state_density_matrix(num_moments)
-
-    fiedelity_to_noon_score_func = CostFunctions.fidelity_to_noon(initial_state)
-    fiedelity_to_noon_func = lambda final_state: -1 * fiedelity_to_noon_score_func(final_state)
-
     # Noon Operations:
     noon_creation_operations = [
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
@@ -552,15 +550,16 @@ def creating_gkp_algo(
         standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
     ]
 
+    initial_guess = _initial_guess()
+
     if learn_noon_params:
         ## Learn how to prepare a noon state:
-        # initial_guess = _initial_guess()+np.random.random((1,3)).tolist()[0]
-        initial_guess = _initial_guess()
-            
+        # Define cost function
+        cost_function = CostFunctions.fidelity_to_noon(initial_state)            
         noon_results = learn_custom_operation(
             num_moments=num_moments, 
             initial_state=initial_state, 
-            cost_function=CostFunctions.fidelity_to_noon(initial_state), 
+            cost_function=cost_function, 
             operations=noon_creation_operations, 
             max_iter=max_iter, 
             initial_guess=initial_guess
@@ -568,18 +567,30 @@ def creating_gkp_algo(
         sounds.ascend()
         visuals.plot_city(noon_results.final_state)
         visuals.draw_now()
-        print(f"NOON fidelity is {noon_results.score}")
+        print(f"NOON fidelity is { -1 * noon_results.score}")
         noon_creation_params = noon_results.theta
     else:
         noon_creation_params = _initial_guess()
 
-    # Measure fidelity to noon:
-    final_state = coherent_control.custom_sequence(initial_state, noon_creation_params, noon_creation_operations)
-    fiedelity_to_noon = fiedelity_to_noon_func(final_state)
-    print(f"num_moments = {num_moments}   Fidelity = {fiedelity_to_noon}")
+    cat_creation_half_params = noon_creation_params
+    cat_creation_half_params[T4_PARAM_INDEX] = cat_creation_half_params[T4_PARAM_INDEX] / 5
 
 
-    noon_creation_params[T4_PARAM_INDEX] = noon_creation_params[T4_PARAM_INDEX] / 10
+
+    # Define new initial state:
+    two_cat_creation_operations = \
+        noon_creation_operations 
+
+    two_cat_creation_params = []
+    two_cat_creation_params.extend(cat_creation_half_params)
+
+    # our almost gkp state:
+    two_cat_state = coherent_control.custom_sequence(state=initial_state, theta=two_cat_creation_params, operations=two_cat_creation_operations)
+
+    two_cat_state = coherent_control.pulse_on_state(two_cat_state, z=pi/2)
+    visuals.plot_matter_state(two_cat_state)
+
+
 
     # Define new initial state:
     cat_creation_operations = \
@@ -588,15 +599,12 @@ def creating_gkp_algo(
         noon_creation_operations
 
     cat_creation_params = []
-    cat_creation_params.extend(noon_creation_params)
-    cat_creation_params.append(0)  # x pi pulse
-    cat_creation_params.extend(noon_creation_params)
+    cat_creation_params.extend(cat_creation_half_params)
+    cat_creation_params.append(pi)  # x pi pulse
+    cat_creation_params.extend(cat_creation_half_params)
 
     # our almost gkp state:
     cat_state = coherent_control.custom_sequence(state=initial_state, theta=cat_creation_params, operations=cat_creation_operations)
-
-    visuals.plot_wigner_bloch_sphere(cat_state)
-    _wigner(cat_state)
 
     ## Center the cat-state:
     print("Center the cat-state")
@@ -637,7 +645,42 @@ def creating_gkp_algo(
         _wigner(trial_state, title=f"x={x}")
         return trial_state
         
-    trial_state = _trial(0.1)
+    trial_state = _trial(0.15)
+
+    mid_placed_state = coherent_control.pulse_on_state(trial_state, x=-pi/2)
+
+
+
+    from coherentcontrol import expm
+    # wj = 0.01
+    # w0 = 0.495
+
+    wj = 0.200
+    w0 = 0.495
+    N = num_moments
+
+    a = 5
+    p = np.matrix( expm(  -1j * ( Sz@Sz * wj/N  + Sz * w0/2 )*a ) )
+    squeezed_state = p @ mid_placed_state @ p.getH()
+
+
+    squeezed_state_on_bottom = coherent_control.pulse_on_state(squeezed_state, x=+pi/2)
+    _wigner(squeezed_state_on_bottom)
+
+    
+
+
+
+
+    visuals.plot_wigner_bloch_sphere(squeezed_state)
+
+
+
+    visuals.plot_matter_state(squeezed_state)
+    
+
+    cat_state_in_middle = coherent_control.pulse_on_state(cat_state, x=-pi/2)
+    visuals.plot_matter_state(cat_state_in_middle)
 
 
     # visuals.close_all()
