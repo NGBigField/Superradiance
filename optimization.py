@@ -124,8 +124,8 @@ def _initial_guess() -> List[float] :
     phi_3 = 0.503
     phi_4 = 0.257
 
-    # return [  t_1,     t_2,     delta_1,     t_3,       phi_3,    t_4,        phi_4,    delta_2 ]
-    return [ 2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576,    0.1602, -107.5689]
+    return [  t_1,     t_2,     delta_1,     t_3,       phi_3,    t_4,        phi_4,    delta_2 ]
+    # return [ 2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576,    0.1602, -107.5689]
     # return [  2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576/4,    0.1602, -107.5689]
 
 
@@ -243,6 +243,43 @@ def _score_str_func(state:_DensityMatrixType) -> str:
     return s
 
 
+# ==================================================================================== #
+# |                             Common Cost Functions                                | #
+# ==================================================================================== #
+
+class CostFunctions():
+
+    @staticmethod
+    def fidelity_to_noon(initial_state:_DensityMatrixType) -> Callable[[_DensityMatrixType], float] :
+        # Define cost function
+        matrix_size = initial_state.shape[0]
+        target_state = np.zeros(shape=(matrix_size,matrix_size))
+        for i in [0, matrix_size-1]:
+            for j in [0, matrix_size-1]:
+                target_state[i,j]=0.5
+
+        def cost_function(final_state:_DensityMatrixType) -> float : 
+            return (-1) * metrics.fidelity(final_state, target_state)
+
+        return cost_function
+
+    @staticmethod
+    def weighted_noon(initial_state:_DensityMatrixType) -> Callable[[_DensityMatrixType], float] :
+        # Define cost function
+        matrix_size = initial_state.shape[0]
+
+        def cost_function(final_state:_DensityMatrixType) -> float : 
+            total_cost = 0.0
+            for i, j in indices.all_possible_indices((matrix_size, matrix_size)):
+                element = final_state[i,j]
+                if (i in [0, matrix_size-1]) and  (j in [0, matrix_size-1]):  # Corners:
+                    cost = np.absolute(element-0.5)  # distance from 1/2
+                else: 
+                    cost = np.absolute(element)  # distance from 0
+                total_cost += cost
+            return total_cost
+
+        return cost_function
 
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
@@ -485,15 +522,13 @@ def _run_many_guesses(
 
 
 def creating_gkp_algo(
-    num_moments:int=100, 
+    num_moments:int=40, 
     max_iter:int=10000, 
-    learn_noon_params:bool=False,
+    learn_noon_params:bool=True,
 ) -> LearnedResults:
 
     ## Check inputs:
     assertions.even(num_moments)
-
-    print("Offek's first change!")
 
     ## Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)
@@ -505,6 +540,10 @@ def creating_gkp_algo(
 
     ## Define initial state and guess:
     initial_state = Fock.excited_state_density_matrix(num_moments)
+
+    fiedelity_to_noon_score_func = CostFunctions.fidelity_to_noon(initial_state)
+    fiedelity_to_noon_func = lambda final_state: -1 * fiedelity_to_noon_score_func(final_state)
+
     # Noon Operations:
     noon_creation_operations = [
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
@@ -517,28 +556,11 @@ def creating_gkp_algo(
         ## Learn how to prepare a noon state:
         # initial_guess = _initial_guess()+np.random.random((1,3)).tolist()[0]
         initial_guess = _initial_guess()
-        # Define cost function
-        matrix_size = initial_state.shape[0]
-        target_state = np.zeros(shape=(matrix_size,matrix_size))
-        for i in [0, matrix_size-1]:
-            for j in [0, matrix_size-1]:
-                target_state[i,j]=0.5
-        def cost_function(final_state:_DensityMatrixType) -> float : 
-            # return (-1) * metrics.fidelity(final_state, target_state)
-            total_cost = 0.0
-            for i, j in indices.all_possible_indices((matrix_size, matrix_size)):
-                element = final_state[i,j]
-                if (i in [0, matrix_size-1]) and  (j in [0, matrix_size-1]):  # Corners:
-                    cost = np.absolute(element-0.5)  # distance from 1/2
-                else: 
-                    cost = np.absolute(element)  # distance from 0
-                total_cost += cost
-            return total_cost
             
         noon_results = learn_custom_operation(
             num_moments=num_moments, 
             initial_state=initial_state, 
-            cost_function=cost_function, 
+            cost_function=CostFunctions.fidelity_to_noon(initial_state), 
             operations=noon_creation_operations, 
             max_iter=max_iter, 
             initial_guess=initial_guess
@@ -550,8 +572,14 @@ def creating_gkp_algo(
         noon_creation_params = noon_results.theta
     else:
         noon_creation_params = _initial_guess()
-    noon_creation_params[T4_PARAM_INDEX] = noon_creation_params[T4_PARAM_INDEX] / 10
 
+    # Measure fidelity to noon:
+    final_state = coherent_control.custom_sequence(initial_state, noon_creation_params, noon_creation_operations)
+    fiedelity_to_noon = fiedelity_to_noon_func(final_state)
+    print(f"num_moments = {num_moments}   Fidelity = {fiedelity_to_noon}")
+
+
+    noon_creation_params[T4_PARAM_INDEX] = noon_creation_params[T4_PARAM_INDEX] / 10
 
     # Define new initial state:
     cat_creation_operations = \
@@ -561,12 +589,14 @@ def creating_gkp_algo(
 
     cat_creation_params = []
     cat_creation_params.extend(noon_creation_params)
-    cat_creation_params.append(pi)  # x pi pulse
+    cat_creation_params.append(0)  # x pi pulse
     cat_creation_params.extend(noon_creation_params)
 
     # our almost gkp state:
     cat_state = coherent_control.custom_sequence(state=initial_state, theta=cat_creation_params, operations=cat_creation_operations)
 
+    visuals.plot_wigner_bloch_sphere(cat_state)
+    _wigner(cat_state)
 
     ## Center the cat-state:
     print("Center the cat-state")

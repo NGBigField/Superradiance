@@ -746,6 +746,18 @@ class CoherentControl():
             raise ValueError(f"`num_intermediate_states` must be a non-negative integer")
         return [rho_at_all_times[:,:,ind] for ind in indices ]
 
+    def _z_squeezing_operator(self, strength:float) -> np.matrix:        
+        # Bring matrices
+        Sz = self.s_pulses.Sz   # force casting to complex
+        # Define params:
+        w_0 = 0.495
+        w_j = 0.010
+        num_atoms = self.num_moments
+        # Create operator:
+        exponent =  - 1j * ( Sz * ( w_0 / 2 ) -  (Sz@Sz) * (w_j / num_atoms) ) * strength 
+        op = expm(exponent)
+        return np.matrix( op )
+
     def _squeezing_operator(self, strength:float, axis:Tuple[float, float]) -> np.matrix:
         # Bring matrices
         Sp = self.s_pulses.Sp   # force casting to complex
@@ -769,6 +781,18 @@ class CoherentControl():
         # Divide requested pulse into fragments
         strength_frac = strength/num_divides
         p = self._squeezing_operator(strength=strength_frac, axis=axis)
+        # Return output:
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
+
+    def z_squeezing(self, state:_DensityMatrixType, strength:float) -> List[_DensityMatrixType] :
+        return self.z_squeezing_with_intermediate_states(state=state, strength=strength, num_intermediate_states=0)[-1]
+
+    def z_squeezing_with_intermediate_states(self, state:_DensityMatrixType, strength:float, num_intermediate_states:int=0 ) -> List[_DensityMatrixType] :
+        # Check input:
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)    
+        # Divide requested pulse into fragments
+        strength_frac = strength/num_divides
+        p = self._z_squeezing_operator(strength=strength_frac)
         # Return output:
         return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
 
