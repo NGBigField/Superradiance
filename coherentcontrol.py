@@ -536,7 +536,7 @@ class CoherentControl():
                 string_func = lambda *theta: self._power_pulse_string_func(theta=theta, indices=indices, power=power )
             )
         
-        def squeezing(self, axis:Optional[Tuple[float, float]]) -> Operation:
+        def squeezing(self, axis:Optional[Tuple[float, float]]=None) -> Operation:
             # Define num params:
             if axis is None:
                 num_params = 3
@@ -564,7 +564,7 @@ class CoherentControl():
             return Operation(
                 num_params=num_params,
                 function=_func,
-                string_func=str_func
+                string_func=_str_func
             )
 
         def stark_shift(self, indices:List[int]=None) -> Operation:

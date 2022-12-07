@@ -525,7 +525,7 @@ def _run_many_guesses(
 
 def creating_gkp_algo(
     num_moments:int=40, 
-    max_iter:int=10000, 
+    max_iter:int=30000,
     learn_noon_params:bool=True,
 ) -> LearnedResults:
 
@@ -583,13 +583,11 @@ def creating_gkp_algo(
     two_cat_creation_params = []
     two_cat_creation_params.extend(cat_creation_half_params)
 
-    # our almost gkp state:
-    two_cat_state = coherent_control.custom_sequence(state=initial_state, theta=two_cat_creation_params, operations=two_cat_creation_operations)
+    # # our almost gkp state:
+    # two_cat_state = coherent_control.custom_sequence(state=initial_state, theta=two_cat_creation_params, operations=two_cat_creation_operations)
 
-    two_cat_state = coherent_control.pulse_on_state(two_cat_state, z=pi/2)
-    visuals.plot_matter_state(two_cat_state)
-
-
+    # two_cat_state = coherent_control.pulse_on_state(two_cat_state, z=pi/2)
+    # visuals.plot_matter_state(two_cat_state)
 
     # Define new initial state:
     cat_creation_operations = \
@@ -639,6 +637,35 @@ def creating_gkp_algo(
     cat_state = results.final_state
 
 
+
+    ## Learn GKP:
+    # define operation:
+    gkp_creation_operations = [
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.squeezing(),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+    ]
+    # define cost function:
+    target_state = gkp.goal_gkp_state(num_moments=num_moments)
+    def cost_function(final_state):
+        return (-1) * metrics.fidelity(final_state, target_state)
+    gkp_results = learn_custom_operation(
+        num_moments=num_moments, 
+        initial_state=cat_state, 
+        cost_function=cost_function, 
+        operations=gkp_creation_operations, 
+        max_iter=max_iter, 
+        initial_guess=None
+    )
+    sounds.ascend()
+    visuals.plot_city(gkp_results.final_state)
+    visuals.draw_now()
+    print(f"GKP fidelity is { -1 * gkp_results.score}")
+    gkpn_creation_params = gkp_results.theta
+
+
+
+
     def _trial(x:float) -> _DensityMatrixType:
         trial_state = coherent_control.pulse_on_state(cat_state, x=x)
         _wigner(trial_state, title=f"x={x}")
@@ -647,54 +674,6 @@ def creating_gkp_algo(
     trial_state = _trial(0.15)
 
     mid_placed_state = coherent_control.pulse_on_state(trial_state, x=-pi/2)
-
-
-
-    from coherentcontrol import expm
-    # wj = 0.01
-    # w0 = 0.495
-
-    wj = 0.200
-    w0 = 0.495
-    N = num_moments
-
-    a = 5
-    p = np.matrix( expm(  -1j * ( Sz@Sz * wj/N  + Sz * w0/2 )*a ) )
-    squeezed_state = p @ mid_placed_state @ p.getH()
-
-
-    squeezed_state_on_bottom = coherent_control.pulse_on_state(squeezed_state, x=+pi/2)
-    _wigner(squeezed_state_on_bottom)
-
-    
-
-
-
-
-    visuals.plot_wigner_bloch_sphere(squeezed_state)
-
-
-
-    visuals.plot_matter_state(squeezed_state)
-    
-
-    cat_state_in_middle = coherent_control.pulse_on_state(cat_state, x=-pi/2)
-    visuals.plot_matter_state(cat_state_in_middle)
-
-
-    # visuals.close_all()
-    visuals.draw_now()
-    for s in np.linspace(0.060, 0.080, 6):
-        gkp = coherent_control.squeezing(trial_state, strength=s, axis=(1,0) )
-        _wigner(gkp, title=f"s={s}")
-
-
-    # visuals.plot_matter_state(cat_state)
-    visuals.plot_matter_state(gkp)
-    
-
-    
-    return results
 
 
 def main():
