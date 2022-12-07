@@ -578,8 +578,7 @@ def creating_gkp_algo(
 
 
     # Define new initial state:
-    two_cat_creation_operations = \
-        noon_creation_operations 
+    two_cat_creation_operations = noon_creation_operations 
 
     two_cat_creation_params = []
     two_cat_creation_params.extend(cat_creation_half_params)
