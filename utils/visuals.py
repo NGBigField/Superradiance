@@ -422,9 +422,9 @@ class VideoRecorder():
 class ProgressBar():
 
     def __init__(self, expected_end:int, print_prefix:str="", print_length:int=60, print_out=sys.stdout): 
-        self.expected_end = expected_end
-        self.print_prefix = print_prefix
-        self.print_length = print_length
+        self.expected_end :int = expected_end
+        self.print_prefix :int = print_prefix
+        self.print_length :int = print_length
         self.print_out = print_out
         self.counter = 0
         self._as_iterator : bool = False
@@ -457,15 +457,15 @@ class ProgressBar():
         # Unpack properties:
         i = self.counter
         prefix = self.print_prefix
-        expected_end = self.expected_end
-        print_length = self.print_length
+        expected_end = int( self.expected_end )
+        print_length = int( self.print_length )
 
         # Derive print:
         if i>expected_end:
             crnt_bar_length = print_length
         else:
             crnt_bar_length = int(print_length*i/expected_end)
-        s = f"{prefix}[{u'█'*crnt_bar_length}{('.'*(print_length-crnt_bar_length))}] {i}/{expected_end}"
+        s = f"{prefix}[{u'█'*crnt_bar_length}{('.'*(print_length-crnt_bar_length))}] {i:d}/{expected_end:d}"
 
         # Print:
         print(

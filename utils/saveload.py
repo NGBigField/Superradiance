@@ -35,7 +35,7 @@ import csv
 # ==================================================================================== #
 #|                                  Constants                                         |#
 # ==================================================================================== #
-DATA_FOLDER = os.getcwd()+os.sep+"saved_data"+os.sep
+DATA_FOLDER = os.getcwd()+os.sep+"_saved_data"+os.sep
 
 # ==================================================================================== #
 #|                                   Classes                                          |#
@@ -54,11 +54,15 @@ class Mode():
 # ==================================================================================== #
 #|                               Inner Functions                                      |#
 # ==================================================================================== #
-def _open(name:str, mode:str):
+def _fullpath(name:str) -> str:
+    name = _common_name(name)
     folder = DATA_FOLDER
     make_sure_folder_exists(folder)
-    full_path = folder+name
-    return open(full_path, mode)
+    fullpath = folder+name
+    return fullpath
+    
+def _open(fullpath:str, mode:str):
+    return open(fullpath, mode)
 
 def _common_name(name:str) -> str:
     assert isinstance(name, str)
@@ -72,20 +76,25 @@ def _common_name(name:str) -> str:
 #|                              Declared Functions                                    |#
 # ==================================================================================== #
 
+
+
 def save(var:Any, name:Optional[str]=None) -> None:
     # Complete missing inputs:
     name = args.default_value(name, strings.time_stamp())
+    # fullpath:
+    fullpath = _fullpath(name)
     # Prepare pickle inputs:
-    name = _common_name(name)
     mode = Mode.Write.str()
-    file = _open(name, mode)
+    file = _open(fullpath, mode)
     # Save:
     pickle.dump(var, file)
 
 def load(name:str) -> Any:
-    name = _common_name(name)
+    # fullpath:
+    fullpath = _fullpath(name)
+    # Prepare pickle inputs:
     mode = Mode.Read.str()
-    file = _open(name, mode)
+    file = _open(fullpath, mode)
     return pickle.load(file)
 
 def save_table(table:List[List[str]], filename:Optional[str]=None) -> None :

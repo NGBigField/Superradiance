@@ -59,13 +59,17 @@ from enum import Enum, auto
 import qutip
 import matplotlib.pyplot as plt
 
+# for accessing old results:
+from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
 OPT_METHOD : Final = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
-TOLERANCE = 1e-12
+
+TOLERANCE = 1e-6  # 1e-12
+MAX_NUM_ITERATION = 1e1  # 1e6 
 
 T4_PARAM_INDEX = 5
 
@@ -107,6 +111,58 @@ class Metric(Enum):
 # ==================================================================================== #
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
+
+
+def _load_or_find_noon(num_moments:int, print_on:bool=True) -> NOON_DATA:
+    if exist_saved_noon(num_moments):
+        noon_data = get_saved_noon(num_moments)
+    else:
+        
+        ## Define operations:
+        coherent_control = CoherentControl(num_moments=num_moments)
+        standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
+
+        ## Define initial state and guess:
+        initial_state = Fock.excited_state_density_matrix(num_moments)
+        # Noon Operations:
+        noon_creation_operations = [
+            standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+            standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
+            standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
+            standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
+        ]
+
+        initial_guess = _initial_guess()
+        
+        ## Learn how to prepare a noon state:
+        # Define cost function
+        cost_function = CostFunctions.fidelity_to_noon(initial_state)            
+        noon_results = learn_custom_operation(
+            num_moments=num_moments, 
+            initial_state=initial_state, 
+            cost_function=cost_function, 
+            operations=noon_creation_operations, 
+            max_iter=MAX_NUM_ITERATION, 
+            initial_guess=initial_guess
+        )
+        sounds.ascend()
+        # visuals.plot_city(noon_results.final_state)
+        # visuals.draw_now()
+        fidelity =  -1 * noon_results.score
+        if print_on:
+            print(f"NOON fidelity is { fidelity }")
+        
+        # Save results:
+        noon_data = NOON_DATA(
+            num_moments=num_moments,
+            state=noon_results.final_state,
+            params=noon_results.theta,
+            operation=[str(op) for op in noon_creation_operations],
+            fidelity=fidelity
+        )
+        save_noon(noon_data)
+        
+    return noon_data
 
 def _wigner(state:_DensityMatrixType, title:Optional[str]=None)->None:
     fig, ax = qutip.plot_wigner( qutip.Qobj(state) )
@@ -524,15 +580,14 @@ def _run_many_guesses(
 
 
 def creating_gkp_algo(
-    num_moments:int=40, 
-    max_iter:int=30000,
-    learn_noon_params:bool=True,
+    num_moments:int=40
 ) -> LearnedResults:
 
     ## Check inputs:
     assertions.even(num_moments)
-
+    
     ## Define operations:
+    initial_state = Fock.excited_state_density_matrix(num_moments)
     coherent_control = CoherentControl(num_moments=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
     Sp = coherent_control.s_pulses.Sp
@@ -540,60 +595,19 @@ def creating_gkp_algo(
     Sy = coherent_control.s_pulses.Sy
     Sz = coherent_control.s_pulses.Sz
 
-    ## Define initial state and guess:
-    initial_state = Fock.excited_state_density_matrix(num_moments)
-    # Noon Operations:
-    noon_creation_operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
-    ]
 
-    initial_guess = _initial_guess()
+    noon_data = _load_or_find_noon(num_moments)
 
-    if learn_noon_params:
-        ## Learn how to prepare a noon state:
-        # Define cost function
-        cost_function = CostFunctions.fidelity_to_noon(initial_state)            
-        noon_results = learn_custom_operation(
-            num_moments=num_moments, 
-            initial_state=initial_state, 
-            cost_function=cost_function, 
-            operations=noon_creation_operations, 
-            max_iter=max_iter, 
-            initial_guess=initial_guess
-        )
-        sounds.ascend()
-        visuals.plot_city(noon_results.final_state)
-        visuals.draw_now()
-        print(f"NOON fidelity is { -1 * noon_results.score}")
-        noon_creation_params = noon_results.theta
-    else:
-        noon_creation_params = _initial_guess()
 
-    cat_creation_half_params = noon_creation_params
+    cat_creation_half_params = noon_data.params
     cat_creation_half_params[T4_PARAM_INDEX] = cat_creation_half_params[T4_PARAM_INDEX] / 5
 
 
-
-    # Define new initial state:
-    two_cat_creation_operations = noon_creation_operations 
-
-    two_cat_creation_params = []
-    two_cat_creation_params.extend(cat_creation_half_params)
-
-    # # our almost gkp state:
-    # two_cat_state = coherent_control.custom_sequence(state=initial_state, theta=two_cat_creation_params, operations=two_cat_creation_operations)
-
-    # two_cat_state = coherent_control.pulse_on_state(two_cat_state, z=pi/2)
-    # visuals.plot_matter_state(two_cat_state)
-
     # Define new initial state:
     cat_creation_operations = \
-        noon_creation_operations + \
+        noon_data.operation + \
         [standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])] + \
-        noon_creation_operations
+        noon_data.operation
 
     cat_creation_params = []
     cat_creation_params.extend(cat_creation_half_params)

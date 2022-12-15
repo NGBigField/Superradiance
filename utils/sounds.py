@@ -4,7 +4,7 @@ from time import sleep
 
 def ascend() -> None:
     for n in [0, 2, 4, 5, 7, 9, 11]:
-        beep(note=n, octave=5, duration=0.2)
+        beep(note=n, octave=5, duration=0.1)
     beep(note=0, octave=6, duration=0.2)
 
 def alarm() -> None:

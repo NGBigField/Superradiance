@@ -4,6 +4,7 @@
         "hbar",
         "kets",
         "kets_and_bras",
+        "num_moments",
         "superradiance"
     ]
     ,
