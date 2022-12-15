@@ -68,8 +68,8 @@ from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save
 OPT_METHOD : Final = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
 
-TOLERANCE = 1e-6  # 1e-12
-MAX_NUM_ITERATION = 1e1  # 1e6 
+TOLERANCE = 1e-8  # 1e-12
+MAX_NUM_ITERATION = 1e4  # 1e6 
 
 T4_PARAM_INDEX = 5
 
@@ -579,6 +579,81 @@ def _run_many_guesses(
 
 
 
+def creating_4_leg_cat_algo(
+    num_moments:int=40
+) -> LearnedResults:
+
+    ## Check inputs:
+    assertions.even(num_moments)
+    
+    ## Define operations:
+    initial_state = Fock.excited_state_density_matrix(num_moments)
+    coherent_control = CoherentControl(num_moments=num_moments)
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
+    Sp = coherent_control.s_pulses.Sp
+    Sx = coherent_control.s_pulses.Sx
+    Sy = coherent_control.s_pulses.Sy
+    Sz = coherent_control.s_pulses.Sz
+
+
+    noon_data = _load_or_find_noon(num_moments)
+
+
+    cat_creation_half_params = noon_data.params
+    cat_creation_half_params[T4_PARAM_INDEX] = cat_creation_half_params[T4_PARAM_INDEX] / 5
+
+
+    # Define new initial state:
+    cat_creation_operations = \
+        noon_data.operation + \
+        [standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])] + \
+        noon_data.operation
+
+    cat_creation_params = []
+    cat_creation_params.extend(cat_creation_half_params)
+    cat_creation_params.append(pi)  # x pi pulse
+    cat_creation_params.extend(cat_creation_half_params)
+
+    # our almost gkp state:
+    cat_state = coherent_control.custom_sequence(state=initial_state, theta=cat_creation_params, operations=cat_creation_operations)
+
+    ## Center the cat-state:
+    print("Center the cat-state")
+    operations = [
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+    ]
+    def cost_function(final_state:_DensityMatrixType) -> float : 
+        observation_mean = np.trace( final_state @ Sp )
+        cost = abs(observation_mean)
+        return cost
+    results = learn_custom_operation(
+        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
+    )
+    cat_state = results.final_state
+
+    ## Force cat-state to be on the bottom:
+    z_projection = np.real(np.trace( cat_state @ Sz ))
+    if z_projection>0:
+        cat_state = coherent_control.pulse_on_state(cat_state, x=pi)
+
+    ## Aligning with the y axis:
+    print("Aligning with the y axis")
+    operations = [
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
+    ]
+    def cost_function(final_state:_DensityMatrixType) -> float : 
+        observation_mean = np.trace( final_state @ Sx @ Sx )
+        cost = observation_mean
+        return cost
+    results = learn_custom_operation(
+        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
+    )
+    cat_state = results.final_state
+    
+    
+    
+    
+    
 def creating_gkp_algo(
     num_moments:int=40
 ) -> LearnedResults:
@@ -692,7 +767,7 @@ def creating_gkp_algo(
 
 def main():
     # results = _run_many_guesses()
-    results = creating_gkp_algo()
+    results = creating_4_leg_cat_algo()
     print("End")
 
 if __name__ == "__main__":
