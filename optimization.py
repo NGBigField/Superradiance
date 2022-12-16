@@ -68,8 +68,8 @@ from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save
 OPT_METHOD : Final = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
 
-TOLERANCE = 1e-8  # 1e-12
-MAX_NUM_ITERATION = 1e4  # 1e6 
+TOLERANCE = 1e-10  # 1e-12
+MAX_NUM_ITERATION = 1e5  # 1e6 
 
 T4_PARAM_INDEX = 5
 
@@ -580,7 +580,7 @@ def _run_many_guesses(
 
 
 def creating_4_leg_cat_algo(
-    num_moments:int=40
+    num_moments:int=100
 ) -> LearnedResults:
 
     ## Check inputs:
