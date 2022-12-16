@@ -29,20 +29,15 @@ except ImportError:
 # ==================================================================================== #
 #|                                   Constants                                        |#
 # ==================================================================================== #
-EPS = 1e-14
+EPS = 1e-12
 
 # ==================================================================================== #
 #|                               inner functions                                      |# 
 # ==================================================================================== #
-def _reduce(val:Union[float, int]) -> Union[float, int] :
-    if abs(val)<EPS:
-        return 0
-    else:
-        return val
 
 def _reduce_complex(val:Union[float, int, complex], data_type:type) -> Union[float, int, complex] :
-    re = _reduce(np.real(val))
-    im = _reduce(np.imag(val))
+    re = reduce_small_value_to_zero(np.real(val))
+    im = reduce_small_value_to_zero(np.imag(val))
     if data_type is complex:
         return complex(re,im)
     else:
@@ -50,6 +45,19 @@ def _reduce_complex(val:Union[float, int, complex], data_type:type) -> Union[flo
 # ==================================================================================== #
 #|                              declared functions                                    |#
 # ==================================================================================== #
+
+def reduce_small_imaginary_to_zero(val:complex) -> Union[float, int, complex]:
+    if abs(np.imag(val))<EPS:
+        return np.real(val)
+    else:
+        return val
+
+def reduce_small_value_to_zero(val:Union[float, int]) -> Union[float, int] :
+    if abs(val)<EPS:
+        return 0
+    else:
+        return val
+
 def fix_print_length(linewidth:int=10000, precision:int=4) -> None:
     np.set_printoptions(
         linewidth=linewidth,

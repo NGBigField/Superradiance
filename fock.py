@@ -22,6 +22,7 @@ from utils import (
     types,
     visuals,
     args,
+    numpy_tools,
 )
 
 
@@ -358,6 +359,38 @@ class FockSum():
 # |                             Declared Functions                                   | #
 # ==================================================================================== #
 
+def cat_state(num_moments:int, alpha:float, num_legs:int)->FockSum:
+    # check inputs:
+    num_moments = assertions.integer(num_moments)
+    num_legs = assertions.integer(num_legs)
+
+    # fock space object:
+    fock = FockSum()
+
+    # on moments
+    for moment in range(0, num_moments+1):
+        
+        total_coefficient = 0.0
+        for leg in range(num_legs):
+            leg_alpha = alpha * np.exp(1j * 2*np.pi * leg / num_legs)
+            leg_alpha = numpy_tools.reduce_small_imaginary_to_zero(leg_alpha)
+
+            # compute coefficient
+            power = np.power(leg_alpha, moment) 
+            if power == 0:
+                coef = 0
+            else:
+                coef = np.exp( -(abs(leg_alpha)**2)/2 ) * power / np.sqrt( math.factorial(moment) )
+
+            total_coefficient += coef
+
+        fock += Fock(moment)*coef
+    
+    # Normalize:
+    fock /= fock.norm
+    return fock
+
+
 def coherent_state(num_moments:int, alpha:float, type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum:
     # Choose iterator:
     if type_=='normal':
@@ -417,7 +450,16 @@ def _test_simple_fock_density_matrix():
     rho = Fock.create_coherent_state(num_moments=2, alpha=0, output='density_matrix')
     print(rho)
 
+def _test_cat_state(
+    num_moments:int = 40,
+    alpha:float=1.0,
+    num_legs:int = 2
+):
+    fock_sum = cat_state(num_moments=num_moments, alpha=alpha, num_legs=num_legs)
+    visuals.plot_matter_state(FockSum)
+
 if __name__ == "__main__":
     # _test_coherent_state()
-    _test_simple_fock_density_matrix()
+    # _test_simple_fock_density_matrix()
+    _test_cat_state()
     print("Done.")

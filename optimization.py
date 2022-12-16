@@ -580,7 +580,7 @@ def _run_many_guesses(
 
 
 def creating_4_leg_cat_algo(
-    num_moments:int=100
+    num_moments:int=40
 ) -> LearnedResults:
 
     ## Check inputs:
@@ -594,28 +594,34 @@ def creating_4_leg_cat_algo(
     Sx = coherent_control.s_pulses.Sx
     Sy = coherent_control.s_pulses.Sy
     Sz = coherent_control.s_pulses.Sz
+    noon_creation_operations : List[Operation] = [
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
+        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
+    ]
 
 
     noon_data = _load_or_find_noon(num_moments)
 
 
-    cat_creation_half_params = noon_data.params
-    cat_creation_half_params[T4_PARAM_INDEX] = cat_creation_half_params[T4_PARAM_INDEX] / 5
+    cat2_creation_params = noon_data.params
+    cat2_creation_params[T4_PARAM_INDEX] = cat2_creation_params[T4_PARAM_INDEX] / 5
 
 
     # Define new initial state:
-    cat_creation_operations = \
-        noon_data.operation + \
+    cat3_creation_operations = \
+        noon_creation_operations + \
         [standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])] + \
-        noon_data.operation
+        noon_creation_operations
 
-    cat_creation_params = []
-    cat_creation_params.extend(cat_creation_half_params)
-    cat_creation_params.append(pi)  # x pi pulse
-    cat_creation_params.extend(cat_creation_half_params)
+    cat3_creation_params = []
+    cat3_creation_params.extend(cat2_creation_params)
+    cat3_creation_params.append(pi)  # x pi pulse
+    cat3_creation_params.extend(cat2_creation_params)
 
     # our almost gkp state:
-    cat_state = coherent_control.custom_sequence(state=initial_state, theta=cat_creation_params, operations=cat_creation_operations)
+    cat3_state = coherent_control.custom_sequence(state=initial_state, theta=cat3_creation_params, operations=cat3_creation_operations)
 
     ## Center the cat-state:
     print("Center the cat-state")
@@ -627,14 +633,14 @@ def creating_4_leg_cat_algo(
         cost = abs(observation_mean)
         return cost
     results = learn_custom_operation(
-        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
+        num_moments=num_moments, initial_state=cat3_state, cost_function=cost_function, operations=operations, max_iter=MAX_NUM_ITERATION, initial_guess=None
     )
-    cat_state = results.final_state
+    cat3_state = results.final_state
 
     ## Force cat-state to be on the bottom:
-    z_projection = np.real(np.trace( cat_state @ Sz ))
+    z_projection = np.real(np.trace( cat3_state @ Sz ))
     if z_projection>0:
-        cat_state = coherent_control.pulse_on_state(cat_state, x=pi)
+        cat3_state = coherent_control.pulse_on_state(cat3_state, x=pi)
 
     ## Aligning with the y axis:
     print("Aligning with the y axis")
@@ -646,9 +652,9 @@ def creating_4_leg_cat_algo(
         cost = observation_mean
         return cost
     results = learn_custom_operation(
-        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
+        num_moments=num_moments, initial_state=cat3_state, cost_function=cost_function, operations=operations, max_iter=MAX_NUM_ITERATION, initial_guess=None
     )
-    cat_state = results.final_state
+    cat3_state = results.final_state
     
     
     
