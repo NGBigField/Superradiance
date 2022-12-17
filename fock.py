@@ -167,7 +167,9 @@ class Fock():
     def date_type(self) -> np.dtype:
         data_type = type(self.weight)
         if types.is_numpy_float_type(data_type):
-            data_type = float
+            return float
+        if types.is_numpy_complex_type(data_type):
+            return complex
         return data_type
 
     @property
@@ -370,7 +372,7 @@ class FockSum():
 # |                             Declared Functions                                   | #
 # ==================================================================================== #
 
-def cat_state(num_moments:int, alpha:float, num_legs:int, odd:bool=True)->FockSum:
+def cat_state(num_moments:int, alpha:float, num_legs:int, odd:bool=False)->FockSum:
     # check inputs:
     num_moments = assertions.integer(num_moments)
     num_legs = assertions.integer(num_legs)
@@ -393,7 +395,7 @@ def cat_state(num_moments:int, alpha:float, num_legs:int, odd:bool=True)->FockSu
                 power = np.power(leg_alpha, moment) 
                 coef = np.exp( -(abs(leg_alpha)**2)/2 ) * power / _root_factorial(moment) 
 
-            if odd and leg!=0:
+            if odd and num_legs==2 and leg!=0:
                 coef *= -1
                 
             total_coefficient += coef
@@ -465,9 +467,9 @@ def _test_simple_fock_density_matrix():
     print(rho)
 
 def _test_cat_state(
-    num_moments:int = 20,
-    alpha:float = 1.4,
-    num_legs:int = 2
+    num_moments:int = 40,
+    alpha:float = 3,
+    num_legs:int = 4
 ):
     fock_sum = cat_state(num_moments=num_moments, alpha=alpha, num_legs=num_legs)
     print(fock_sum)

@@ -15,9 +15,17 @@ from typing import (
 # ==================================================================================== #
 
 
-
 # ==================================================================================== #
-#|                              declared functions                                    |#
+#|                                inner functions                                     |#
+# ==================================================================================== #
+
+def _type_from_num_or_type(num_or_type) -> type:
+    if isinstance(num_or_type, type):
+        return num_or_type
+    else:
+        return type(num_or_type)
+# ==================================================================================== #
+#|                               declared functions                                   |#
 # ==================================================================================== #
 
 def numpy_dtype_to_std_type(dtype:np.dtype) -> type :    
@@ -25,14 +33,16 @@ def numpy_dtype_to_std_type(dtype:np.dtype) -> type :
     built_in_variable = numpy_variable.item()
     return type(built_in_variable)
 
-
+def is_numpy_complex_type( num_or_type ) -> bool:
+    # Get type:
+    type_ = _type_from_num_or_type(num_or_type)
+    # check inheritance:
+    return issubclass(type_, np.complexfloating)
+    
 
 def is_numpy_float_type( num_or_type ) -> bool:
     # Get type:
-    if isinstance(num_or_type, type):
-        type_ = num_or_type
-    else:
-        type_ = type(num_or_type)
+    type_ = _type_from_num_or_type(num_or_type)
     # check inheritance:
     return issubclass(type_, np.floating)
 

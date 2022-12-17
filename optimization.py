@@ -34,7 +34,7 @@ from utils import (
 )
 
 # For defining coherent states:
-from fock import Fock
+from fock import Fock, cat_state
 
 # For coherent control
 from coherentcontrol import (
@@ -603,6 +603,39 @@ def creating_4_leg_cat_algo(
 
 
     noon_data = _load_or_find_noon(num_moments)
+
+    # Define target:
+    target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4)
+    
+    
+    ## Define operations:
+    cat4_params = noon_data.params
+    
+    
+    cat4_creation_operations = \
+        noon_creation_operations + \
+        [standard_operations.power_pulse_on_specific_directions(power=1)] + \
+        noon_creation_operations + \
+        [standard_operations.power_pulse_on_specific_directions(power=1)] + \
+        noon_creation_operations + \
+        [standard_operations.power_pulse_on_specific_directions(power=1)] + \
+        noon_creation_operations 
+    
+    ## Learn:
+    operations = [
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+    ]
+    def cost_function(final_state:_DensityMatrixType) -> float : 
+        observation_mean = np.trace( final_state @ Sp )
+        cost = abs(observation_mean)
+        return cost
+    results = learn_custom_operation(
+        num_moments=num_moments, initial_state=cat3_state, cost_function=cost_function, operations=operations, max_iter=MAX_NUM_ITERATION, initial_guess=None
+    )
+    cat3_state = results.final_state    
+    
+    
+    
 
 
     cat2_creation_params = noon_data.params
