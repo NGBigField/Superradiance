@@ -144,11 +144,10 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     
     # Iterate:
     k_vals = np.linspace(0, 2 * j, floor(2 * j + 1))
-    m_vals1 = np.linspace(-j, j, floor(2 * j + 1))
-    m_vals2 = np.linspace(-j, j, floor(2 * j + 1))
     pb = ProgressBar(len(k_vals), print_prefix="calculating wigner-function")
     for k in k_vals :
         pb.next()
+        
         for q in np.linspace(-k, k, floor(2 * k + 1)):
 
             if q >= 0:
@@ -156,8 +155,10 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
             else:
                 Ykq = sph_harm(-q, k, phi, theta)
             Gkq = 0
-            for m1 in m_vals1:
-                for m2 in m_vals2:
+            
+            for m1 in np.linspace(-j, j, floor(2 * j + 1)):
+                for m2 in np.linspace(-j, j, floor(2 * j + 1)):
+                    
                     if -m1 + m2 + q == 0:
                         tracem1m2 = rho[floor(m1 + j), floor(m2 + j)]
                         Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * np.conj(

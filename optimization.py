@@ -607,7 +607,11 @@ def creating_4_leg_cat_algo(
 
     cat2_creation_params = noon_data.params
     cat2_creation_params[T4_PARAM_INDEX] = cat2_creation_params[T4_PARAM_INDEX] / 5
+    
 
+    cat2_state = coherent_control.custom_sequence(state=initial_state, theta=cat2_creation_params, operations=noon_creation_operations)
+    visuals.plot_matter_state(cat2_state)
+    
 
     # Define new initial state:
     cat3_creation_operations = \
@@ -615,13 +619,13 @@ def creating_4_leg_cat_algo(
         [standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])] + \
         noon_creation_operations
 
-    cat3_creation_params = []
-    cat3_creation_params.extend(cat2_creation_params)
-    cat3_creation_params.append(pi)  # x pi pulse
-    cat3_creation_params.extend(cat2_creation_params)
+    cat3_row_creation_params = []
+    cat3_row_creation_params.extend(cat2_creation_params)
+    cat3_row_creation_params.append(pi)  # x pi pulse
+    cat3_row_creation_params.extend(cat2_creation_params)
 
     # our almost gkp state:
-    cat3_state = coherent_control.custom_sequence(state=initial_state, theta=cat3_creation_params, operations=cat3_creation_operations)
+    cat3_state = coherent_control.custom_sequence(state=initial_state, theta=cat3_row_creation_params, operations=cat3_creation_operations)
 
     ## Center the cat-state:
     print("Center the cat-state")
