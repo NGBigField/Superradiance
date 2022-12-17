@@ -224,7 +224,7 @@ def _deal_initial_guess(num_params:int, initial_guess:Optional[np.array]) -> np.
     
 def _deal_initial_guess_common(num_params:int, initial_guess:Optional[np.array], positive_indices:np.ndarray) -> np.ndarray:
     if initial_guess is not None:  # If guess is given:
-        assert len(initial_guess) == num_params, f"Needed number of parameters for the initial guess is {num_params}"
+        assert len(initial_guess) == num_params, f"Needed number of parameters for the initial guess is {num_params} while {len(initial_guess)} were given"
         if isinstance(initial_guess, list):
             initial_guess = np.array(initial_guess)
         if len(positive_indices)>0:
@@ -486,11 +486,6 @@ def learn_custom_operation(
     
     coherent_control = CoherentControl(num_moments)
 
-    # matrix_size = initial_state.shape[0]
-    # target_state = np.zeros(shape=(matrix_size,matrix_size))
-    # for i in [0, matrix_size-1]:
-    #     for j in [0, matrix_size-1]:
-    #         target_state[i,j]=0.5
     def total_cost_function(theta:np.ndarray) -> float : 
         final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
         cost = cost_function(final_state)
@@ -605,13 +600,10 @@ def creating_4_leg_cat_algo(
     noon_data = _load_or_find_noon(num_moments)
 
     # Define target:
-    target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4)
+    target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
     
     
-    ## Define operations:
-    cat4_params = noon_data.params
-    
-    
+    # Define operations:    
     cat4_creation_operations = \
         noon_creation_operations + \
         [standard_operations.power_pulse_on_specific_directions(power=1)] + \
@@ -621,18 +613,26 @@ def creating_4_leg_cat_algo(
         [standard_operations.power_pulse_on_specific_directions(power=1)] + \
         noon_creation_operations 
     
+    noon_data_params = [val for val in noon_data.params]
+    initial_guess = noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params 
+    
     ## Learn:
-    operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-    ]
     def cost_function(final_state:_DensityMatrixType) -> float : 
-        observation_mean = np.trace( final_state @ Sp )
-        cost = abs(observation_mean)
-        return cost
+        return -1 * metrics.fidelity(final_state, target_4legged_cat_state)
     results = learn_custom_operation(
-        num_moments=num_moments, initial_state=cat3_state, cost_function=cost_function, operations=operations, max_iter=MAX_NUM_ITERATION, initial_guess=None
+        num_moments=num_moments, initial_state=initial_state, cost_function=cost_function, operations=cat4_creation_operations, max_iter=MAX_NUM_ITERATION, initial_guess=initial_guess
     )
-    cat3_state = results.final_state    
+    final_state = results.final_state
+    fidelity1 = -1 * results.score
+    fidelity2 = metrics.fidelity(final_state, target_4legged_cat_state)
+    print(f"fidelity is { fidelity1 }")
+    print(f"fidelity is { fidelity2 }")
+    
+    
+    
+    
+    
+    
     
     
     

@@ -529,7 +529,7 @@ class CoherentControl():
             indices = [0, 1, 2]  # all indices
             return self.power_pulse_on_specific_directions(power=power, indices=indices)
 
-        def power_pulse_on_specific_directions(self, power:int, indices:List[int]) -> Operation:
+        def power_pulse_on_specific_directions(self, power:int, indices:List[int] = [0,1,2]) -> Operation:
             return Operation(
                 num_params = len(indices),
                 function = lambda rho, *theta: self._power_pulse_func(rho, power=power, theta=theta, indices=indices),
