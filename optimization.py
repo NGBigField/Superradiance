@@ -666,8 +666,8 @@ def creating_4_leg_cat_algo(
     fixed = ParamLock.FIXED
     noon_data_params = [val for val in noon_data.params]
     noon_affiliation = list(range(1,9))
-    noon_lockness    = [fixed]*8
-    noon_lockness[T4_PARAM_INDEX] = free
+    noon_lockness    = [free]*8  # [fixed]*8
+    # noon_lockness[T4_PARAM_INDEX] = free
 
 
     param_values       = noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params
