@@ -52,7 +52,7 @@ import gkp
 import time
 
 # For OOP:
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 
 # for plotting stuff wigner
@@ -100,9 +100,153 @@ class LearnedResults():
         return s
     
 class Metric(Enum):
-    NEGATIVITY = auto
-    PURITY = auto
+    NEGATIVITY  = auto()
+    PURITY      = auto()
+
+
+class ParamLock(Enum):
+    FREE  = auto()
+    FIXED = auto()
+
+
+@dataclass
+class ParamConfigBase():
+    index : int
     
+    @property
+    def lock(self)->ParamLock:
+        raise AttributeError("Abstract super class without implementation")
+
+@dataclass
+class FreeParam(ParamConfigBase): 
+    affiliation : int | None
+    bounds : Tuple[float, float]
+
+    @property
+    def lock(self)->ParamLock:
+        return ParamLock.FREE
+
+@dataclass
+class FixedParam(ParamConfigBase): 
+    value : float
+
+    @property
+    def lock(self)->ParamLock:
+        return ParamLock.FIXED
+    
+
+class OptimizationParams:
+
+    @dataclass
+    class Indices:
+        free  : List[int]
+        fixed : List[int]
+
+    def _find_index_in_list(i:int, l:List[ParamConfigBase]) -> ParamConfigBase:
+        for param in l:
+            if param.index == i:
+                return param
+        raise ValueError(f"Index {i} not fount in list")
+
+    def __init__(
+        self,
+        free_params  : List[FreeParam ],
+        fixed_params : List[FixedParam],
+        num_operation_params : int
+    ) -> None:
+
+        self.indices : OptimizationParams.Indices = OptimizationParams.Indices(
+            free  = [param.index for param in free_params ],
+            fixed = [param.index for param in fixed_params]
+        )
+
+        ordered_list : List[ParamConfigBase] = []
+        for i in range(num_operation_params):
+            if i in self.indices.free:
+                param = OptimizationParams._find_index_in_list(i, free_params)
+            elif i in self.indices.fixed:
+                param = OptimizationParams._find_index_in_list(i, fixed_params)
+            else:
+                raise ValueError(f"Couldn't find param with index {i}")
+            ordered_list.append(param)
+            
+        ## Keep data
+        self.free_params    : List[FreeParam ]      = free_params
+        self.fixed_params   : List[FixedParam]      = fixed_params
+        self.ordered_params : List[ParamConfigBase] = ordered_list
+
+    def optimization_theta_to_operations_params(self, theta:np.ndarray) -> List[float]:
+        # check inputs:
+        assert len(theta)==self.num_free
+        assert isinstance(theta, np.ndarray)
+
+        # Prepare Affiliations of shared values:
+        shared_values : Dict[int, float] = {}
+
+
+        # Construct output:
+        values : List[float] = []
+        thetas = np.nditer(theta)
+        for i, param in enumerate(self.ordered_params):
+            if isinstance(param, FixedParam):
+                value = param.value
+
+            elif isinstance(param, FreeParam):
+                affiliation = param.affiliation
+
+                if affiliation is None:
+                    value = next(thetas)                
+
+                elif affiliation in shared_values:
+                    value = shared_values[affiliation]
+
+                else:
+                    value = next(thetas)                
+                    shared_values[affiliation] = value
+
+            else:
+                raise TypeError(f"Unexpected param type '{type(param)}'")
+            
+            values.append(value)
+
+        return np.array(values)
+
+    def initial_guess(self, initial_guess:Optional[np.ndarray]=None) -> np.ndarray :
+        # helper nums:
+        num_free_params = self.num_free
+        
+        if initial_guess is not None:  # If guess is given:
+            raise NotImplementedError("Not yet")
+            assert len(initial_guess) == num_free_params, f"Needed number of parameters for the initial guess is {num_free_params} while {len(initial_guess)} were given"
+            if isinstance(initial_guess, list):
+                initial_guess = np.array(initial_guess)
+            if len(positive_indices)>0:
+                assert np.all(initial_guess[positive_indices]>=0), f"All decay-times must be non-negative!"    
+
+        else:  # if we need to create a guess:    
+            initial_guess = []
+            for param in self.free_params:
+                lower_bound = -np.pi/2 if param.bounds[0] is None else param.bounds[0]
+                upper_bound = +np.pi/2 if param.bounds[1] is None else param.bounds[1]
+                val = np.random.uniform(low=lower_bound, high=upper_bound)
+                initial_guess.append(val)   
+    
+        return np.array(initial_guess)
+ 
+    @property
+    def bounds(self) -> List[Tuple[float, float]]:
+        return [free_param.bounds for free_param in self.free_params ]
+
+    @property
+    def num_free(self) -> int:
+        return len(self.free_params)
+
+    @property
+    def num_fixed(self) -> int:
+        return len(self.fixed_params)
+
+
+
 
 # ==================================================================================== #
 # |                                 Helper Types                                     | #
@@ -194,18 +338,32 @@ def _coherent_control_from_mat(mat:_DensityMatrixType) -> CoherentControl:
     max_state_num = matrix_size-1
     return CoherentControl(max_state_num)
 
-def _deal_bounds(num_params:int, positive_indices:np.ndarray, rotation_indices:List[int]=[]) -> int: 
-    def _bound_rule(i:int) -> Tuple[Any, Any]:
-        # Derive:
-        if i in positive_indices:
+def _deal_params_config( 
+    num_operation_params:int, 
+    positive_indices : np.ndarray,
+    parameter_configs: List[Tuple[ParamLock, int|float ]] = None
+) -> OptimizationParams :
+
+    def is_positive(i:int)->bool:
+        return i in positive_indices
+
+    def bounds(i:int) -> Tuple[float, float]:
+        if is_positive(i):
             return (0, None)
-        elif i in rotation_indices:
-            return (-np.pi, +np.pi)
         else:
             return (None, None)
 
-    # Define bounds:
-    return [_bound_rule(i) for i in range(num_params)]
+    if parameter_configs is None:
+        free_params  = [FreeParam( index=i, affiliation=None, bounds=bounds(i)) for i in range(num_operation_params)  ]
+        fixed_params = [ ]
+
+    else:
+        free_params  = [FreeParam( index=i, affiliation=param[1], bounds=bounds(i)) for i, param in enumerate(parameter_configs) if param[0]==ParamLock.FREE  ]
+        fixed_params = [FixedParam(index=i, value=param[1]) for i, param in enumerate(parameter_configs) if param[0]==ParamLock.FIXED ]
+
+    return OptimizationParams(free_params=free_params, fixed_params=fixed_params, num_operation_params=num_operation_params)
+    
+
 
 def _positive_indices_from_operations(operations:List[Operation]) -> np.ndarray:
     low = 0
@@ -218,19 +376,19 @@ def _positive_indices_from_operations(operations:List[Operation]) -> np.ndarray:
         low = high
     return positive_indices
 
-def _deal_initial_guess(num_params:int, initial_guess:Optional[np.array]) -> np.ndarray :
+def _deal_initial_guess_old(num_params:int, initial_guess:Optional[np.array]) -> np.ndarray :
     positive_indices = np.arange(NUM_PULSE_PARAMS-1, num_params, NUM_PULSE_PARAMS)
-    return _deal_initial_guess_common(num_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
+    return _deal_initial_guess(num_free_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
     
-def _deal_initial_guess_common(num_params:int, initial_guess:Optional[np.array], positive_indices:np.ndarray) -> np.ndarray:
+def _deal_initial_guess(num_free_params:int, initial_guess:Optional[np.array], positive_indices:np.ndarray) -> np.ndarray:
     if initial_guess is not None:  # If guess is given:
-        assert len(initial_guess) == num_params, f"Needed number of parameters for the initial guess is {num_params} while {len(initial_guess)} were given"
+        assert len(initial_guess) == num_free_params, f"Needed number of parameters for the initial guess is {num_free_params} while {len(initial_guess)} were given"
         if isinstance(initial_guess, list):
             initial_guess = np.array(initial_guess)
         if len(positive_indices)>0:
             assert np.all(initial_guess[positive_indices]>=0), f"All decay-times must be non-negative!"    
     else:  # if we need to create a guess:    
-        initial_guess = np.random.normal(0, np.pi/2, (num_params))
+        initial_guess = np.random.normal(0, np.pi/2, num_free_params)
         if len(positive_indices)>0:
             initial_guess[positive_indices] = np.abs(initial_guess[positive_indices])
     return initial_guess
@@ -256,7 +414,7 @@ def _common_learn(
         return finish
 
     # Opt Config:
-    initial_guess = _deal_initial_guess(num_params, initial_guess)
+    initial_guess = _deal_initial_guess_old(num_params, initial_guess)
     options = dict(
         maxiter = max_iter,
         ftol=TOLERANCE,
@@ -376,57 +534,6 @@ def learn_optimized_metric(
     )
     
     
-
-def learn_midladder_state(
-    initial_state:_DensityMatrixType,  
-    max_iter : int=1000, 
-    num_pulses : int=5, 
-    initial_guess : Optional[np.array] = None,
-    save_results : bool=True,
-) -> LearnedResults:
-
-    # Check inputs:
-    assertions.density_matrix(initial_state)
-
-    # Constants:
-    @dataclass
-    class _Cost():
-        midvalue   = -1.0
-        diagonal   = +5.0
-        every_else = +0.5
-
-    # cost function:
-    coherent_control = _coherent_control_from_mat(initial_state)
-    num_moments = coherent_control.num_moments
-    target_state = Fock(num_moments//2).to_density_matrix(num_moments)
-    def _cost_func(theta:np.ndarray) -> float :  
-        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
-        total_cost = 0.0
-        shape = final_state.shape
-        for i in range(shape[0]):
-            for j in range(shape[1]):
-                val = final_state[i,j]
-                if i==j: # diagonal
-                    if i==shape[0]//2:
-                        cost = _Cost.midvalue
-                    else:
-                        cost = _Cost.diagonal
-                else:
-                    cost = _Cost.every_else
-                total_cost += cost*abs(val)
-        return total_cost
-
-    # Call base function:
-    return _common_learn(
-        initial_state=initial_state,
-        max_iter=max_iter,
-        num_pulses=num_pulses,
-        cost_function=_cost_func,
-        save_results=save_results,
-        initial_guess=initial_guess,
-    )
-
-
 def learn_specific_state(
     initial_state:_DensityMatrixType, 
     target_state:_DensityMatrixType, 
@@ -463,33 +570,39 @@ def learn_custom_operation(
     operations : List[Operation],
     cost_function : Callable[[_DensityMatrixType], float],
     max_iter : int=100, 
-    initial_guess : Optional[np.array] = None,
+    initial_guess : Optional[np.ndarray] = None,
+    parameters_config : List[Tuple[ParamLock, int|float ]] = None,
     save_results : bool=True,
 ) -> LearnedResults:
 
     # Progress_bar
     prog_bar = visuals.ProgressBar(max_iter, "Minimizing: ")
+    print_counter = 0
     def _after_each(xk:np.ndarray) -> bool:
+        print_counter += 1
+        if 
         prog_bar.next()
         finish : bool = False
         return finish
-
-    # Opt Config:
-    options = dict(
-        maxiter = max_iter,
-    )      
-    positive_indices = _positive_indices_from_operations(operations)
-    num_params = sum([op.num_params for op in operations])
-    initial_guess = _deal_initial_guess_common(num_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
-    bounds = _deal_bounds(num_params, positive_indices)  
-
     
-    coherent_control = CoherentControl(num_moments)
 
+    num_operation_params = sum([op.num_params for op in operations])
+    positive_indices = _positive_indices_from_operations(operations)
+    param_config : OptimizationParams = _deal_params_config(num_operation_params, positive_indices, parameters_config)
+    initial_guess = param_config.initial_guess(initial_guess=initial_guess)
+
+
+    ## Optimization Config:
+    # Define operations:
+    coherent_control = CoherentControl(num_moments)
     def total_cost_function(theta:np.ndarray) -> float : 
-        final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
+        operation_params = param_config.optimization_theta_to_operations_params(theta)
+        final_state = coherent_control.custom_sequence(initial_state, theta=operation_params, operations=operations )
         cost = cost_function(final_state)
         return cost
+
+    options = dict(maxiter = max_iter)   
+    bounds = param_config.bounds
 
     # Run optimization:
     start_time = time.time()
@@ -601,6 +714,7 @@ def creating_4_leg_cat_algo(
 
     # Define target:
     target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
+    # visuals.plot_matter_state(target_4legged_cat_state, block_sphere_resolution=200)
     
     
     # Define operations:    
@@ -613,14 +727,41 @@ def creating_4_leg_cat_algo(
         [standard_operations.power_pulse_on_specific_directions(power=1)] + \
         noon_creation_operations 
     
+
+    # Initital guess and the fixed params vs free params:
+    free  = ParamLock.FREE
+    fixed = ParamLock.FIXED
     noon_data_params = [val for val in noon_data.params]
-    initial_guess = noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params 
+    noon_affiliation = list(range(1,9))
+    noon_lockness    = [fixed]*8
+    noon_lockness[T4_PARAM_INDEX] = free
+
+
+    param_values       = noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params
+    params_affiliation = noon_affiliation + [None]*3  + noon_affiliation + [None]*3  + noon_affiliation + [None]*3  + noon_affiliation
+    params_lockness    = noon_lockness    + [free]*3  + noon_lockness    + [free]*3  + noon_lockness    + [free]*3  + noon_lockness      
+    assert len(params_affiliation)==len(params_lockness)
+    assert len(params_affiliation)==len(param_values)
+
+    param_config = [ \
+        (lock_state, affiliation) 
+        if lock_state == ParamLock.FREE
+        else (lock_state, value) 
+        for value, affiliation, lock_state  in zip(param_values, params_affiliation, params_lockness)
+    ]
     
     ## Learn:
     def cost_function(final_state:_DensityMatrixType) -> float : 
         return -1 * metrics.fidelity(final_state, target_4legged_cat_state)
+
     results = learn_custom_operation(
-        num_moments=num_moments, initial_state=initial_state, cost_function=cost_function, operations=cat4_creation_operations, max_iter=MAX_NUM_ITERATION, initial_guess=initial_guess
+        num_moments=num_moments, 
+        initial_state=initial_state, 
+        cost_function=cost_function, 
+        operations=cat4_creation_operations, 
+        max_iter=MAX_NUM_ITERATION, 
+        initial_guess=None,
+        parameters_config=param_config
     )
     final_state = results.final_state
     fidelity1 = -1 * results.score

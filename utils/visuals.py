@@ -437,12 +437,12 @@ class ProgressBar():
         self._as_iterator = True
         return self
 
-    def next(self) -> int:
+    def next(self, extra_str:Optional[str]=None) -> int:
         self.counter += 1
         if self._as_iterator and self.counter > self.expected_end:
             self.close()
             raise StopIteration
-        self._show()
+        self._show(extra_str)
         return self.counter
 
     def close(self):
@@ -454,7 +454,7 @@ class ProgressBar():
             flush=True
         )
 
-    def _show(self):
+    def _show(self, extra_str:Optional[str]=None):
         # Unpack properties:
         i = self.counter
         prefix = self.print_prefix
@@ -467,6 +467,9 @@ class ProgressBar():
         else:
             crnt_bar_length = int(print_length*i/expected_end)
         s = f"{prefix}[{u'█'*crnt_bar_length}{('.'*(print_length-crnt_bar_length))}] {i:d}/{expected_end:d}"
+
+        if extra_str is not None:
+            s += " "+extra_str
 
         # Print:
         print(
