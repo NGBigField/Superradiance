@@ -437,8 +437,8 @@ class ProgressBar():
         self._as_iterator = True
         return self
 
-    def next(self, extra_str:Optional[str]=None) -> int:
-        self.counter += 1
+    def next(self, increment:int=1, extra_str:Optional[str]=None) -> int:
+        self.counter += increment
         if self._as_iterator and self.counter > self.expected_end:
             self.close()
             raise StopIteration

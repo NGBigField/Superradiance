@@ -18,6 +18,7 @@ from typing import (
     Final,
     Optional,
     Callable,
+    Generator,
 )
 
 # import our helper modules
@@ -31,6 +32,7 @@ from utils import (
     args,
     indices,
     sounds,
+    decorators,
 )
 
 # For defining coherent states:
@@ -79,6 +81,7 @@ T4_PARAM_INDEX = 5
 @dataclass
 class LearnedResults():
     theta : np.array = None
+    operation_params : List[float] = None
     score : float = None
     initial_state : np.matrix = None
     final_state : np.matrix = None
@@ -177,7 +180,7 @@ class OptimizationParams:
 
     def optimization_theta_to_operations_params(self, theta:np.ndarray) -> List[float]:
         # check inputs:
-        assert len(theta)==self.num_free
+        assert len(theta)==self.num_variables
         assert isinstance(theta, np.ndarray)
 
         # Prepare Affiliations of shared values:
@@ -195,13 +198,13 @@ class OptimizationParams:
                 affiliation = param.affiliation
 
                 if affiliation is None:
-                    value = next(thetas)                
+                    value = next(thetas).item()                
 
                 elif affiliation in shared_values:
                     value = shared_values[affiliation]
 
                 else:
-                    value = next(thetas)                
+                    value = next(thetas).item()                                
                     shared_values[affiliation] = value
 
             else:
@@ -209,11 +212,15 @@ class OptimizationParams:
             
             values.append(value)
 
+    
+        # Did we exaust all thetas?
+        assertions.depleted_iterator(thetas)
         return np.array(values)
 
     def initial_guess(self, initial_guess:Optional[np.ndarray]=None) -> np.ndarray :
         # helper nums:
-        num_free_params = self.num_free
+        num_free_params = self.num_variables
+        used_affiliations = set()
         
         if initial_guess is not None:  # If guess is given:
             raise NotImplementedError("Not yet")
@@ -226,6 +233,14 @@ class OptimizationParams:
         else:  # if we need to create a guess:    
             initial_guess = []
             for param in self.free_params:
+                
+                # Make sure to use affiliated values only once:
+                if param.affiliation is not None:
+                    if param.affiliation in used_affiliations:
+                        continue
+                    else:
+                        used_affiliations.add(param.affiliation)
+                
                 lower_bound = -np.pi/2 if param.bounds[0] is None else param.bounds[0]
                 upper_bound = +np.pi/2 if param.bounds[1] is None else param.bounds[1]
                 val = np.random.uniform(low=lower_bound, high=upper_bound)
@@ -235,11 +250,33 @@ class OptimizationParams:
  
     @property
     def bounds(self) -> List[Tuple[float, float]]:
-        return [free_param.bounds for free_param in self.free_params ]
+        return [free_param.bounds for free_param in self.variable_params() ]
 
     @property
-    def num_free(self) -> int:
-        return len(self.free_params)
+    def affiliations(self) -> set:
+        res = set()
+        for param in self.free_params:
+            if param.affiliation is None:
+                continue
+            res.add(param.affiliation)
+        return res
+        
+
+    def variable_params(self) -> Generator[ParamConfigBase, None, None]:
+        used_affiliations = set()
+        for param in self.free_params:
+            if param.affiliation is not None:
+                if param.affiliation in used_affiliations:
+                    continue
+                else:
+                    used_affiliations.add(param.affiliation)
+            yield param
+
+    @property
+    def num_variables(self) -> int:
+        num_non_affiliated_params = sum([1 if param.affiliation is None else 0 for param in self.free_params])
+        num_unique_affiliations = len(self.affiliations)
+        return num_non_affiliated_params + num_unique_affiliations
 
     @property
     def num_fixed(self) -> int:
@@ -251,6 +288,8 @@ class OptimizationParams:
 # ==================================================================================== #
 # |                                 Helper Types                                     | #
 # ==================================================================================== #
+
+
 
 # ==================================================================================== #
 # |                                Inner Functions                                   | #
@@ -501,69 +540,6 @@ class CostFunctions():
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
 
-def learn_optimized_metric(
-    initial_state : _DensityMatrixType,
-    metric : Metric = Metric.NEGATIVITY,
-    max_iter : int=1000, 
-    num_pulses : int=5, 
-    initial_guess : Optional[np.array] = None,
-    save_results : bool=True,
-) -> LearnedResults:
-    
-    # Choose cost-function:
-    if metric is Metric.PURITY:
-        measure = lambda state: purity(state)
-    elif metric is Metric.NEGATIVITY:
-        measure = lambda state: (-1)*negativity(state)
-    else:
-        raise ValueError("Not a valid option")
-    
-    coherent_control = _coherent_control_from_mat(initial_state)
-    def _cost_func(theta) -> float:
-        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)        
-        return measure(final_state)        
-
-    # Call base function:
-    return _common_learn(
-        initial_state=initial_state,
-        max_iter=max_iter,
-        num_pulses=num_pulses,
-        cost_function=_cost_func,
-        save_results=save_results,
-        initial_guess=initial_guess,
-    )
-    
-    
-def learn_specific_state(
-    initial_state:_DensityMatrixType, 
-    target_state:_DensityMatrixType, 
-    max_iter : int=100, 
-    num_pulses : int=3, 
-    initial_guess : Optional[np.array] = None,
-    save_results : bool=True,
-) -> LearnedResults:
-
-    # Check inputs:
-    assertions.density_matrix(initial_state)
-    assertions.density_matrix(target_state)
-    assert initial_state.shape == target_state.shape
- 
-    # cost function:
-    coherent_control = _coherent_control_from_mat(initial_state)
-    def _cost_func(theta:np.ndarray) -> float :  
-        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
-        cost = fidelity(initial_state, final_state) * -1
-        return cost
-    # Call base function:
-    return _common_learn(
-        initial_state=initial_state,
-        max_iter=max_iter,
-        num_pulses=num_pulses,
-        cost_function=_cost_func,
-        save_results=save_results,
-        initial_guess=initial_guess,
-    )
-
 def learn_custom_operation(    
     num_moments : int,
     initial_state : _DensityMatrixType,
@@ -577,11 +553,12 @@ def learn_custom_operation(
 
     # Progress_bar
     prog_bar = visuals.ProgressBar(max_iter, "Minimizing: ")
-    print_counter = 0
+    
+    skip_num = 10
+    @decorators.sparse_execution(skip_num=skip_num, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
-        print_counter += 1
-        if 
-        prog_bar.next()
+        cost = total_cost_function(xk)
+        prog_bar.next(increment=skip_num, extra_str=f"cost = {cost}")
         finish : bool = False
         return finish
     
@@ -620,9 +597,11 @@ def learn_custom_operation(
     
     # Pack learned-results:
     optimal_theta = opt_res.x
-    final_state = coherent_control.custom_sequence(initial_state, theta=optimal_theta, operations=operations )
+    optimal_operation_params = param_config.optimization_theta_to_operations_params(optimal_theta)
+    final_state = coherent_control.custom_sequence(initial_state, theta=optimal_operation_params, operations=operations )
     learned_results = LearnedResults(
         theta = optimal_theta,
+        operation_params = optimal_operation_params,
         score = opt_res.fun,
         time = finish_time-start_time,
         initial_state = initial_state,
@@ -639,52 +618,6 @@ def learn_custom_operation(
 # ==================================================================================== #
 # |                                  main tests                                      | #
 # ==================================================================================== #
-
-def _run_many_guesses(
-    min_num_pulses:int=3,
-    max_num_pulses:int=16, 
-    num_tries:int=5,
-    num_moments:int=8
-) -> LearnedResults:
-
-    # Track the best results:
-    best_results : LearnedResults = LearnedResults(score=1e10) 
-
-    # For movie:
-    # target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
-    coherent_control = CoherentControl(num_moments=num_moments)
-    movie_config = CoherentControl.MovieConfig(
-        active=True,
-        show_now=False,
-        num_transition_frames=10,
-        num_freeze_frames=5,
-        fps=3,
-        bloch_sphere_resolution=25,
-        score_str_func = lambda state: _score_str_func(state)
-    )    
-    
-    
-    for num_pulses in range(min_num_pulses, max_num_pulses+1):
-        for _ in range(num_tries):
-            # Run:
-            try:
-                results = creating_gkp_algo(num_pulses=num_pulses, num_moments=num_moments)
-            except Exception as e:
-                errors.print_traceback(e)
-            # Check if better than best:
-            if results.score < best_results.score:
-                best_results = results
-                # Print and record movie:
-                print(results)
-                coherent_control.coherent_sequence(results.initial_state, theta=results.theta, movie_config=movie_config)
-                
-    saveload.save(best_results, "best_results "+strings.time_stamp())
-    print("\n")
-    print("\n")
-    print("best_results:")
-    print(best_results)
-    return best_results
-
 
 
 def creating_4_leg_cat_algo(
@@ -763,191 +696,23 @@ def creating_4_leg_cat_algo(
         initial_guess=None,
         parameters_config=param_config
     )
+    
+    
+    fidelity = -1 * results.score
+    print(f"fidelity is { fidelity }")
+    
+    operation_params = results.operation_params
+    print(f"operation params:")
+    print(operation_params)
+    
     final_state = results.final_state
-    fidelity1 = -1 * results.score
-    fidelity2 = metrics.fidelity(final_state, target_4legged_cat_state)
-    print(f"fidelity is { fidelity1 }")
-    print(f"fidelity is { fidelity2 }")
-    
-    
-    
-    
-    
-    
+    visuals.plot_matter_state(final_state)
     
     
     
 
-
-    cat2_creation_params = noon_data.params
-    cat2_creation_params[T4_PARAM_INDEX] = cat2_creation_params[T4_PARAM_INDEX] / 5
-    
-
-    cat2_state = coherent_control.custom_sequence(state=initial_state, theta=cat2_creation_params, operations=noon_creation_operations)
-    visuals.plot_matter_state(cat2_state)
-    
-
-    # Define new initial state:
-    cat3_creation_operations = \
-        noon_creation_operations + \
-        [standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])] + \
-        noon_creation_operations
-
-    cat3_row_creation_params = []
-    cat3_row_creation_params.extend(cat2_creation_params)
-    cat3_row_creation_params.append(pi)  # x pi pulse
-    cat3_row_creation_params.extend(cat2_creation_params)
-
-    # our almost gkp state:
-    cat3_state = coherent_control.custom_sequence(state=initial_state, theta=cat3_row_creation_params, operations=cat3_creation_operations)
-
-    ## Center the cat-state:
-    print("Center the cat-state")
-    operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-    ]
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        observation_mean = np.trace( final_state @ Sp )
-        cost = abs(observation_mean)
-        return cost
-    results = learn_custom_operation(
-        num_moments=num_moments, initial_state=cat3_state, cost_function=cost_function, operations=operations, max_iter=MAX_NUM_ITERATION, initial_guess=None
-    )
-    cat3_state = results.final_state
-
-    ## Force cat-state to be on the bottom:
-    z_projection = np.real(np.trace( cat3_state @ Sz ))
-    if z_projection>0:
-        cat3_state = coherent_control.pulse_on_state(cat3_state, x=pi)
-
-    ## Aligning with the y axis:
-    print("Aligning with the y axis")
-    operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
-    ]
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        observation_mean = np.trace( final_state @ Sx @ Sx )
-        cost = observation_mean
-        return cost
-    results = learn_custom_operation(
-        num_moments=num_moments, initial_state=cat3_state, cost_function=cost_function, operations=operations, max_iter=MAX_NUM_ITERATION, initial_guess=None
-    )
-    cat3_state = results.final_state
     
     
-    
-    
-    
-def creating_gkp_algo(
-    num_moments:int=40
-) -> LearnedResults:
-
-    ## Check inputs:
-    assertions.even(num_moments)
-    
-    ## Define operations:
-    initial_state = Fock.excited_state_density_matrix(num_moments)
-    coherent_control = CoherentControl(num_moments=num_moments)
-    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
-    Sp = coherent_control.s_pulses.Sp
-    Sx = coherent_control.s_pulses.Sx
-    Sy = coherent_control.s_pulses.Sy
-    Sz = coherent_control.s_pulses.Sz
-
-
-    noon_data = _load_or_find_noon(num_moments)
-
-
-    cat_creation_half_params = noon_data.params
-    cat_creation_half_params[T4_PARAM_INDEX] = cat_creation_half_params[T4_PARAM_INDEX] / 5
-
-
-    # Define new initial state:
-    cat_creation_operations = \
-        noon_data.operation + \
-        [standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])] + \
-        noon_data.operation
-
-    cat_creation_params = []
-    cat_creation_params.extend(cat_creation_half_params)
-    cat_creation_params.append(pi)  # x pi pulse
-    cat_creation_params.extend(cat_creation_half_params)
-
-    # our almost gkp state:
-    cat_state = coherent_control.custom_sequence(state=initial_state, theta=cat_creation_params, operations=cat_creation_operations)
-
-    ## Center the cat-state:
-    print("Center the cat-state")
-    operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-    ]
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        observation_mean = np.trace( final_state @ Sp )
-        cost = abs(observation_mean)
-        return cost
-    results = learn_custom_operation(
-        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
-    )
-    cat_state = results.final_state
-
-    ## Force cat-state to be on the bottom:
-    z_projection = np.real(np.trace( cat_state @ Sz ))
-    if z_projection>0:
-        cat_state = coherent_control.pulse_on_state(cat_state, x=pi)
-
-    ## Aligning with the y axis:
-    print("Aligning with the y axis")
-    operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
-    ]
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        observation_mean = np.trace( final_state @ Sx @ Sx )
-        cost = observation_mean
-        return cost
-    results = learn_custom_operation(
-        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
-    )
-    cat_state = results.final_state
-
-
-
-    ## Learn GKP:
-    # define operation:
-    gkp_creation_operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.squeezing(),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-    ]
-    # define cost function:
-    target_state = gkp.goal_gkp_state(num_moments=num_moments)
-    def cost_function(final_state):
-        return (-1) * metrics.fidelity(final_state, target_state)
-    gkp_results = learn_custom_operation(
-        num_moments=num_moments, 
-        initial_state=cat_state, 
-        cost_function=cost_function, 
-        operations=gkp_creation_operations, 
-        max_iter=max_iter, 
-        initial_guess=None
-    )
-    sounds.ascend()
-    visuals.plot_city(gkp_results.final_state)
-    visuals.draw_now()
-    print(f"GKP fidelity is { -1 * gkp_results.score}")
-    gkpn_creation_params = gkp_results.theta
-
-
-
-
-    def _trial(x:float) -> _DensityMatrixType:
-        trial_state = coherent_control.pulse_on_state(cat_state, x=x)
-        _wigner(trial_state, title=f"x={x}")
-        return trial_state
-        
-    trial_state = _trial(0.15)
-
-    mid_placed_state = coherent_control.pulse_on_state(trial_state, x=-pi/2)
-
 
 def main():
     # results = _run_many_guesses()

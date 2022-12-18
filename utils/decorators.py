@@ -2,7 +2,31 @@ from typing import (
     Literal,
     Callable,
     Iterable,
+    Any,
 )
+
+
+def sparse_execution(skip_num:int, default_results:Any) -> Callable[[Callable], Callable]:
+    assert isinstance(skip_num, int)
+    assert skip_num > 0
+
+    def decorator(func:Callable) -> Callable:
+        counter : int = 0
+    
+        def wrapper(*args, **kwargs) -> Any:
+            nonlocal counter
+            
+            if counter >= skip_num:
+                results = func(*args, **kwargs)
+                counter = 0
+            else:
+                results = default_results
+                counter += 1
+            
+            return results
+        return wrapper
+    return decorator
+
 
 def timeit(func: Callable):
     def wrapper(*args, **kwargs):
