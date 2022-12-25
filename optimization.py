@@ -658,21 +658,28 @@ def creating_4_leg_cat_algo(
         [standard_operations.power_pulse_on_specific_directions(power=1)] + \
         noon_creation_operations + \
         [standard_operations.power_pulse_on_specific_directions(power=1)] + \
-        noon_creation_operations 
-    
+        noon_creation_operations + \
+        [standard_operations.power_pulse_on_specific_directions(power=1)] 
+
+    def _rand(n:int)->list:
+        return list(np.random.randn(n))
+            
 
     # Initital guess and the fixed params vs free params:
+    num_noon_params = 8
     free  = ParamLock.FREE
     fixed = ParamLock.FIXED
     noon_data_params = [val for val in noon_data.params]
-    noon_affiliation = list(range(1,9))
-    noon_lockness    = [free]*8  # [fixed]*8
+    noon_affiliation = list(range(1, num_noon_params+1))
+    noon_lockness    = [free]*num_noon_params  # [fixed]*8
+    noon_value       = list(noon_data.params)
     # noon_lockness[T4_PARAM_INDEX] = free
 
 
-    param_values       = noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params
-    params_affiliation = noon_affiliation + [None]*3  + noon_affiliation + [None]*3  + noon_affiliation + [None]*3  + noon_affiliation
-    params_lockness    = noon_lockness    + [free]*3  + noon_lockness    + [free]*3  + noon_lockness    + [free]*3  + noon_lockness      
+    param_values       = noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] 
+    params_affiliation = noon_affiliation + [None]*3  + noon_affiliation + [None]*3  + noon_affiliation + [None]*3  + noon_affiliation + [None]*3  
+    params_lockness    = noon_lockness    + [free]*3  + noon_lockness    + [free]*3  + noon_lockness    + [free]*3  + noon_lockness    + [free]*3     
+    params_value       = noon_value       + _rand(3)  + noon_value       + _rand(3)  + noon_value       + _rand(3)  + noon_value       + _rand(3)  
     assert len(params_affiliation)==len(params_lockness)
     assert len(params_affiliation)==len(param_values)
 
@@ -683,6 +690,8 @@ def creating_4_leg_cat_algo(
         for value, affiliation, lock_state  in zip(param_values, params_affiliation, params_lockness)
     ]
     
+    num_variables = 3*4+num_noon_params
+        
     ## Learn:
     def cost_function(final_state:_DensityMatrixType) -> float : 
         return -1 * metrics.fidelity(final_state, target_4legged_cat_state)
@@ -691,10 +700,10 @@ def creating_4_leg_cat_algo(
         num_moments=num_moments, 
         initial_state=initial_state, 
         cost_function=cost_function, 
+        initial_guess=initial_guess,
         operations=cat4_creation_operations, 
         max_iter=MAX_NUM_ITERATION, 
-        initial_guess=None,
-        parameters_config=param_config
+        parameters_config=param_config,
     )
     
     
