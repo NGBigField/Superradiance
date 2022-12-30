@@ -161,8 +161,9 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
                     
                     if -m1 + m2 + q == 0:
                         tracem1m2 = rho[floor(m1 + j), floor(m2 + j)]
-                        Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * np.conj(
-                            np.complex(wigner_3j(j, k, j, -m1, q, m2)))
+                        wig_sym = wigner_3j(j, k, j, -m1, q, m2)
+                        wig_val = np.conj(complex(wig_sym))
+                        Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * wig_val
             W = W + Ykq * Gkq;
     pb.close()
 
