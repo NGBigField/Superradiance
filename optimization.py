@@ -33,6 +33,7 @@ from utils import (
     indices,
     sounds,
     decorators,
+    lists,
 )
 
 # For defining coherent states:
@@ -67,27 +68,27 @@ from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-OPT_METHOD : Final = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
+OPT_METHOD : Final[str] = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
 
-TOLERANCE = 1e-10  # 1e-12
-MAX_NUM_ITERATION = 1e5  # 1e6 
+TOLERANCE : Final[float] = 1e-7  # 1e-12
+MAX_NUM_ITERATION : Final[int] = int(1e3)  # 1e6 
 
-T4_PARAM_INDEX = 5
+T4_PARAM_INDEX : Final[int] = 5
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
 # ==================================================================================== #
 @dataclass
 class LearnedResults():
-    theta : np.array = None
-    operation_params : List[float] = None
-    score : float = None
-    initial_state : np.matrix = None
-    final_state : np.matrix = None
-    time : float = None
-    iterations : int = None
-    operations : List[Operation] = None
+    theta               : Optional[np.ndarray]        = None
+    operation_params    : Optional[List[float]]       = None
+    score               : Optional[float]             = None
+    initial_state       : Optional[np.matrix]         = None
+    final_state         : Optional[np.matrix]         = None
+    time                : Optional[float]             = None
+    iterations          : Optional[int]               = None
+    operations          : Optional[List[Operation]]   = None
 
     def __repr__(self) -> str:
         np_utils.fix_print_length()
@@ -123,7 +124,9 @@ class ParamConfigBase():
 @dataclass
 class FreeParam(ParamConfigBase): 
     affiliation : int | None
-    bounds : Tuple[float, float]
+    initial_guess : float | None = None
+    bounds : Tuple[float, float] | None = None
+    is_angle : bool = False
 
     @property
     def lock(self)->ParamLock:
@@ -240,10 +243,13 @@ class OptimizationParams:
                         continue
                     else:
                         used_affiliations.add(param.affiliation)
-                
-                lower_bound = -np.pi/2 if param.bounds[0] is None else param.bounds[0]
-                upper_bound = +np.pi/2 if param.bounds[1] is None else param.bounds[1]
-                val = np.random.uniform(low=lower_bound, high=upper_bound)
+
+                if param.initial_guess is None:
+                    lower_bound = -np.pi if param.bounds[0] is None else param.bounds[0]
+                    upper_bound = +np.pi if param.bounds[1] is None else param.bounds[1]
+                    val = np.random.uniform(low=lower_bound, high=upper_bound)
+                else:
+                    val = param.initial_guess
                 initial_guess.append(val)   
     
         return np.array(initial_guess)
@@ -380,25 +386,47 @@ def _coherent_control_from_mat(mat:_DensityMatrixType) -> CoherentControl:
 def _deal_params_config( 
     num_operation_params:int, 
     positive_indices : np.ndarray,
-    parameter_configs: List[Tuple[ParamLock, int|float ]] = None
+    parameter_configs: List[Tuple[ParamLock, int|float ]] | List[ParamConfigBase] | None = None
 ) -> OptimizationParams :
 
-    def is_positive(i:int)->bool:
+    def _is_positive(i:int)->bool:
         return i in positive_indices
 
-    def bounds(i:int) -> Tuple[float, float]:
-        if is_positive(i):
+    def _bounds(i:int) -> Tuple[float, float]:
+        if _is_positive(i):
             return (0, None)
         else:
             return (None, None)
 
-    if parameter_configs is None:
-        free_params  = [FreeParam( index=i, affiliation=None, bounds=bounds(i)) for i in range(num_operation_params)  ]
-        fixed_params = [ ]
 
-    else:
-        free_params  = [FreeParam( index=i, affiliation=param[1], bounds=bounds(i)) for i, param in enumerate(parameter_configs) if param[0]==ParamLock.FREE  ]
+    if parameter_configs is None:
+        free_params  = [FreeParam( index=i, affiliation=None, bounds=_bounds(i)) for i in range(num_operation_params)  ]
+        fixed_params = [ ]
+    
+    assert isinstance(parameter_configs, list)
+    common_type = lists.common_type(parameter_configs)
+
+    if issubclass(common_type, ParamConfigBase):
+        parameter_configs : List[ParamConfigBase]
+        def _get_all(lock:ParamLock)->List[ParamConfigBase]:
+            lis = []
+            for param in parameter_configs:
+                if param.lock is not lock:
+                    continue
+                if isinstance(param, FreeParam):
+                    if param.bounds is None:
+                        param.bounds = _bounds(param.index)
+                lis.append(param)
+            return lis 
+        free_params  = _get_all(ParamLock.FREE )
+        fixed_params = _get_all(ParamLock.FIXED)
+
+    elif common_type is tuple:
+        free_params  = [FreeParam( index=i, affiliation=param[1], bounds=_bounds(i)) for i, param in enumerate(parameter_configs) if param[0]==ParamLock.FREE  ]
         fixed_params = [FixedParam(index=i, value=param[1]) for i, param in enumerate(parameter_configs) if param[0]==ParamLock.FIXED ]
+    
+    else:
+        raise TypeError(f"Expected `parameter_configs` to be a list of types tuples or `ParamConfigBase`. Instead got {common_type} ")
 
     return OptimizationParams(free_params=free_params, fixed_params=fixed_params, num_operation_params=num_operation_params)
     
@@ -547,7 +575,7 @@ def learn_custom_operation(
     cost_function : Callable[[_DensityMatrixType], float],
     max_iter : int=100, 
     initial_guess : Optional[np.ndarray] = None,
-    parameters_config : List[Tuple[ParamLock, int|float ]] = None,
+    parameters_config : Optional[List[ParamConfigBase]|List[tuple]] = None,
     save_results : bool=True,
 ) -> LearnedResults:
 
@@ -557,7 +585,7 @@ def learn_custom_operation(
     skip_num = 10
     @decorators.sparse_execution(skip_num=skip_num, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
-        cost = total_cost_function(xk)
+        cost = _total_cost_function(xk)
         prog_bar.next(increment=skip_num, extra_str=f"cost = {cost}")
         finish : bool = False
         return finish
@@ -566,13 +594,16 @@ def learn_custom_operation(
     num_operation_params = sum([op.num_params for op in operations])
     positive_indices = _positive_indices_from_operations(operations)
     param_config : OptimizationParams = _deal_params_config(num_operation_params, positive_indices, parameters_config)
-    initial_guess = param_config.initial_guess(initial_guess=initial_guess)
+    if initial_guess is None:
+        initial_guess = param_config.initial_guess(initial_guess=initial_guess)
+    else:
+        assert len(initial_guess)==param_config.num_variables
 
 
     ## Optimization Config:
     # Define operations:
     coherent_control = CoherentControl(num_moments)
-    def total_cost_function(theta:np.ndarray) -> float : 
+    def _total_cost_function(theta:np.ndarray) -> float : 
         operation_params = param_config.optimization_theta_to_operations_params(theta)
         final_state = coherent_control.custom_sequence(initial_state, theta=operation_params, operations=operations )
         cost = cost_function(final_state)
@@ -584,7 +615,7 @@ def learn_custom_operation(
     # Run optimization:
     start_time = time.time()
     opt_res : OptimizeResult = minimize(
-        total_cost_function, 
+        _total_cost_function, 
         initial_guess, 
         method=OPT_METHOD, 
         options=options, 
@@ -672,25 +703,28 @@ def creating_4_leg_cat_algo(
     noon_data_params = [val for val in noon_data.params]
     noon_affiliation = list(range(1, num_noon_params+1))
     noon_lockness    = [free]*num_noon_params  # [fixed]*8
-    noon_value       = list(noon_data.params)
-    # noon_lockness[T4_PARAM_INDEX] = free
 
 
-    param_values       = noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] 
+    # param_values       = noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] + noon_data_params + [0, 0, 0] 
+    params_value       = noon_data_params + _rand(3)  + noon_data_params + _rand(3)  + noon_data_params + _rand(3)  + noon_data_params + _rand(3)  
     params_affiliation = noon_affiliation + [None]*3  + noon_affiliation + [None]*3  + noon_affiliation + [None]*3  + noon_affiliation + [None]*3  
     params_lockness    = noon_lockness    + [free]*3  + noon_lockness    + [free]*3  + noon_lockness    + [free]*3  + noon_lockness    + [free]*3     
-    params_value       = noon_value       + _rand(3)  + noon_value       + _rand(3)  + noon_value       + _rand(3)  + noon_value       + _rand(3)  
-    assert len(params_affiliation)==len(params_lockness)
-    assert len(params_affiliation)==len(param_values)
+    assert lists.same_length(params_affiliation, params_lockness, params_value)
 
-    param_config = [ \
-        (lock_state, affiliation) 
-        if lock_state == ParamLock.FREE
-        else (lock_state, value) 
-        for value, affiliation, lock_state  in zip(param_values, params_affiliation, params_lockness)
-    ]
-    
-    num_variables = 3*4+num_noon_params
+    param_config : List[ParamConfigBase] = []
+    for i, (affiliation, lock_state, initial_value) in enumerate(zip(params_affiliation, params_lockness, params_value)):
+        if lock_state == ParamLock.FREE:
+            param_config.append(FreeParam(
+                index=i, initial_guess=initial_value, affiliation=affiliation
+            ))
+        else:
+            param_config.append(FixedParam(
+                index=i, value=initial_value
+            ))
+
+    initial_guess = np.array([
+        -2.7, -1.5, +5, -2.1, -8.3, -1.4, -2, 2, -5, -3, -4, 6, 2, -2, 2, -2, -4, 9, -5, -5
+    ])    
         
     ## Learn:
     def cost_function(final_state:_DensityMatrixType) -> float : 
@@ -700,10 +734,10 @@ def creating_4_leg_cat_algo(
         num_moments=num_moments, 
         initial_state=initial_state, 
         cost_function=cost_function, 
-        initial_guess=initial_guess,
         operations=cat4_creation_operations, 
         max_iter=MAX_NUM_ITERATION, 
         parameters_config=param_config,
+        initial_guess=initial_guess
     )
     
     
