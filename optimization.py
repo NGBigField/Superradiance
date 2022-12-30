@@ -19,6 +19,8 @@ from typing import (
     Optional,
     Callable,
     Generator,
+    TypeAlias,
+    NamedTuple,
 )
 
 # import our helper modules
@@ -34,6 +36,7 @@ from utils import (
     sounds,
     decorators,
     lists,
+    types,
 )
 
 # For defining coherent states:
@@ -675,7 +678,7 @@ def learn_custom_operation(
     positive_indices = _positive_indices_from_operations(operations)
     param_config : OptimizationParams = _deal_params_config(num_operation_params, positive_indices, parameters_config)
     if initial_guess is None:
-        initial_guess = param_config.initial_guess(initial_guess=initial_guess)
+        initial_guess = param_config.initial_guess()
     else:
         assert len(initial_guess)==param_config.num_variables
 
@@ -732,6 +735,78 @@ def learn_custom_operation(
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
+class AttemptResult(NamedTuple):
+    initial_guess : np.ndarray
+    result : LearnedResults
+    score : float
+
+def exhaustive_search(
+    num_moments         : int = 40,
+    num_tries           : int = 3,
+    num_iter_per_try    : int = int(1e1)
+) -> LearnedResults:
+
+    base_guess = np.array(
+            [ 2.68167102e+00,  1.61405534e+00, -1.03042969e+01,  5.98736807e-02,
+            1.26242432e+00,  1.47234240e+00, -1.71681054e+00, -8.64374806e+01,
+            4.30847192e-01,  7.88459398e-01, -6.89081116e-02, -2.02854074e+00,
+            2.23136298e+00,  3.14159265e+00,  3.60804145e-03, -2.18231897e+00,
+            -5.95372440e-02]
+       )
+
+    all_attempts : List[AttemptResult] = []
+    best_attempt : AttemptResult = AttemptResult(initial_guess=0, result=0, score=10)
+    for i in range(num_tries):
+        print("searching... "+strings.num_out_of_num(i+1, num_tries))
+        guess = _noise(base_guess, std=1)
+        res = _exhaustive_try(num_moments=num_moments, initial_guess=guess, num_iter=num_iter_per_try)
+        score = res.score
+        crnt_attempt = AttemptResult(initial_guess=guess, result=res, score=res.score)
+        all_attempts.append(crnt_attempt)
+        if crnt_attempt.score < best_attempt.score:
+            best_attempt = crnt_attempt
+            _print_progress(crnt_attempt)
+
+    # Save results in a dict format that can be read without fancy containers:
+    saved_var = dict(
+        best_attempt=types.as_plain_dict(best_attempt),
+        all_attempts=[types.as_plain_dict(attempt) for attempt in all_attempts]
+    )
+    file_name = "exhaustive_search "+strings.time_stamp()
+    saveload.save(saved_var, name=file_name)
+    print(f"Saving file with name '{file_name}'")
+    saved_var = saveload.load("exhaustive_search 2022.12.30_15.45.18")
+    
+    # Plot best result:
+    visuals.plot_matter_state(best_attempt.result.final_state)
+
+    print("Done!")
+    return best_attempt.result
+    
+
+def _print_progress(crnt_attempt:AttemptResult) -> None:
+    print(f"New best result!  Fidelity = {crnt_attempt.score}")
+    print(f"Theta = {crnt_attempt.result.theta}")
+    print(f"Operation Params = {crnt_attempt.result.operation_params}")
+    
+    
+@decorators.multiple_tries(5)
+def _exhaustive_try(num_moments:int, initial_guess:np.ndarray, num_iter:int) -> LearnedResults:
+
+    initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments)
+
+    results = learn_custom_operation(
+        num_moments=num_moments, 
+        initial_state=initial_state, 
+        cost_function=cost_function, 
+        operations=cat4_creation_operations, 
+        max_iter=num_iter, 
+        parameters_config=param_config,
+        initial_guess=initial_guess
+    )
+    
+    return results
+
 
 def creating_4_leg_cat_algo(
     num_moments:int=40
@@ -746,7 +821,7 @@ def creating_4_leg_cat_algo(
             2.23136298e+00,  3.14159265e+00,  3.60804145e-03, -2.18231897e+00,
             -5.95372440e-02]
        )
-       , std=1
+       , std=2.0
     )
         
     initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments)
@@ -780,7 +855,8 @@ def creating_4_leg_cat_algo(
 
 def main():
     # results = _run_many_guesses()
-    results = creating_4_leg_cat_algo()
+    # results = creating_4_leg_cat_algo()
+    results = exhaustive_search()
     print("End")
 
 if __name__ == "__main__":

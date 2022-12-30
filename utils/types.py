@@ -7,7 +7,10 @@ import numpy as np
 
 from typing import (
     Tuple,
+    Any,
+    Dict,
 )
+
 
 
 # ==================================================================================== #
@@ -68,5 +71,23 @@ def greatest_common_numeric_class(*types: Tuple[type, ...]) -> type:
     return common_type
     
 
+def can_be_converted_to_dict(x:Any)->bool:
+    if hasattr(x, "_asdict"):
+        return True
+    elif hasattr(x, "__dict__") and not isinstance(x, np.ndarray):
+        return True
+    else:
+        return False
+
+def as_plain_dict(x:Any) -> Dict[str, Any]:
+    if hasattr(x, "_asdict"):
+        d : Dict[str, Any] = x._asdict()
+    elif hasattr(x, "__dict__"):
+        d : Dict[str, Any] = x.__dict__
+    else:
+        raise TypeError(f"Input of type '{type(x)}' can't be converted to dict!")
     
-    
+    for key, val in d.items():
+        if can_be_converted_to_dict(val):
+            d[key] = as_plain_dict(val)
+    return d

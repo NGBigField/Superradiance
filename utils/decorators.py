@@ -5,6 +5,10 @@ from typing import (
     Any,
 )
 
+# for sleeping between tries:
+from time import sleep
+
+
 
 def sparse_execution(skip_num:int, default_results:Any) -> Callable[[Callable], Callable]:
     assert isinstance(skip_num, int)
@@ -99,6 +103,40 @@ def assert_type(Type: type, at: Literal['input', 'output', 'both'] = 'both' ) ->
     return decorator
 
 
+# = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = #
+
+def save_results(name:str)->Callable[[Callable], Callable]: # function that returns a decorator
+    def decorator(func:Callable)->Callable: # decorator that returns a wrapper:
+        def wrapper(*args, **kwargs)->typ.Any: # wrapeer that cals the function            
+            results = func(*args, **kwargs)
+            Dict = dict(results=results, args=args, kwargs=kwargs, func_name=func.__name__)
+            file_name = f"{name}_{Strings.time_stamp()}"
+            SaveLoad.save(Dict, file_name)
+            return results
+        return wrapper
+    return decorator
+
+def multiple_tries(num:int, sleep_time_between_attempts:float=0.0)->Callable[[Callable], Callable]: # function that returns a decorator
+    # Check input:
+    assert sleep_time_between_attempts>=0.00, f"sleep_time_between_attempts must be a non-negative float."
+    # Return decorator:
+    def decorator(func:Callable)->Callable: # decorator that returns a wrapper:
+        def wrapper(*args, **kwargs)->Any: # wrapeer that cals the function            
+            func_name = func.__name__
+            last_error = Exception("Temp Exception")
+            for i in range(num):
+                try:
+                    results = func(*args, **kwargs)
+                    return results
+                except Exception as e:
+                    last_error = e
+                    print("")
+                    print(f"Failed to run '{func_name}' at attempt {i+1}. Reason:")
+                    print(str(e))
+                    sleep(sleep_time_between_attempts)
+            raise last_error
+        return wrapper
+    return decorator
 
 
 # ============================================================================ #

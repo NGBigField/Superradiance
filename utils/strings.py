@@ -27,8 +27,8 @@ def formatted(s:Any, fill:str=' ', alignment:Literal['<','^','>']='>', width:Opt
 
 def num_out_of_num(num1, num2):
     width = len(str(num2))
-    formatted = lambda num: formatted(num, fill=' ', alignment='>', width=width )
-    return formatted(num1)+"/"+formatted(num2)
+    formatted_ = lambda num: formatted(num, fill=' ', alignment='>', width=width )
+    return formatted_(num1)+"/"+formatted_(num2)
 
 def time_stamp():
     t = time.localtime()
