@@ -96,6 +96,22 @@ class Operation():
             return self.string
         else:
             return None
+        
+    def get_outputs(self, in_state:_DensityMatrixType, params:List[float], num_intermediate:int=1) -> Tuple[
+        _DensityMatrixType,
+        List[_DensityMatrixType]
+    ]:
+        op_output = self.function(in_state, *params)                
+        if isinstance(op_output, list):
+            out_state = op_output[-1]
+            transition_states = op_output
+        elif isinstance(op_output, (np.matrix, np.ndarray) ):
+            out_state = op_output
+            transition_states = [op_output]                
+        else: 
+            raise ValueError(f"Bug")
+        
+        return out_state, transition_states
 
 
 
@@ -836,26 +852,24 @@ class CoherentControl():
         movie_config = args.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
 
         # For sequence recording:
-        sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
+        first_frame_state = None  # crnt_state
+        sequence_recorder = SequenceMovieRecorder(initial_state=first_frame_state, config=movie_config)
 
         # iterate:
-        for params, operation in zip(all_params, operations):    
+        num_iter = len(operations)
+        for i, (params, operation) in enumerate(zip(all_params, operations)):    
+            
             # Check params:
             assert operation.num_params == len(params)
             # Apply operation:
-            op_output = operation.function(crnt_state, *params)                
-            if isinstance(op_output, list):
-                crnt_state = op_output[-1]
-                transition_states = op_output
-            elif isinstance(op_output, (np.matrix, np.ndarray) ):
-                crnt_state = op_output
-                transition_states = [op_output]                
-            else: 
-                raise ValueError(f"Bug")
+            num_intermediate : int = movie_config.num_transition_frames if movie_config.active else 1
+            crnt_state, transition_states = operation.get_outputs(crnt_state, params, num_intermediate)
             # Get title:
             title = operation.get_string(params)
             # Record:
-            sequence_recorder.record_transition(transition_states, title=title)
+            if sequence_recorder.is_active:
+                print(f"Recording Sequence... "+strings.num_out_of_num(i+1, num_iter))
+                sequence_recorder.record_transition(transition_states, title=title)
 
         sequence_recorder.write_video()
 
