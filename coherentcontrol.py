@@ -88,6 +88,14 @@ class Operation():
     string : str = None
     positive_params_only : bool = False
     rotation_params : List[int] = None
+    
+    def get_string(self, params:List[float]) -> str:
+        if self.string_func is not None:
+            return self.string_func(*params)
+        elif self.string is not None:
+            return self.string
+        else:
+            return None
 
 
 
@@ -260,6 +268,9 @@ def _list_of_intermediate_pulsed_states(state:_DensityMatrixType, p:np.matrix, n
 # ==================================================================================== #
 # |                            Declared Functions                                    | #
 # ==================================================================================== #
+
+
+
 
 def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
     # Check input:
@@ -567,7 +578,7 @@ class CoherentControl():
                 string_func=_str_func
             )
 
-        def stark_shift(self, indices:List[int]=None) -> Operation:
+        def stark_shift(self, indices:Optional[List[int]]=None) -> Operation:
             if indices is None:
                 num_params = self.density_matrix_size
             else:
@@ -583,7 +594,7 @@ class CoherentControl():
         def stark_shift_and_rot(self, stark_shift_indices:List[int]=[1], rotation_indices:List[int] = [0, 1] ):
             # Check inputs:
             num_stark_shifts = len(stark_shift_indices)
-            assert num_stark_shifts<2
+            assert num_stark_shifts<2, "We don't yet support many stark-shifts"
 
             # prepare inputs:
             if len(rotation_indices) in [0, 1]:
@@ -592,9 +603,12 @@ class CoherentControl():
                 num_rotation_directions = 1
 
             num_params = num_stark_shifts + num_rotation_directions + 1
-
-            def _func(rho, *theta):
-                # Deal params:
+            
+            def _deal_params(*theta)->Tuple[
+                float,  # global_strength
+                float,  # rotation_angle
+                float   # stark_shift_strength
+            ]:
                 global_strength = theta[0]
 
                 if num_rotation_directions == 0:
@@ -618,8 +632,13 @@ class CoherentControl():
                         raise NotImplementedError(f"We don't yet support many stark-shifts")
 
                 else:
-                    raise NotImplementedError(f"We don't yet support many thetas")
+                    raise NotImplementedError(f"We don't yet support many thetas")                
+                
+                return global_strength, rotation_angle, stark_shift_strength
 
+            def _func(rho:_DensityMatrixType, *theta)->List[_DensityMatrixType]:
+                # Deal params:
+                global_strength, rotation_angle, stark_shift_strength = _deal_params(*theta)
 
                 # Call func:
                 return self.coherent_control.stark_shift_and_rot_with_intermediate_states(
@@ -631,12 +650,18 @@ class CoherentControl():
                     rotation_angle = rotation_angle,
                     stark_shift_strength = stark_shift_strength
                 )
+                
+            def _str_func(*theta) -> str:
+                # Deal params:
+                global_strength, rotation_angle, stark_shift_strength = _deal_params(*theta)
+                return f"Stark-shift on {stark_shift_indices} with global_strength={global_strength} and stark_shift_strength={stark_shift_strength} \n"+\
+                    f"and rotation on {rotation_indices} with rotation_angle={rotation_angle}"
 
             # Return operation
             return Operation(
                 num_params = num_params,
                 function = _func,
-                string_func = lambda *theta: f"Stark-shift on indices {stark_shift_indices} with delta=[--] with values rotation theta={theta[1]} and global power={theta[0]}",
+                string_func = _str_func,
                 rotation_params=[]
             )
 
@@ -828,12 +853,7 @@ class CoherentControl():
             else: 
                 raise ValueError(f"Bug")
             # Get title:
-            if operation.string_func is not None:
-                title = operation.string_func(*params)
-            elif operation.string is not None:
-                title = operation.string
-            else:
-                title = None
+            title = operation.get_string(params)
             # Record:
             sequence_recorder.record_transition(transition_states, title=title)
 

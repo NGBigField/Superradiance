@@ -8,6 +8,7 @@ from typing import (
     Optional,
     Any,
     List,
+    Generator,
 )
 
 from numpy import isin
@@ -36,6 +37,7 @@ import csv
 #|                                  Constants                                         |#
 # ==================================================================================== #
 DATA_FOLDER = os.getcwd()+os.sep+"_saved_data"+os.sep
+PATH_SEP = os.sep
 
 # ==================================================================================== #
 #|                                   Classes                                          |#
@@ -72,11 +74,18 @@ def _common_name(name:str) -> str:
     else:
         return name+".dat"
 
+
 # ==================================================================================== #
 #|                              Declared Functions                                    |#
 # ==================================================================================== #
 
-
+def all_saved_data() -> Generator[Tuple[str, Any], None, None]:
+    for path, subdirs, files in os.walk(DATA_FOLDER):
+        for name in files:
+            fullpath = path + PATH_SEP + name
+            file = _open(fullpath, Mode.Read.str())
+            data = pickle.load(file)
+            yield name, data
 
 def save(var:Any, name:Optional[str]=None) -> None:
     # Complete missing inputs:
@@ -121,11 +130,7 @@ def make_sure_folder_exists(foldepath:str) -> None:
 # ==================================================================================== #
 
 def _test():
-    d = dict(a="A", b=3.05)
-    save(d, "test_file")
-    del d
-    e = load("test_file.dat")
-    print(e)
+    all_saved_data()
 
 
 if __name__ == "__main__":

@@ -59,11 +59,15 @@ from optimization import (
 )
 import metrics
 
+# For operations:
+import coherentcontrol
 from fock import Fock, cat_state
 
 # For managing saved data:
 from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
 
+
+from optimization_and_operations import pair_custom_operations_and_opt_params_to_op_params
 
 
 # ==================================================================================== #
@@ -72,8 +76,8 @@ from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save
 OPT_METHOD : Final[str] = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
 
-TOLERANCE : Final[float] = 1e-10  # 1e-12
-MAX_NUM_ITERATION : Final[int] = int(1e5)  # 1e6 
+TOLERANCE : Final[float] = 1e-12  # 1e-12
+MAX_NUM_ITERATION : Final[int] = int(5*1e4)  # 1e6 
 
 T4_PARAM_INDEX : Final[int] = 5
 
@@ -323,6 +327,7 @@ def exhaustive_search(
     num_moments         : int = 40,
     num_tries           : int = 100,
     num_iter_per_try    : int = int(5*1e3),
+    std                 : float = 0.5,
     plot_on             : bool = True
 ) -> List[AttemptResult]:
 
@@ -339,7 +344,7 @@ def exhaustive_search(
     for i in range(num_tries):
         print("searching... "+strings.num_out_of_num(i+1, num_tries))
         try:
-            guess = add_noise_to_params(base_guess, std=0.2)
+            guess = add_noise_to_params(base_guess, std=std)
             res = _exhaustive_try(num_moments=num_moments, initial_guess=guess, num_iter=num_iter_per_try)
         except:
             print(f"Skipping try {i} due to an error.")
@@ -436,6 +441,12 @@ def creating_4_leg_cat_algo(
 
     
     
+def _load_all_search_data() -> Generator[dict, None, None]:
+    for name, data in saveload.all_saved_data():
+        splitted_name = name.split(" ")
+        if splitted_name[0]=="exhaustive_search":
+            yield data    
+    
 
 def main():
     # results = exhaustive_search()
@@ -448,17 +459,95 @@ def main():
     #     if score < -0.6:
     #         print(theta)
 
-    all_results = []
-    for initial_guess in common_good_starts():
-        results = exhaustive_search(
-            base_guess=np.array(initial_guess),
-            num_moments=40,
-            num_tries=5,
-            num_iter_per_try=int(1e6)
-        )
-        all_results += results
-    saveload.save(all_results, name="All best results "+strings.time_stamp())
+    # all_results = []
+    # for initial_guess in common_good_starts():
+    #     results = exhaustive_search(
+    #         base_guess=np.array(initial_guess),
+    #         num_moments=40,
+    #         num_tries=5,
+    #         num_iter_per_try=int(1e5),
+    #         plot_on=False,
+    #         std=0.1
+    #     )
+    #     all_results += results
+    # saveload.save(all_results, name="All best results "+strings.time_stamp())
 
+    # print("Done.")
+    
+    # num_moments = 40
+    
+    # best_result : dict = {}
+    # best_score = -0.7
+    # count = 0
+    # for data in _load_all_search_data():
+    #     for result in data["all_attempts"]:
+    #         count += 1
+    #         if result["score"] < best_score:
+    #             best_result = result
+    
+    # print(count)
+    # print(best_result)
+    # initial_guess = best_result["initial_guess"]
+    # theta = best_result["result"]["theta"]
+    
+    
+    # array([   3.03467614,    0.93387172,  -10.00699257,   -0.72388404,
+    #       0.13744785,    2.11175319,    0.18788428, -118.69022356,
+    #      -1.50210956,    2.02098048,   -0.21569011,    3.03467614,
+    #       0.93387172,  -10.00699257,   -0.72388404,    0.13744785,
+    #       2.11175319,    0.18788428, -118.69022356,   -2.9236711 ,
+    #       3.01919738,    3.14159265,    3.03467614,    0.93387172,
+    #     -10.00699257,   -0.72388404,    0.13744785,    2.11175319,
+    #       0.18788428, -118.69022356,   -0.32642685,   -0.87976521,
+    #      -0.83782409])
+    
+    # initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments)
+    
+    # for op, params in  pair_custom_operations_and_opt_params_to_op_params(cat4_creation_operations, theta, param_config):
+    #     print(op.get_string(params))
+    
+    
+    # results = _exhaustive_try(num_moments=num_moments, initial_guess=theta, num_iter=10)
+    # print(results)
+    
+    
+    
+    num_moments = 40
+    
+    opt_theta = np.array(
+        [   3.03467614,    0.93387172,  -10.00699257,   -0.72388404,
+            0.13744785,    2.11175319,    0.18788428, -118.69022356,
+            -1.50210956,    2.02098048,   -0.21569011,   -2.9236711 ,
+            3.01919738,    3.14159265,   -0.32642685,   -0.87976521,
+            -0.83782409])
+    
+    initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments)
+    
+    operations = []
+    theta = []
+    for operation, oper_params in  pair_custom_operations_and_opt_params_to_op_params(cat4_creation_operations, opt_theta, param_config):
+        print(operation.get_string(oper_params))
+        theta.extend(oper_params)
+        operations.append(operation)
+        
+    target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
+    def _score_str_func(rho:_DensityMatrixType)->str:
+        fidel = metrics.fidelity(rho, target_4legged_cat_state)
+        return f"fidelity={fidel}"
+    
+        
+    coherent_control = CoherentControl(num_moments=num_moments)
+    movie_config = CoherentControl.MovieConfig(
+        active=True,
+        show_now=False,
+        num_transition_frames=2,
+        num_freeze_frames=2,
+        bloch_sphere_resolution=15,
+        score_str_func=_score_str_func
+    )
+    final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations, movie_config=movie_config)
+    print(final_state)
+    print(_score_str_func(final_state))
     print("Done.")
 
 if __name__ == "__main__":
