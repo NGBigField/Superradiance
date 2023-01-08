@@ -13,9 +13,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.axes import Axes
 from matplotlib.transforms import Bbox
 
-# For defining print std_out or other:
-import sys
-
 # Everyone needs numpy in their life and other math stuff:
 import numpy as np
 import math
@@ -59,6 +56,8 @@ from moviepy.editor import ImageClip, concatenate_videoclips
 from sympy.physics.wigner import wigner_3j
 from scipy.special import sph_harm
 
+# for smart iterations
+import itertools
 
 
 # ==================================================================================== #
@@ -144,9 +143,11 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     
     # Iterate:
     k_vals = np.linspace(0, 2*j, floor(2*j + 1))
-    pb = ProgressBar(len(k_vals), print_prefix="calculating wigner-function")
+    m_vals = np.linspace(-j, j, floor(2 * j + 1))
+
+    prog_bar_k = strings.ProgressBar(len(k_vals), print_prefix="calculating wigner-function ")
     for k in k_vals :
-        pb.next()
+        prog_bar_k.next()
         
         for q in np.linspace(-k, k, floor(2 * k + 1)):
 
@@ -156,16 +157,15 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
                 Ykq = (-1)**q*np.conj(sph_harm(-q, k, phi, theta))
             Gkq = 0
             
-            for m1 in np.linspace(-j, j, floor(2 * j + 1)):
-                for m2 in np.linspace(-j, j, floor(2 * j + 1)):
+            for m1, m2 in itertools.product(m_vals, repeat=2):                
+                if -m1 + m2 + q == 0:
+                    tracem1m2 = rho[floor(m1 + j), floor(m2 + j)]
+                    wig_sym = wigner_3j(j, k, j, -m1, q, m2)
+                    wig_val = np.conj(complex(wig_sym))
+                    Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * wig_val
                     
-                    if -m1 + m2 + q == 0:
-                        tracem1m2 = rho[floor(m1 + j), floor(m2 + j)]
-                        wig_sym = wigner_3j(j, k, j, -m1, q, m2)
-                        wig_val = np.conj(complex(wig_sym))
-                        Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * wig_val
             W = W + Ykq * Gkq;
-    pb.close()
+    prog_bar_k.clear()
 
     if warn_imaginary_part and ( np.max(abs(np.imag(W))) > 1e-3 ):
         print('The wigner function has non negligible imaginary part ', str(np.max(abs(np.imag(W)))))
@@ -418,67 +418,6 @@ class VideoRecorder():
         frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep
         saveload.make_sure_folder_exists(frames_dir)
         return frames_dir
-
-
-
-class ProgressBar():
-
-    def __init__(self, expected_end:int, print_prefix:str="", print_length:int=60, print_out=sys.stdout): 
-        self.expected_end :int = expected_end
-        self.print_prefix :int = print_prefix
-        self.print_length :int = print_length
-        self.print_out = print_out
-        self.counter = 0
-        self._as_iterator : bool = False
-
-    def __next__(self) -> int:
-        return self.next()
-
-    def __iter__(self):
-        self._as_iterator = True
-        return self
-
-    def next(self, increment:int=1, extra_str:Optional[str]=None) -> int:
-        self.counter += increment
-        if self._as_iterator and self.counter > self.expected_end:
-            self.close()
-            raise StopIteration
-        self._show(extra_str)
-        return self.counter
-
-    def close(self):
-        full_bar_length = self.print_length+len(self.print_prefix)+4+len(str(self.expected_end))*2
-        print(
-            f"{(' '*(full_bar_length))}", 
-            end='\r', 
-            file=self.print_out, 
-            flush=True
-        )
-
-    def _show(self, extra_str:Optional[str]=None):
-        # Unpack properties:
-        i = self.counter
-        prefix = self.print_prefix
-        expected_end = int( self.expected_end )
-        print_length = int( self.print_length )
-
-        # Derive print:
-        if i>expected_end:
-            crnt_bar_length = print_length
-        else:
-            crnt_bar_length = int(print_length*i/expected_end)
-        s = f"{prefix}[{u'█'*crnt_bar_length}{('.'*(print_length-crnt_bar_length))}] {i:d}/{expected_end:d}"
-
-        if extra_str is not None:
-            s += " "+extra_str
-
-        # Print:
-        print(
-            s,
-            end='\r', 
-            file=self.print_out, 
-            flush=True
-        )
 
 
 # ==================================================================================== #

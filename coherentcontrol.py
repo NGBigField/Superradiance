@@ -366,7 +366,7 @@ class SequenceMovieRecorder():
     
     def __init__(
         self, 
-        initial_state : _DensityMatrixType,
+        initial_state : Optional[_DensityMatrixType] = None,
         config : Optional[Config] = None,
     ) -> None:
         # Base properties:        
@@ -384,7 +384,7 @@ class SequenceMovieRecorder():
             self.config.score_str_func = SequenceMovieRecorder._default_score_str_func
         self.score_str_func : Callable[[np.matrix], str] = self.config.score_str_func
         # Keep last state:
-        self.last_state = initial_state
+        self.last_state : _DensityMatrixType = initial_state
         
     def _record_single_state(
         self,
@@ -404,7 +404,7 @@ class SequenceMovieRecorder():
 
     def record_transition(
         self, 
-        transition_states:np.matrix, 
+        transition_states:List[_DensityMatrixType], 
         title:str, 
     ) -> None:
         # Check inputs:
@@ -412,10 +412,13 @@ class SequenceMovieRecorder():
             return  # We don't want to record a video
         final_state = transition_states[-1]
         # Capture shots: (transition and freezed state)
+        prog_bar = strings.ProgressBar(len(transition_states), print_prefix="Capturing transition frames... ")
         for transition_state in transition_states:
+            prog_bar.next()
             if np.array_equal(transition_state, self.last_state):
                 continue
             self._record_single_state(transition_state, title=title, duration=1 )
+        prog_bar.clear()
         self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames)
         # Keep info for next call:
         self.last_state = deepcopy(transition_states)
@@ -857,8 +860,9 @@ class CoherentControl():
 
         # iterate:
         num_iter = len(operations)
+        prog_bar = strings.ProgressBar(num_iter, print_prefix="Performing custom sequence... ")
         for i, (params, operation) in enumerate(zip(all_params, operations)):    
-            
+            prog_bar.next()
             # Check params:
             assert operation.num_params == len(params)
             # Apply operation:
@@ -867,9 +871,8 @@ class CoherentControl():
             # Get title:
             title = operation.get_string(params)
             # Record:
-            if sequence_recorder.is_active:
-                print(f"Recording Sequence... "+strings.num_out_of_num(i+1, num_iter))
-                sequence_recorder.record_transition(transition_states, title=title)
+            sequence_recorder.record_transition(transition_states, title=title)
+        prog_bar.clear()
 
         sequence_recorder.write_video()
 

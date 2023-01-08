@@ -1,8 +1,12 @@
 from typing import (
     List,
     Any,
+    Generator,
+    TypeVar,
+    Tuple,
 )
 
+_T = TypeVar('_T')
 
 
 
@@ -31,3 +35,16 @@ def common_type(lis:List[Any]) -> type:
         crnt_type = type(item)
         assert crnt_type == common_type
     return common_type
+
+
+def iterate_with_edge_indicators(l:List[_T]) -> Generator[Tuple[bool, bool, _T], None, None]:
+    is_first : bool = True
+    is_last  : bool = False
+    n = len(l)
+    for i, item in enumerate(l):
+        if i+1==n:
+            is_last = True
+        
+        yield is_first, is_last, item
+
+        is_first = False

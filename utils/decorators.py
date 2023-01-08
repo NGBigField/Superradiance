@@ -3,6 +3,8 @@ from typing import (
     Callable,
     Iterable,
     Any,
+    List,
+    Tuple,
 )
 
 # for sleeping between tries:
@@ -107,14 +109,27 @@ def assert_type(Type: type, at: Literal['input', 'output', 'both'] = 'both' ) ->
 
 def save_results(name:str)->Callable[[Callable], Callable]: # function that returns a decorator
     def decorator(func:Callable)->Callable: # decorator that returns a wrapper:
-        def wrapper(*args, **kwargs)->typ.Any: # wrapeer that cals the function            
+        def wrapper(*args, **kwargs)->Any: # wrapeer that cals the function            
             results = func(*args, **kwargs)
             Dict = dict(results=results, args=args, kwargs=kwargs, func_name=func.__name__)
-            file_name = f"{name}_{Strings.time_stamp()}"
-            SaveLoad.save(Dict, file_name)
+            file_name = f"{name}_{strings.time_stamp()}"
+            saveload.save(Dict, file_name)
             return results
         return wrapper
     return decorator
+
+def ignore_first_method_call(func:Callable)->Callable: # decorator that returns a wrapper:
+    objects_that_already_called : List[Tuple[object, Callable]] = []
+
+    def wrapper(self, *args, **kwargs)->Any: # wrapeer that cals the function            
+        nonlocal objects_that_already_called
+        if (self, func) in objects_that_already_called:
+            results = func(self, *args, **kwargs)
+        else:
+            objects_that_already_called.append((self, func))
+            results = None
+        return results
+    return wrapper
 
 def multiple_tries(num:int, sleep_time_between_attempts:float=0.0)->Callable[[Callable], Callable]: # function that returns a decorator
     # Check input:

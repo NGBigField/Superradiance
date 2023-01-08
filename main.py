@@ -137,14 +137,14 @@ def _load_or_find_noon(num_moments:int, print_on:bool=True) -> NOON_DATA:
         
     return noon_data
 
-def _common_4_legged_search_inputs(num_moments:int):
+def _common_4_legged_search_inputs(num_moments:int, num_transition_frames:int=0):
     ## Check inputs:
     assertions.even(num_moments)
     
     ## Define operations:
     initial_state = Fock.excited_state_density_matrix(num_moments)
     coherent_control = CoherentControl(num_moments=num_moments)
-    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
     Sp = coherent_control.s_pulses.Sp
     Sx = coherent_control.s_pulses.Sx
     Sy = coherent_control.s_pulses.Sy
@@ -513,6 +513,7 @@ def main():
     
     
     num_moments = 40
+    num_transition_frames = 40
     
     opt_theta = np.array(
         [   3.03467614,    0.93387172,  -10.00699257,   -0.72388404,
@@ -521,7 +522,7 @@ def main():
             3.01919738,    3.14159265,   -0.32642685,   -0.87976521,
             -0.83782409])
     
-    initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments)
+    initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments, num_transition_frames)
     
     operations = []
     theta = []
@@ -540,7 +541,7 @@ def main():
     movie_config = CoherentControl.MovieConfig(
         active=True,
         show_now=False,
-        num_transition_frames=40,
+        num_transition_frames=num_transition_frames,
         num_freeze_frames=10,
         bloch_sphere_resolution=2,
         score_str_func=_score_str_func
