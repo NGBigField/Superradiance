@@ -860,7 +860,7 @@ class CoherentControl():
 
         # iterate:
         num_iter = len(operations)
-        prog_bar = strings.ProgressBar(num_iter, print_prefix="Performing custom sequence... ")
+        prog_bar = strings.ProgressBar(num_iter, print_prefix="Performing custom sequence...  ")
         for i, (params, operation) in enumerate(zip(all_params, operations)):    
             prog_bar.next()
             # Check params:

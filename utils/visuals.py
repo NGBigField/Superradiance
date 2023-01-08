@@ -145,7 +145,7 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     k_vals = np.linspace(0, 2*j, floor(2*j + 1))
     m_vals = np.linspace(-j, j, floor(2 * j + 1))
 
-    prog_bar_k = strings.ProgressBar(len(k_vals), print_prefix="calculating wigner-function ")
+    prog_bar_k = strings.ProgressBar(len(k_vals), print_prefix="calculating wigner-function... ")
     for k in k_vals :
         prog_bar_k.next()
         

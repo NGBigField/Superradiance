@@ -541,6 +541,7 @@ def main():
     movie_config = CoherentControl.MovieConfig(
         active=True,
         show_now=False,
+        fps=10,
         num_transition_frames=num_transition_frames,
         num_freeze_frames=10,
         bloch_sphere_resolution=2,
