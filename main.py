@@ -544,7 +544,7 @@ def main():
         fps=10,
         num_transition_frames=num_transition_frames,
         num_freeze_frames=10,
-        bloch_sphere_resolution=2,
+        bloch_sphere_resolution=200,
         score_str_func=_score_str_func
     )
     final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations, movie_config=movie_config)
