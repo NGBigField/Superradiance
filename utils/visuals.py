@@ -190,7 +190,6 @@ def plot_wigner_bloch_sphere(
 
 
     # Set the aspect ratio to 1 so our sphere looks spherical
-    draw_now()
     surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=face_colors)
     # surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=white_color, alpha=alpha)
     m = cm.ScalarMappable(cmap=cm.bwr)

@@ -512,7 +512,7 @@ def main():
     
     
     num_moments = 40
-    num_transition_frames = 40
+
     mode = "record_movie"
     
     # opt_theta = np.array(
@@ -530,11 +530,16 @@ def main():
          -0.9889859 ])
 
     if mode=="optimize":
+
         results : LearnedResults = _exhaustive_try(num_moments=num_moments, initial_guess=opt_theta)        
         visuals.plot_matter_state(results.final_state)
         print(results)
     
     if mode=="record_movie":
+        num_transition_frames = 20
+        fps = 5
+
+
         initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments, num_transition_frames)
         
         operations = []
@@ -554,14 +559,13 @@ def main():
         movie_config = CoherentControl.MovieConfig(
             active=True,
             show_now=False,
-            fps=10,
+            fps=fps,
             num_transition_frames=num_transition_frames,
-            num_freeze_frames=10,
+            num_freeze_frames=fps,
             bloch_sphere_resolution=200,
             score_str_func=_score_str_func
         )
         final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations, movie_config=movie_config)
-        print(final_state)
         print(_score_str_func(final_state))
     print("Done.")
 
