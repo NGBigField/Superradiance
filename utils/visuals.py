@@ -116,7 +116,16 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     fig.savefig(fullpath_str)
     return 
 
-def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False, title:str=None, with_axes_arrows:bool=True) :
+def plot_wigner_bloch_sphere(
+    rho:np.matrix, 
+    num_points:int=100, 
+    ax:Optional[Axes3D]=None, 
+    colorbar_ax:Axes=None, 
+    warn_imaginary_part:bool=False, 
+    title:str=None, 
+    with_axes_arrows:bool=True,
+    lowest_alpha:float=0.2
+) :
     # Constants:
     radius = 1
 
@@ -171,13 +180,21 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
         print('The wigner function has non negligible imaginary part ', str(np.max(abs(np.imag(W)))))
     W = np.real(W)
 
-    fmax, fmin = W.max(), W.min()
+    ## Set colors on the spectrum red to blue:
+    normalized_face_values = W / np.max(np.abs(W))
+    face_colors = cm.bwr(normalized_face_values / 2 + 0.5)
+    ## Adjust opacity values:
+    alpha_func = lambda face_value : (1-lowest_alpha)*abs(face_value) + lowest_alpha
+    for i, j in np.ndindex(normalized_face_values.shape):
+        face_colors[i,j,3] = alpha_func(normalized_face_values[i,j])
 
-    fcolors = W / np.max(np.abs(W))
+
     # Set the aspect ratio to 1 so our sphere looks spherical
-    surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.bwr(fcolors / 2 + 0.5))
+    draw_now()
+    surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=face_colors)
+    # surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=white_color, alpha=alpha)
     m = cm.ScalarMappable(cmap=cm.bwr)
-    m.set_array(fcolors)
+    m.set_array(normalized_face_values)
     m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
     
     if title is not None:
@@ -442,27 +459,19 @@ def _test_prog_bar_as_object():
     print("Done iteration")
 
 def _test_bloch_sphere():
+    # Constants:
+    num_moments = 4
+    num_points = 40
     # Specific imports:
     import pathlib, sys
     sys.path.append(str(pathlib.Path(__file__).parent.parent))
-    from fock import Fock
-    # Figure:
-    plt.show(block=False)
-    fig = plt.figure(figsize=(11,6))
-    ax1 = fig.add_subplot(1,2,1, projection='3d')
-    # ax2 = fig.add_subplot(1,2,2, projection='3d')
-    ax2 = _axes3D(fig)
-    ax1.set_position(Bbox([[0.0, 0.2], [0.45, 0.8]])) 
-    ax2.set_position(Bbox([[0.4, 0.0], [0.95, 1.0]]))    
-    # Define state:
-    num_moments = 2
-    initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
+    from fock import Fock, cat_state
+    # State
+    initial_state = cat_state(num_moments=num_moments, alpha=4, num_legs=4).to_density_matrix(num_moments=num_moments)
     # Plot:
-    plot_city(initial_state, ax=ax2)
-    plot_wigner_bloch_sphere(initial_state, ax=ax1, num_points=10)
-    # Done:
-    plt.show(block=False)
-    print("Finished print")
+    draw_now()
+    plot_wigner_bloch_sphere(initial_state, num_points=num_points )
+    
 
 def _test_bloch_sphere_object():
     # Specific imports:
@@ -503,9 +512,10 @@ def _test_gkp_state():
 def tests():
     # _test_prog_bar_as_iterator()
     # _test_prog_bar_as_object()
-    # _test_bloch_sphere()
+    _test_bloch_sphere()
     # _test_bloch_sphere_object()
-    _test_gkp_state()
+    # _test_gkp_state()
+    
     
     print("Done tests.")
 

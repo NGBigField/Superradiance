@@ -539,7 +539,7 @@ def learn_custom_operation(
 ) -> LearnedResults:
 
     # Progress_bar
-    prog_bar = visuals.ProgressBar(max_iter, "Minimizing: ")
+    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ")
     
     skip_num = 10
     @decorators.sparse_execution(skip_num=skip_num, default_results=False)
@@ -584,7 +584,7 @@ def learn_custom_operation(
         tol=tolerance    
     )
     finish_time = time.time()
-    prog_bar.close()
+    prog_bar.clear()
     
     # Pack learned-results:
     optimal_theta = opt_res.x

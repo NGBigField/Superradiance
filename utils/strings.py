@@ -113,13 +113,6 @@ class ProgressBar():
         return self.counter
 
     def clear(self):
-        # full_bar_length = self.print_length+len(self.print_prefix)+4+len(str(self.expected_end))*2
-        # print(
-        #     f"{(' '*(full_bar_length))}", 
-        #     end='\r', 
-        #     file=self.print_out, 
-        #     flush=True
-        # )
         self.static_printer.clear()
 
     def _show(self, extra_str:Optional[str]=None):

@@ -855,14 +855,13 @@ class CoherentControl():
         movie_config = args.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
 
         # For sequence recording:
-        first_frame_state = None  # crnt_state
-        sequence_recorder = SequenceMovieRecorder(initial_state=first_frame_state, config=movie_config)
+        sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
 
         # iterate:
         num_iter = len(operations)
         prog_bar = strings.ProgressBar(num_iter, print_prefix="Performing custom sequence...  ")
         for i, (params, operation) in enumerate(zip(all_params, operations)):    
-            prog_bar.next()
+            if movie_config.active: prog_bar.next()
             # Check params:
             assert operation.num_params == len(params)
             # Apply operation:

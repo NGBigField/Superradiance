@@ -76,8 +76,8 @@ from optimization_and_operations import pair_custom_operations_and_opt_params_to
 OPT_METHOD : Final[str] = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
 
-TOLERANCE : Final[float] = 1e-12  # 1e-12
-MAX_NUM_ITERATION : Final[int] = int(5*1e4)  # 1e6 
+TOLERANCE : Final[float] = 1e-16  # 1e-12
+MAX_NUM_ITERATION : Final[int] = int(1e2) # int(1e6)  
 
 T4_PARAM_INDEX : Final[int] = 5
 
@@ -380,7 +380,7 @@ def _print_progress(crnt_attempt:AttemptResult) -> None:
     
     
 @decorators.multiple_tries(3)
-def _exhaustive_try(num_moments:int, initial_guess:np.ndarray, num_iter:int) -> LearnedResults:
+def _exhaustive_try(num_moments:int, initial_guess:np.ndarray, num_iter:int=MAX_NUM_ITERATION) -> LearnedResults:
 
     initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments)
 
@@ -511,45 +511,58 @@ def main():
     # print(results)
     
     
-    
     num_moments = 40
     num_transition_frames = 40
+    mode = "record_movie"
     
+    # opt_theta = np.array(
+    #     [   3.03467614,    0.93387172,  -10.00699257,   -0.72388404,
+    #         0.13744785,    2.11175319,    0.18788428, -118.69022356,
+    #         -1.50210956,    2.02098048,   -0.21569011,   -2.9236711 ,
+    #         3.01919738,    3.14159265,   -0.32642685,   -0.87976521,
+    #         -0.83782409])
+
     opt_theta = np.array(
-        [   3.03467614,    0.93387172,  -10.00699257,   -0.72388404,
-            0.13744785,    2.11175319,    0.18788428, -118.69022356,
-            -1.50210956,    2.02098048,   -0.21569011,   -2.9236711 ,
-            3.01919738,    3.14159265,   -0.32642685,   -0.87976521,
-            -0.83782409])
+      [   3.02985656,    0.89461558,  -10.6029319 ,   -0.75177908,
+          0.17659927,    2.08111341,    0.30032648, -120.46353087,
+         -1.51754475,    1.91694016,   -0.42664783,   -3.13543566,
+          2.17021358,    3.14159224,   -0.26865575,   -0.92027109,
+         -0.9889859 ])
+
+    if mode=="optimize":
+        results : LearnedResults = _exhaustive_try(num_moments=num_moments, initial_guess=opt_theta)        
+        visuals.plot_matter_state(results.final_state)
+        print(results)
     
-    initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments, num_transition_frames)
-    
-    operations = []
-    theta = []
-    for operation, oper_params in  pair_custom_operations_and_opt_params_to_op_params(cat4_creation_operations, opt_theta, param_config):
-        print(operation.get_string(oper_params))
-        theta.extend(oper_params)
-        operations.append(operation)
+    if mode=="record_movie":
+        initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments, num_transition_frames)
         
-    target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
-    def _score_str_func(rho:_DensityMatrixType)->str:
-        fidel = metrics.fidelity(rho, target_4legged_cat_state)
-        return f"fidelity={fidel}"
-    
+        operations = []
+        theta = []
+        for operation, oper_params in  pair_custom_operations_and_opt_params_to_op_params(cat4_creation_operations, opt_theta, param_config):
+            print(operation.get_string(oper_params))
+            theta.extend(oper_params)
+            operations.append(operation)
+            
+        target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
+        def _score_str_func(rho:_DensityMatrixType)->str:
+            fidel = metrics.fidelity(rho, target_4legged_cat_state)
+            return f"fidelity={fidel}"
         
-    coherent_control = CoherentControl(num_moments=num_moments)
-    movie_config = CoherentControl.MovieConfig(
-        active=True,
-        show_now=False,
-        fps=10,
-        num_transition_frames=num_transition_frames,
-        num_freeze_frames=10,
-        bloch_sphere_resolution=200,
-        score_str_func=_score_str_func
-    )
-    final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations, movie_config=movie_config)
-    print(final_state)
-    print(_score_str_func(final_state))
+            
+        coherent_control = CoherentControl(num_moments=num_moments)
+        movie_config = CoherentControl.MovieConfig(
+            active=True,
+            show_now=False,
+            fps=10,
+            num_transition_frames=num_transition_frames,
+            num_freeze_frames=10,
+            bloch_sphere_resolution=200,
+            score_str_func=_score_str_func
+        )
+        final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations, movie_config=movie_config)
+        print(final_state)
+        print(_score_str_func(final_state))
     print("Done.")
 
 if __name__ == "__main__":
