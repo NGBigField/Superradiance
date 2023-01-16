@@ -23,18 +23,11 @@ def same_length(*args:List[Any]) -> bool:
             return False
     return True
 
-def common_type(lis:List[Any]) -> type:
-    is_first = True
-    common_type : type = None
-    for item in lis:
-        if is_first:
-            common_type = type(item)
-            is_first = False
-            continue
-        
-        crnt_type = type(item)
-        assert crnt_type == common_type
-    return common_type
+def common_super_class(lis:List[Any]) -> type:
+    classes = [type(x).mro() for x in lis]
+    for x in classes[0]:
+        if all(x in mro for mro in classes):
+            return x
 
 
 def iterate_with_edge_indicators(l:List[_T]) -> Generator[Tuple[bool, bool, _T], None, None]:

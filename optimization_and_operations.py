@@ -10,6 +10,7 @@ from numpy import array
 # our utilities:
 from utils import (
     visuals,
+    lists,
 )
 
 # For type hinting:
@@ -27,10 +28,13 @@ from metrics import fidelity
 from coherentcontrol import Operation, _deal_costum_params, CoherentControl, _DensityMatrixType
 
 # Optimization
-from optimization import OptimizationParams, ParamConfigBase, _deal_params_config, _positive_indices_from_operations
+from optimization import OptimizationParams, BaseParamType, _deal_params_config, _positive_indices_from_operations
+# Parameters types:
+from optimization import BaseParamType, FreeParam, FixedParam
 
 # Fock:
 from fock import Fock, coherent_state, cat_state
+
 
 # ==================================================================================== #
 #|                               Declared Functions                                   |#
@@ -40,7 +44,7 @@ from fock import Fock, coherent_state, cat_state
 def pair_custom_operations_and_opt_params_to_op_params(
     operations: List[Operation],
     opt_theta: Union[List[float], np.ndarray],
-    parameters_config
+    parameters_config : List[BaseParamType] 
 )->Generator[Tuple[Operation, List[float]], None, None]:
     
     num_operation_params = sum([op.num_params for op in operations])
@@ -53,6 +57,31 @@ def pair_custom_operations_and_opt_params_to_op_params(
         yield operation, params
 
 
+def free_all_params(
+    operations:List[Operation],
+    opt_theta:Union[List[float], np.ndarray],
+    parameters_config:List[BaseParamType] 
+) -> List[FreeParam]:
+    ## Get operation params for best results:
+    base_params = []
+    for _, params in pair_custom_operations_and_opt_params_to_op_params(operations, opt_theta, parameters_config):
+        for param in params:
+            base_params.append(param)        
+        
+    ## Disassociate affiliated params:
+    for i, (config, value) in enumerate( zip(parameters_config, base_params) ):
+        if isinstance(config, FreeParam):
+            config.affiliation = None
+            config.initial_guess = value
+        elif isinstance(config, FixedParam):
+            config.value = value 
+            parameters_config[i] = config.free()
+        
+    for item in parameters_config:
+        assert isinstance(item, FreeParam)
+        assert item.affiliation is None
+        
+    return parameters_config   # type: ignore
 
 # ==================================================================================== #
 #|                                       Main                                         |#

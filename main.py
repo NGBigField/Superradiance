@@ -1,5 +1,5 @@
-        
 # ==================================================================================== #
+        
 # |                                   Imports                                        | #
 # ==================================================================================== #
 
@@ -51,7 +51,7 @@ from optimization import (
     add_noise_to_params,
     learn_custom_operation,
     ParamLock,
-    ParamConfigBase,
+    BaseParamType,
     FreeParam,
     FixedParam,
     CostFunctions,
@@ -67,7 +67,7 @@ from fock import Fock, cat_state
 from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
 
 
-from optimization_and_operations import pair_custom_operations_and_opt_params_to_op_params
+from optimization_and_operations import pair_custom_operations_and_opt_params_to_op_params, free_all_params
 
 
 # ==================================================================================== #
@@ -77,7 +77,7 @@ OPT_METHOD : Final[str] = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
 
 TOLERANCE : Final[float] = 1e-16  # 1e-12
-MAX_NUM_ITERATION : Final[int] = int(1e2) # int(1e6)  
+MAX_NUM_ITERATION : Final[int] = int(1e6)  
 
 T4_PARAM_INDEX : Final[int] = 5
 
@@ -196,7 +196,7 @@ def _common_4_legged_search_inputs(num_moments:int, num_transition_frames:int=0)
     params_bound       = noon_bounds      + rot_bounds+ noon_bounds      + rot_bounds+ noon_bounds      + rot_bounds
     assert lists.same_length(params_affiliation, params_lockness, params_value, params_bound)
 
-    param_config : List[ParamConfigBase] = []
+    param_config : List[BaseParamType] = []
     for i, (affiliation, lock_state, initial_value, bounds) in enumerate(zip(params_affiliation, params_lockness, params_value, params_bound)):
         if lock_state == ParamLock.FREE:
             param_config.append(FreeParam(
@@ -448,7 +448,7 @@ def _load_all_search_data() -> Generator[dict, None, None]:
             yield data    
     
 
-def main():
+def _study():
     # results = exhaustive_search()
     # print("End")
 
@@ -569,7 +569,60 @@ def main():
         print(_score_str_func(final_state))
     print("Done.")
 
+def disassociate_affiliation()->LearnedResults:
+    
+    num_moments = 40
+    num_transition_frames = 0
+    
+    # Copy best result with affiliated params:
+    initial_state, cost_function, cat4_creation_operations, param_configs = _common_4_legged_search_inputs(num_moments, num_transition_frames)
+    best_theta = np.array(
+      [   3.02985656,    0.89461558,  -10.6029319 ,   -0.75177908,
+          0.17659927,    2.08111341,    0.30032648, -120.46353087,
+         -1.51754475,    1.91694016,   -0.42664783,   -3.13543566,
+          2.17021358,    3.14159224,   -0.26865575,   -0.92027109,
+         -0.9889859 ])
+    '''
+        ## Get operation params for best results:
+        base_params = []
+        for _, params in pair_custom_operations_and_opt_params_to_op_params(cat4_creation_operations, best_theta, param_configs):
+            for param in params:
+                base_params.append(param)        
+            
+        ## Disassociate affiliated params:
+        param_configs : List[ParamConfigBase] 
+        for config, value in zip(param_configs, base_params):
+            if isinstance(config, FreeParam):
+                config.affiliation = None
+                config.initial_guess = value
+            elif isinstance(config, FixedParam):
+                config.value = value 
+            print(config)
+    '''
+    param_configs = free_all_params(cat4_creation_operations, best_theta, param_configs)
+     
+    # Fix rotation params.
+    for i, param in enumerate( param_configs ): 
+        print(f"i:{i:2}  {param.bounds}   ")
+        if param.bounds != (None, None):
+            param_configs[i] = param.fix()
+    
+    # Learn:
+    results = learn_custom_operation(
+        num_moments=num_moments, 
+        initial_state=initial_state, 
+        cost_function=cost_function, 
+        operations=cat4_creation_operations, 
+        max_iter=MAX_NUM_ITERATION, 
+        parameters_config=param_configs
+    )
+    
+    print(results)
+    return results
+
+    
+
 if __name__ == "__main__":
-    main()
-    # _test_learn_pi_pulse(num_moments=4)    
+    # _study()
+    results = disassociate_affiliation()
     print("Done.")

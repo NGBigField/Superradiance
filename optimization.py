@@ -21,6 +21,7 @@ from typing import (
     Generator,
     TypeAlias,
     NamedTuple,
+    
 )
 
 # import our helper modules
@@ -117,7 +118,7 @@ class ParamLock(Enum):
 
 
 @dataclass
-class ParamConfigBase():
+class BaseParamType():
     index : int
     
     @property
@@ -125,7 +126,7 @@ class ParamConfigBase():
         raise AttributeError("Abstract super class without implementation")
 
 @dataclass
-class FreeParam(ParamConfigBase): 
+class FreeParam(BaseParamType): 
     affiliation : int | None
     initial_guess : float | None = None
     bounds : Tuple[float, float] | None = None
@@ -133,14 +134,36 @@ class FreeParam(ParamConfigBase):
     @property
     def lock(self)->ParamLock:
         return ParamLock.FREE
+    
+    def fix(self)->'FixedParam':
+        """fix Turn param into a fix param
+        """
+        fixed_value = self.initial_guess
+        if isinstance(fixed_value, float):
+            return FixedParam(
+                index=self.index,
+                value=fixed_value,
+            )
+        else:
+            raise ValueError(f"Must have an initial_guess that can be fixed.")
+        
 
 @dataclass
-class FixedParam(ParamConfigBase): 
+class FixedParam(BaseParamType): 
     value : float
 
     @property
     def lock(self)->ParamLock:
         return ParamLock.FIXED
+    
+    def free(self)->FreeParam:
+        """free Turn param into a free param
+        """
+        return FreeParam(
+            index=self.index,
+            affiliation=None
+        )
+
     
 
 class OptimizationParams:
@@ -150,7 +173,7 @@ class OptimizationParams:
         free  : List[int]
         fixed : List[int]
 
-    def _find_index_in_list(i:int, l:List[ParamConfigBase]) -> ParamConfigBase:
+    def _find_index_in_list(i:int, l:List[BaseParamType]) -> BaseParamType:
         for param in l:
             if param.index == i:
                 return param
@@ -168,7 +191,7 @@ class OptimizationParams:
             fixed = [param.index for param in fixed_params]
         )
 
-        ordered_list : List[ParamConfigBase] = []
+        ordered_list : List[BaseParamType] = []
         for i in range(num_operation_params):
             if i in self.indices.free:
                 param = OptimizationParams._find_index_in_list(i, free_params)
@@ -181,7 +204,7 @@ class OptimizationParams:
         ## Keep data
         self.free_params    : List[FreeParam ]      = free_params
         self.fixed_params   : List[FixedParam]      = fixed_params
-        self.ordered_params : List[ParamConfigBase] = ordered_list
+        self.ordered_params : List[BaseParamType] = ordered_list
 
     def optimization_theta_to_operations_params(self, theta:np.ndarray) -> List[float]:
         # check inputs:
@@ -270,7 +293,7 @@ class OptimizationParams:
         return res
         
 
-    def variable_params(self) -> Generator[ParamConfigBase, None, None]:
+    def variable_params(self) -> Generator[BaseParamType, None, None]:
         used_affiliations = set()
         for param in self.free_params:
             if param.affiliation is not None:
@@ -343,7 +366,7 @@ def _coherent_control_from_mat(mat:_DensityMatrixType) -> CoherentControl:
 def _deal_params_config( 
     num_operation_params:int, 
     positive_indices : np.ndarray,
-    parameter_configs: List[Tuple[ParamLock, int|float ]] | List[ParamConfigBase] | None = None
+    parameter_configs: List[Tuple[ParamLock, int|float ]] | List[BaseParamType] | None = None
 ) -> OptimizationParams :
 
     def _is_positive(i:int)->bool:
@@ -359,13 +382,13 @@ def _deal_params_config(
     if parameter_configs is None:
         free_params  = [FreeParam( index=i, affiliation=None, bounds=_bounds(i)) for i in range(num_operation_params)  ]
         fixed_params = [ ]
+        return
     
     assert isinstance(parameter_configs, list)
-    common_type = lists.common_type(parameter_configs)
+    common_type = lists.common_super_class(parameter_configs)
 
-    if issubclass(common_type, ParamConfigBase):
-        parameter_configs : List[ParamConfigBase]
-        def _get_all(lock:ParamLock)->List[ParamConfigBase]:
+    if issubclass(common_type, BaseParamType):
+        def _get_all(lock:ParamLock)->List[BaseParamType]:
             lis = []
             for param in parameter_configs:
                 if param.lock is not lock:
@@ -534,8 +557,8 @@ def learn_custom_operation(
     max_iter : int=100, 
     tolerance : Optional[float] = None,
     initial_guess : Optional[np.ndarray] = None,
-    parameters_config : Optional[List[ParamConfigBase]|List[tuple]] = None,
-    save_results : bool=True,
+    parameters_config : Optional[List[BaseParamType]|List[tuple]] = None,
+    save_results : bool = True,
 ) -> LearnedResults:
 
     # Progress_bar
