@@ -66,8 +66,10 @@ from fock import Fock, cat_state
 # For managing saved data:
 from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
 
-
 from optimization_and_operations import pair_custom_operations_and_opt_params_to_op_params, free_all_params
+
+# For timing and random seeds:
+import time
 
 
 # ==================================================================================== #
@@ -85,6 +87,9 @@ T4_PARAM_INDEX : Final[int] = 5
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
 
+
+def _rand(n:int)->list:
+    return list(np.random.randn(n))
 
 def _load_or_find_noon(num_moments:int, print_on:bool=True) -> NOON_DATA:
     if exist_saved_noon(num_moments):
@@ -174,9 +179,6 @@ def _common_4_legged_search_inputs(num_moments:int, num_transition_frames:int=0)
         rotation_operation + \
         noon_creation_operations + \
         rotation_operation 
-
-    def _rand(n:int)->list:
-        return list(np.random.randn(n))
             
 
     # Initital guess and the fixed params vs free params:
@@ -312,6 +314,28 @@ def common_good_starts() -> Generator[list, None, None]:
     ]:
         yield item
 
+
+def _sx_sequence_params(num_operation_params:int)->List[FreeParam]:
+    
+    # np.random.seed = int(time.time())
+        
+    num_expected_params = 4*3+3
+        
+    _rot_bounds = lambda : [(-pi, pi)]*3
+    _inf_bounds = lambda : [(None, None)]
+    
+    # Use the unique combination of params for this run:
+    params_value       = _rand(3)      + [pi/8]        + _rand(3)      + [pi/8]        +  _rand(3)      + [pi/8]        + _rand(3)       
+    params_bound       = _rot_bounds() + _inf_bounds() + _rot_bounds() + _inf_bounds() +  _rot_bounds() + _inf_bounds() + _rot_bounds() 
+    assert len(params_value)==len(params_bound)==num_expected_params==num_operation_params    
+    param_config : List[FreeParam] = []
+    for i, (initial_value, bounds) in enumerate(zip(params_value, params_bound)):        
+        param_config.append(
+            FreeParam(index=i, initial_guess=initial_value, bounds=bounds, affiliation=None)   # type: ignore       
+    )
+    assert len(param_config)==num_expected_params  
+    
+    return param_config        
 
 # ==================================================================================== #
 # |                                     main                                         | #
@@ -602,10 +626,10 @@ def disassociate_affiliation()->LearnedResults:
     param_configs = free_all_params(cat4_creation_operations, best_theta, param_configs)
      
     # Fix rotation params.
-    for i, param in enumerate( param_configs ): 
-        print(f"i:{i:2}  {param.bounds}   ")
-        if param.bounds != (None, None):
-            param_configs[i] = param.fix()
+    # for i, param in enumerate( param_configs ): 
+    #     print(f"i:{i:2}  {param.bounds}   ")
+    #     if param.bounds != (None, None):
+    #         param_configs[i] = param.fix()
     
     # Learn:
     results = learn_custom_operation(
@@ -616,13 +640,56 @@ def disassociate_affiliation()->LearnedResults:
         max_iter=MAX_NUM_ITERATION, 
         parameters_config=param_configs
     )
-    
     print(results)
     return results
 
     
+    
+def optimized_Sx2_pulses(num_attempts:int=50, num_runs_per_attempt:int=int(1e4), num_moments:int=40, num_transition_frames:int=0) -> LearnedResults:
+    # Similar to previous method:
+    _, cost_function, _, _ = _common_4_legged_search_inputs(num_moments, num_transition_frames=0)
+    initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
+    
+    # Define operations:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
+    operations : List[Operation] = [
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+    ]
+
+    num_operation_params = sum([op.num_params for op in operations])
+    best_result : LearnedResults = None
+    best_score = np.inf
+    
+    for attempt_ind in range(num_attempts):
+        param_config = _sx_sequence_params(num_operation_params)
+                
+        
+        results = learn_custom_operation(
+            num_moments=num_moments, 
+            initial_state=initial_state, 
+            cost_function=cost_function, 
+            operations=operations, 
+            max_iter=num_runs_per_attempt, 
+            parameters_config=param_config
+        )
+                
+        if results.score < best_score:
+            print("Score: ",results.score)
+            print("Theta: ",results.theta)
+            best_result = results
+            best_score = results.score
+        
+    return best_result
 
 if __name__ == "__main__":
     # _study()
-    results = disassociate_affiliation()
+    # results = disassociate_affiliation()
+    results = optimized_Sx2_pulses()
     print("Done.")

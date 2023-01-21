@@ -402,6 +402,13 @@ class SequenceMovieRecorder():
         else:
             return self.score_str_func(state)
 
+    def final_state(self, length_multiplier:float=2.0)->None:
+        if not self.is_active:
+            return  # We don't want to record a video
+        default_duration = self.video_recorder.frames_duration[-1]
+        new_duration = int(round(default_duration*length_multiplier))
+        self.video_recorder.frames_duration[-1] = new_duration
+
     def record_transition(
         self, 
         transition_states:List[_DensityMatrixType], 
@@ -872,7 +879,8 @@ class CoherentControl():
             # Record:
             sequence_recorder.record_transition(transition_states, title=title)
         prog_bar.clear()
-
+        
+        sequence_recorder.final_state()  # Just makes the last frame twice as long
         sequence_recorder.write_video()
 
         # End:
@@ -1055,15 +1063,16 @@ def _test_goal_gkp():
     
 def _test_custom_sequence():
     # Const:
-    num_moments:int=20
-    num_transition_frames=15
-    active_movie_recorder:bool=False
+    num_moments:int=40
+    num_transition_frames=50
+    active_movie_recorder:bool=True
+    fps=10
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
         active=active_movie_recorder,
-        show_now=True,
-        num_freeze_frames=3,
-        fps=10,
+        show_now=False,
+        num_freeze_frames=fps,
+        fps=fps,
         bloch_sphere_resolution=50
     )
 
@@ -1072,36 +1081,18 @@ def _test_custom_sequence():
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
     operations = [
-        # These 4 pulses create a cat state:
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
-        # Bring in to the top of the bloch-sphere
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        # 4 Pulses again:
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
+        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
     ]
-    from optimization import _initial_guess
-    theta_cat_pulses = _initial_guess()
 
-    theta = []
-    theta.extend(theta_cat_pulses)
-    theta.append(pi)  # x pi pulse
-    theta.extend(theta_cat_pulses)
-
+    theta = [pi/2]
 
     initial_state = Fock.ground_state_density_matrix(num_moments)
-    initial_state[0,0] = 0.0
-    initial_state[-1,-1] = 1.0
+    
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     # plot
-    visuals.plot_matter_state(final_state, block_sphere_resolution=150)
-    visuals.draw_now()
+    # visuals.plot_matter_state(final_state, block_sphere_resolution=150)
+    # visuals.draw_now()
     print("Movie is ready in folder 'video' ")
     
 if __name__ == "__main__":    

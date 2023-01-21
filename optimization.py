@@ -382,7 +382,7 @@ def _deal_params_config(
     if parameter_configs is None:
         free_params  = [FreeParam( index=i, affiliation=None, bounds=_bounds(i)) for i in range(num_operation_params)  ]
         fixed_params = [ ]
-        return
+        return OptimizationParams(free_params=free_params, fixed_params=fixed_params, num_operation_params=num_operation_params)
     
     assert isinstance(parameter_configs, list)
     common_type = lists.common_super_class(parameter_configs)
