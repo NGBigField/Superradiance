@@ -7,7 +7,10 @@ import numpy as np
 
 from typing import (
     Tuple,
+    Any,
+    Dict,
 )
+
 
 
 # ==================================================================================== #
@@ -15,9 +18,17 @@ from typing import (
 # ==================================================================================== #
 
 
-
 # ==================================================================================== #
-#|                              declared functions                                    |#
+#|                                inner functions                                     |#
+# ==================================================================================== #
+
+def _type_from_num_or_type(num_or_type) -> type:
+    if isinstance(num_or_type, type):
+        return num_or_type
+    else:
+        return type(num_or_type)
+# ==================================================================================== #
+#|                               declared functions                                   |#
 # ==================================================================================== #
 
 def numpy_dtype_to_std_type(dtype:np.dtype) -> type :    
@@ -25,14 +36,16 @@ def numpy_dtype_to_std_type(dtype:np.dtype) -> type :
     built_in_variable = numpy_variable.item()
     return type(built_in_variable)
 
-
+def is_numpy_complex_type( num_or_type ) -> bool:
+    # Get type:
+    type_ = _type_from_num_or_type(num_or_type)
+    # check inheritance:
+    return issubclass(type_, np.complexfloating)
+    
 
 def is_numpy_float_type( num_or_type ) -> bool:
     # Get type:
-    if isinstance(num_or_type, type):
-        type_ = num_or_type
-    else:
-        type_ = type(num_or_type)
+    type_ = _type_from_num_or_type(num_or_type)
     # check inheritance:
     return issubclass(type_, np.floating)
 
@@ -58,5 +71,23 @@ def greatest_common_numeric_class(*types: Tuple[type, ...]) -> type:
     return common_type
     
 
+def can_be_converted_to_dict(x:Any)->bool:
+    if hasattr(x, "_asdict"):
+        return True
+    elif hasattr(x, "__dict__") and not isinstance(x, np.ndarray):
+        return True
+    else:
+        return False
+
+def as_plain_dict(x:Any) -> Dict[str, Any]:
+    if hasattr(x, "_asdict"):
+        d : Dict[str, Any] = x._asdict()
+    elif hasattr(x, "__dict__"):
+        d : Dict[str, Any] = x.__dict__
+    else:
+        raise TypeError(f"Input of type '{type(x)}' can't be converted to dict!")
     
-    
+    for key, val in d.items():
+        if can_be_converted_to_dict(val):
+            d[key] = as_plain_dict(val)
+    return d

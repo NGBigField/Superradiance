@@ -3,9 +3,9 @@ import winsound
 from time import sleep
 
 def ascend() -> None:
-    for n in range(12):
-        beep(note=n, duration=0.2)
-        sleep(0.01)
+    for n in [0, 2, 4, 5, 7, 9, 11]:
+        beep(note=n, octave=5, duration=0.1)
+    beep(note=0, octave=6, duration=0.2)
 
 def alarm() -> None:
     for _ in range(5):
@@ -68,8 +68,8 @@ def note_freq(note:int, octave:int=4 ) -> float:
 
 
 def _test():
-    # ascend()
-    alarm()
+    ascend()
+    # alarm()
 
 if __name__ == "__main__":
     _test()

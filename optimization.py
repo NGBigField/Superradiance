@@ -18,6 +18,10 @@ from typing import (
     Final,
     Optional,
     Callable,
+    Generator,
+    TypeAlias,
+    NamedTuple,
+    
 )
 
 # import our helper modules
@@ -29,10 +33,15 @@ from utils import (
     strings,
     errors,
     args,
+    indices,
+    sounds,
+    decorators,
+    lists,
+    types,
 )
 
 # For defining coherent states:
-from fock import Fock
+from fock import Fock, cat_state
 
 # For coherent control
 from coherentcontrol import (
@@ -50,34 +59,40 @@ import gkp
 import time
 
 # For OOP:
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 
 # for plotting stuff wigner
 import qutip
 import matplotlib.pyplot as plt
 
+# for accessing old results:
+from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
+
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-OPT_METHOD : Final = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
+OPT_METHOD : Final[str] = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 NUM_PULSE_PARAMS : Final = 4  
-TOLERANCE = 1e-32
 
-T4_PARAM_INDEX = 5
+DEFAULT_TOLERANCE : Final[float] = 1e-12  
+MAX_NUM_ITERATION : Final[int] = int(1e5)  # 1e6 
+
+T4_PARAM_INDEX : Final[int] = 5
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
 # ==================================================================================== #
 @dataclass
 class LearnedResults():
-    theta : np.array = None
-    score : float = None
-    initial_state : np.matrix = None
-    final_state : np.matrix = None
-    time : float = None
-    iterations : int = None
-    operations : List[Operation] = None
+    theta               : np.ndarray        = None
+    operation_params    : List[float]       = None
+    score               : float             = None
+    initial_state       : np.matrix         = None
+    final_state         : np.matrix         = None
+    time                : float             = None
+    iterations          : int               = None
+    operations          : List[Operation]   = None
 
     def __repr__(self) -> str:
         np_utils.fix_print_length()
@@ -93,12 +108,216 @@ class LearnedResults():
         return s
     
 class Metric(Enum):
-    NEGATIVITY = auto
-    PURITY = auto
+    NEGATIVITY  = auto()
+    PURITY      = auto()
+
+
+class ParamLock(Enum):
+    FREE  = auto()
+    FIXED = auto()
+
+
+@dataclass
+class BaseParamType():
+    index : int
+    
+    @property
+    def lock(self)->ParamLock:
+        raise AttributeError("Abstract super class without implementation")
+
+@dataclass
+class FreeParam(BaseParamType): 
+    affiliation : int | None
+    initial_guess : float | None = None
+    bounds : Tuple[float, float] | None = None
+
+    @property
+    def lock(self)->ParamLock:
+        return ParamLock.FREE
+    
+    def fix(self)->'FixedParam':
+        """fix Turn param into a fix param
+        """
+        fixed_value = self.initial_guess
+        if isinstance(fixed_value, float):
+            return FixedParam(
+                index=self.index,
+                value=fixed_value,
+            )
+        else:
+            raise ValueError(f"Must have an initial_guess that can be fixed.")
+        
+
+@dataclass
+class FixedParam(BaseParamType): 
+    value : float
+
+    @property
+    def lock(self)->ParamLock:
+        return ParamLock.FIXED
+    
+    def free(self)->FreeParam:
+        """free Turn param into a free param
+        """
+        return FreeParam(
+            index=self.index,
+            affiliation=None
+        )
+
     
 
+class OptimizationParams:
+
+    @dataclass
+    class Indices:
+        free  : List[int]
+        fixed : List[int]
+
+    def _find_index_in_list(i:int, l:List[BaseParamType]) -> BaseParamType:
+        for param in l:
+            if param.index == i:
+                return param
+        raise ValueError(f"Index {i} not fount in list")
+
+    def __init__(
+        self,
+        free_params  : List[FreeParam ],
+        fixed_params : List[FixedParam],
+        num_operation_params : int
+    ) -> None:
+
+        self.indices : OptimizationParams.Indices = OptimizationParams.Indices(
+            free  = [param.index for param in free_params ],
+            fixed = [param.index for param in fixed_params]
+        )
+
+        ordered_list : List[BaseParamType] = []
+        for i in range(num_operation_params):
+            if i in self.indices.free:
+                param = OptimizationParams._find_index_in_list(i, free_params)
+            elif i in self.indices.fixed:
+                param = OptimizationParams._find_index_in_list(i, fixed_params)
+            else:
+                raise ValueError(f"Couldn't find param with index {i}")
+            ordered_list.append(param)
+            
+        ## Keep data
+        self.free_params    : List[FreeParam ]      = free_params
+        self.fixed_params   : List[FixedParam]      = fixed_params
+        self.ordered_params : List[BaseParamType] = ordered_list
+
+    def optimization_theta_to_operations_params(self, theta:np.ndarray) -> List[float]:
+        # check inputs:
+        assert len(theta)==self.num_variables
+        assert isinstance(theta, np.ndarray)
+
+        # Prepare Affiliations of shared values:
+        shared_values : Dict[int, float] = {}
+
+
+        # Construct output:
+        values : List[float] = []
+        thetas = np.nditer(theta)
+        for i, param in enumerate(self.ordered_params):
+            if isinstance(param, FixedParam):
+                value = param.value
+
+            elif isinstance(param, FreeParam):
+                affiliation = param.affiliation
+
+                if affiliation is None:
+                    value = next(thetas).item()                
+
+                elif affiliation in shared_values:
+                    value = shared_values[affiliation]
+
+                else:
+                    value = next(thetas).item()                                
+                    shared_values[affiliation] = value
+
+            else:
+                raise TypeError(f"Unexpected param type '{type(param)}'")
+            
+            values.append(value)
+
+    
+        # Did we exaust all thetas?
+        assertions.depleted_iterator(thetas)
+        return np.array(values)
+
+    def initial_guess(self, initial_guess:Optional[np.ndarray]=None) -> np.ndarray :
+        # helper nums:
+        num_free_params = self.num_variables
+        used_affiliations = set()
+        
+        if initial_guess is not None:  # If guess is given:
+            raise NotImplementedError("Not yet")
+            assert len(initial_guess) == num_free_params, f"Needed number of parameters for the initial guess is {num_free_params} while {len(initial_guess)} were given"
+            if isinstance(initial_guess, list):
+                initial_guess = np.array(initial_guess)
+            if len(positive_indices)>0:
+                assert np.all(initial_guess[positive_indices]>=0), f"All decay-times must be non-negative!"    
+
+        else:  # if we need to create a guess:    
+            initial_guess = []
+            for param in self.free_params:
+                
+                # Make sure to use affiliated values only once:
+                if param.affiliation is not None:
+                    if param.affiliation in used_affiliations:
+                        continue
+                    else:
+                        used_affiliations.add(param.affiliation)
+
+                if param.initial_guess is None:
+                    lower_bound = -np.pi if param.bounds[0] is None else param.bounds[0]
+                    upper_bound = +np.pi if param.bounds[1] is None else param.bounds[1]
+                    val = np.random.uniform(low=lower_bound, high=upper_bound)
+                else:
+                    val = param.initial_guess
+                initial_guess.append(val)   
+    
+        return np.array(initial_guess)
+ 
+    @property
+    def bounds(self) -> List[Tuple[float, float]]:
+        return [free_param.bounds for free_param in self.variable_params() ]
+
+    @property
+    def affiliations(self) -> set:
+        res = set()
+        for param in self.free_params:
+            if param.affiliation is None:
+                continue
+            res.add(param.affiliation)
+        return res
+        
+
+    def variable_params(self) -> Generator[BaseParamType, None, None]:
+        used_affiliations = set()
+        for param in self.free_params:
+            if param.affiliation is not None:
+                if param.affiliation in used_affiliations:
+                    continue
+                else:
+                    used_affiliations.add(param.affiliation)
+            yield param
+
+    @property
+    def num_variables(self) -> int:
+        num_non_affiliated_params = sum([1 if param.affiliation is None else 0 for param in self.free_params])
+        num_unique_affiliations = len(self.affiliations)
+        return num_non_affiliated_params + num_unique_affiliations
+
+    @property
+    def num_fixed(self) -> int:
+        return len(self.fixed_params)
+
+
+
+
 # ==================================================================================== #
-# |                                  Typing hints                                    | #
+# |                                 Helper Types                                     | #
 # ==================================================================================== #
 
 
@@ -107,11 +326,20 @@ class Metric(Enum):
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
 
+
+def add_noise_to_params(x:np.ndarray, std:float=1.0) -> np.ndarray:
+    n = np.random.normal(scale=std, size=x.shape)
+    y = x + n
+    return y
+
+
 def _wigner(state:_DensityMatrixType, title:Optional[str]=None)->None:
     fig, ax = qutip.plot_wigner( qutip.Qobj(state) )
+    plt.grid(True)
     if title is not None:
         ax.set_title(title)
-
+        
+        
 def _initial_guess() -> List[float] :
     omega = 0.2 * 2 * np.pi
     t_1 = 2.074 * omega
@@ -123,8 +351,8 @@ def _initial_guess() -> List[float] :
     phi_3 = 0.503
     phi_4 = 0.257
 
-    # return [  t_1,     t_2,     delta_1,     t_3,       phi_3,    t_4,        phi_4,    delta_2 ]
-    return [ 2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576,    0.1602, -107.5689]
+    return [  t_1,     t_2,     delta_1,     t_3,       phi_3,    t_4,        phi_4,    delta_2 ]
+    # return [ 2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576,    0.1602, -107.5689]
     # return [  2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576/4,    0.1602, -107.5689]
 
 
@@ -135,18 +363,54 @@ def _coherent_control_from_mat(mat:_DensityMatrixType) -> CoherentControl:
     max_state_num = matrix_size-1
     return CoherentControl(max_state_num)
 
-def _deal_bounds(num_params:int, positive_indices:np.ndarray, rotation_indices:List[int]=[]) -> int: 
-    def _bound_rule(i:int) -> Tuple[Any, Any]:
-        # Derive:
-        if i in positive_indices:
+def _deal_params_config( 
+    num_operation_params:int, 
+    positive_indices : np.ndarray,
+    parameter_configs: List[Tuple[ParamLock, int|float ]] | List[BaseParamType] | None = None
+) -> OptimizationParams :
+
+    def _is_positive(i:int)->bool:
+        return i in positive_indices
+
+    def _bounds(i:int) -> Tuple[float, float]:
+        if _is_positive(i):
             return (0, None)
-        elif i in rotation_indices:
-            return (-np.pi, +np.pi)
         else:
             return (None, None)
 
-    # Define bounds:
-    return [_bound_rule(i) for i in range(num_params)]
+
+    if parameter_configs is None:
+        free_params  = [FreeParam( index=i, affiliation=None, bounds=_bounds(i)) for i in range(num_operation_params)  ]
+        fixed_params = [ ]
+        return
+    
+    assert isinstance(parameter_configs, list)
+    common_type = lists.common_super_class(parameter_configs)
+
+    if issubclass(common_type, BaseParamType):
+        def _get_all(lock:ParamLock)->List[BaseParamType]:
+            lis = []
+            for param in parameter_configs:
+                if param.lock is not lock:
+                    continue
+                if isinstance(param, FreeParam):
+                    if param.bounds is None:
+                        param.bounds = _bounds(param.index)
+                lis.append(param)
+            return lis 
+        free_params  = _get_all(ParamLock.FREE )
+        fixed_params = _get_all(ParamLock.FIXED)
+
+    elif common_type is tuple:
+        free_params  = [FreeParam( index=i, affiliation=param[1], bounds=_bounds(i)) for i, param in enumerate(parameter_configs) if param[0]==ParamLock.FREE  ]
+        fixed_params = [FixedParam(index=i, value=param[1]) for i, param in enumerate(parameter_configs) if param[0]==ParamLock.FIXED ]
+    
+    else:
+        raise TypeError(f"Expected `parameter_configs` to be a list of types tuples or `ParamConfigBase`. Instead got {common_type} ")
+
+    return OptimizationParams(free_params=free_params, fixed_params=fixed_params, num_operation_params=num_operation_params)
+    
+
 
 def _positive_indices_from_operations(operations:List[Operation]) -> np.ndarray:
     low = 0
@@ -159,19 +423,19 @@ def _positive_indices_from_operations(operations:List[Operation]) -> np.ndarray:
         low = high
     return positive_indices
 
-def _deal_initial_guess(num_params:int, initial_guess:Optional[np.array]) -> np.ndarray :
+def _deal_initial_guess_old(num_params:int, initial_guess:Optional[np.array]) -> np.ndarray :
     positive_indices = np.arange(NUM_PULSE_PARAMS-1, num_params, NUM_PULSE_PARAMS)
-    return _deal_initial_guess_common(num_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
+    return _deal_initial_guess(num_free_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
     
-def _deal_initial_guess_common(num_params:int, initial_guess:Optional[np.array], positive_indices:np.ndarray) -> np.ndarray:
+def _deal_initial_guess(num_free_params:int, initial_guess:Optional[np.ndarray|list], positive_indices:np.ndarray) -> np.ndarray:
     if initial_guess is not None:  # If guess is given:
-        assert len(initial_guess) == num_params, f"Needed number of parameters for the initial guess is {num_params}"
+        assert len(initial_guess) == num_free_params, f"Needed number of parameters for the initial guess is {num_free_params} while {len(initial_guess)} were given"
         if isinstance(initial_guess, list):
             initial_guess = np.array(initial_guess)
         if len(positive_indices)>0:
             assert np.all(initial_guess[positive_indices]>=0), f"All decay-times must be non-negative!"    
     else:  # if we need to create a guess:    
-        initial_guess = np.random.normal(0, np.pi/2, (num_params))
+        initial_guess = np.random.normal(0, np.pi/2, num_free_params)
         if len(positive_indices)>0:
             initial_guess[positive_indices] = np.abs(initial_guess[positive_indices])
     return initial_guess
@@ -197,10 +461,10 @@ def _common_learn(
         return finish
 
     # Opt Config:
-    initial_guess = _deal_initial_guess(num_params, initial_guess)
+    initial_guess = _deal_initial_guess_old(num_params, initial_guess)
     options = dict(
         maxiter = max_iter,
-        ftol=TOLERANCE,
+        ftol=DEFAULT_TOLERANCE,
     )      
     bounds = _deal_bounds(num_params)      
 
@@ -242,124 +506,48 @@ def _score_str_func(state:_DensityMatrixType) -> str:
     return s
 
 
+# ==================================================================================== #
+# |                             Common Cost Functions                                | #
+# ==================================================================================== #
+
+class CostFunctions():
+
+    @staticmethod
+    def fidelity_to_noon(initial_state:_DensityMatrixType) -> Callable[[_DensityMatrixType], float] :
+        # Define cost function
+        matrix_size = initial_state.shape[0]
+        target_state = np.zeros(shape=(matrix_size,matrix_size))
+        for i in [0, matrix_size-1]:
+            for j in [0, matrix_size-1]:
+                target_state[i,j]=0.5
+
+        def cost_function(final_state:_DensityMatrixType) -> float : 
+            return (-1) * metrics.fidelity(final_state, target_state)
+
+        return cost_function
+
+    @staticmethod
+    def weighted_noon(initial_state:_DensityMatrixType) -> Callable[[_DensityMatrixType], float] :
+        # Define cost function
+        matrix_size = initial_state.shape[0]
+
+        def cost_function(final_state:_DensityMatrixType) -> float : 
+            total_cost = 0.0
+            for i, j in indices.all_possible_indices((matrix_size, matrix_size)):
+                element = final_state[i,j]
+                if (i in [0, matrix_size-1]) and  (j in [0, matrix_size-1]):  # Corners:
+                    cost = np.absolute(element-0.5)  # distance from 1/2
+                else: 
+                    cost = np.absolute(element)  # distance from 0
+                total_cost += cost
+            return total_cost
+
+        return cost_function
+
 
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
-
-def learn_optimized_metric(
-    initial_state : _DensityMatrixType,
-    metric : Metric = Metric.NEGATIVITY,
-    max_iter : int=1000, 
-    num_pulses : int=5, 
-    initial_guess : Optional[np.array] = None,
-    save_results : bool=True,
-) -> LearnedResults:
-    
-    # Choose cost-function:
-    if metric is Metric.PURITY:
-        measure = lambda state: purity(state)
-    elif metric is Metric.NEGATIVITY:
-        measure = lambda state: (-1)*negativity(state)
-    else:
-        raise ValueError("Not a valid option")
-    
-    coherent_control = _coherent_control_from_mat(initial_state)
-    def _cost_func(theta) -> float:
-        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)        
-        return measure(final_state)        
-
-    # Call base function:
-    return _common_learn(
-        initial_state=initial_state,
-        max_iter=max_iter,
-        num_pulses=num_pulses,
-        cost_function=_cost_func,
-        save_results=save_results,
-        initial_guess=initial_guess,
-    )
-    
-    
-
-def learn_midladder_state(
-    initial_state:_DensityMatrixType,  
-    max_iter : int=1000, 
-    num_pulses : int=5, 
-    initial_guess : Optional[np.array] = None,
-    save_results : bool=True,
-) -> LearnedResults:
-
-    # Check inputs:
-    assertions.density_matrix(initial_state)
-
-    # Constants:
-    @dataclass
-    class _Cost():
-        midvalue   = -1.0
-        diagonal   = +5.0
-        every_else = +0.5
-
-    # cost function:
-    coherent_control = _coherent_control_from_mat(initial_state)
-    num_moments = coherent_control.num_moments
-    target_state = Fock(num_moments//2).to_density_matrix(num_moments)
-    def _cost_func(theta:np.ndarray) -> float :  
-        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
-        total_cost = 0.0
-        shape = final_state.shape
-        for i in range(shape[0]):
-            for j in range(shape[1]):
-                val = final_state[i,j]
-                if i==j: # diagonal
-                    if i==shape[0]//2:
-                        cost = _Cost.midvalue
-                    else:
-                        cost = _Cost.diagonal
-                else:
-                    cost = _Cost.every_else
-                total_cost += cost*abs(val)
-        return total_cost
-
-    # Call base function:
-    return _common_learn(
-        initial_state=initial_state,
-        max_iter=max_iter,
-        num_pulses=num_pulses,
-        cost_function=_cost_func,
-        save_results=save_results,
-        initial_guess=initial_guess,
-    )
-
-
-def learn_specific_state(
-    initial_state:_DensityMatrixType, 
-    target_state:_DensityMatrixType, 
-    max_iter : int=100, 
-    num_pulses : int=3, 
-    initial_guess : Optional[np.array] = None,
-    save_results : bool=True,
-) -> LearnedResults:
-
-    # Check inputs:
-    assertions.density_matrix(initial_state)
-    assertions.density_matrix(target_state)
-    assert initial_state.shape == target_state.shape
- 
-    # cost function:
-    coherent_control = _coherent_control_from_mat(initial_state)
-    def _cost_func(theta:np.ndarray) -> float :  
-        final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta)
-        cost = fidelity(initial_state, final_state) * -1
-        return cost
-    # Call base function:
-    return _common_learn(
-        initial_state=initial_state,
-        max_iter=max_iter,
-        num_pulses=num_pulses,
-        cost_function=_cost_func,
-        save_results=save_results,
-        initial_guess=initial_guess,
-    )
 
 def learn_custom_operation(    
     num_moments : int,
@@ -367,58 +555,67 @@ def learn_custom_operation(
     operations : List[Operation],
     cost_function : Callable[[_DensityMatrixType], float],
     max_iter : int=100, 
-    initial_guess : Optional[np.array] = None,
-    save_results : bool=True,
+    tolerance : Optional[float] = None,
+    initial_guess : Optional[np.ndarray] = None,
+    parameters_config : Optional[List[BaseParamType]|List[tuple]] = None,
+    save_results : bool = True,
 ) -> LearnedResults:
 
     # Progress_bar
-    prog_bar = visuals.ProgressBar(max_iter, "Minimizing: ")
+    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ")
+    
+    skip_num = 10
+    @decorators.sparse_execution(skip_num=skip_num, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
-        prog_bar.next()
+        cost = _total_cost_function(xk)
+        prog_bar.next(increment=skip_num, extra_str=f"cost = {cost}")
         finish : bool = False
         return finish
-
-    # Opt Config:
-    options = dict(
-        maxiter = max_iter,
-        ftol=TOLERANCE,
-    )      
-    positive_indices = _positive_indices_from_operations(operations)
-    num_params = sum([op.num_params for op in operations])
-    initial_guess = _deal_initial_guess_common(num_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
-    bounds = _deal_bounds(num_params, positive_indices)  
-
     
-    coherent_control = CoherentControl(num_moments)
 
-    # matrix_size = initial_state.shape[0]
-    # target_state = np.zeros(shape=(matrix_size,matrix_size))
-    # for i in [0, matrix_size-1]:
-    #     for j in [0, matrix_size-1]:
-    #         target_state[i,j]=0.5
-    def total_cost_function(theta:np.ndarray) -> float : 
-        final_state = coherent_control.custom_sequence(initial_state, theta=theta, operations=operations )
+    num_operation_params = sum([op.num_params for op in operations])
+    positive_indices = _positive_indices_from_operations(operations)
+    param_config : OptimizationParams = _deal_params_config(num_operation_params, positive_indices, parameters_config)
+    if initial_guess is None:
+        initial_guess = param_config.initial_guess()
+    else:
+        assert len(initial_guess)==param_config.num_variables
+
+
+    ## Optimization Config:
+    # Define operations:
+    coherent_control = CoherentControl(num_moments)
+    def _total_cost_function(theta:np.ndarray) -> float : 
+        operation_params = param_config.optimization_theta_to_operations_params(theta)
+        final_state = coherent_control.custom_sequence(initial_state, theta=operation_params, operations=operations )
         cost = cost_function(final_state)
         return cost
+
+    options = dict(maxiter = max_iter)   
+    bounds = param_config.bounds
+    tolerance = args.default_value(tolerance, DEFAULT_TOLERANCE)
 
     # Run optimization:
     start_time = time.time()
     opt_res : OptimizeResult = minimize(
-        total_cost_function, 
+        _total_cost_function, 
         initial_guess, 
         method=OPT_METHOD, 
         options=options, 
         callback=_after_each, 
-        bounds=bounds    
+        bounds=bounds,
+        tol=tolerance    
     )
     finish_time = time.time()
-    prog_bar.close()
+    prog_bar.clear()
     
     # Pack learned-results:
     optimal_theta = opt_res.x
-    final_state = coherent_control.custom_sequence(initial_state, theta=optimal_theta, operations=operations )
+    optimal_operation_params = param_config.optimization_theta_to_operations_params(optimal_theta)
+    final_state = coherent_control.custom_sequence(initial_state, theta=optimal_operation_params, operations=operations )
     learned_results = LearnedResults(
         theta = optimal_theta,
+        operation_params = optimal_operation_params,
         score = opt_res.fun,
         time = finish_time-start_time,
         initial_state = initial_state,
@@ -432,172 +629,15 @@ def learn_custom_operation(
 
     return learned_results    
     
+
+
 # ==================================================================================== #
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
-def _run_many_guesses(
-    min_num_pulses:int=3,
-    max_num_pulses:int=16, 
-    num_tries:int=5,
-    num_moments:int=8
-) -> LearnedResults:
-
-    # Track the best results:
-    best_results : LearnedResults = LearnedResults(score=1e10) 
-
-    # For movie:
-    # target_state  = Fock(num_moments//2).to_density_matrix(num_moments=num_moments)
-    coherent_control = CoherentControl(num_moments=num_moments)
-    movie_config = CoherentControl.MovieConfig(
-        active=True,
-        show_now=False,
-        num_transition_frames=10,
-        num_freeze_frames=5,
-        fps=3,
-        bloch_sphere_resolution=25,
-        score_str_func = lambda state: _score_str_func(state)
-    )    
-    
-    
-    for num_pulses in range(min_num_pulses, max_num_pulses+1):
-        for _ in range(num_tries):
-            # Run:
-            try:
-                results = creating_gkp_algo(num_pulses=num_pulses, num_moments=num_moments)
-            except Exception as e:
-                errors.print_traceback(e)
-            # Check if better than best:
-            if results.score < best_results.score:
-                best_results = results
-                # Print and record movie:
-                print(results)
-                coherent_control.coherent_sequence(results.initial_state, theta=results.theta, movie_config=movie_config)
-                
-    saveload.save(best_results, "best_results "+strings.time_stamp())
-    print("\n")
-    print("\n")
-    print("best_results:")
-    print(best_results)
-    return best_results
-
-
-
-def creating_gkp_algo(
-    num_moments:int=100, 
-    max_iter:int=10000, 
-) -> LearnedResults:
-
-    ## Check inputs:
-    assertions.even(num_moments)
-
-    ## Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)
-    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
-    Sp = coherent_control.s_pulses.Sp
-    Sx = coherent_control.s_pulses.Sx
-    Sy = coherent_control.s_pulses.Sy
-    Sz = coherent_control.s_pulses.Sz
-
-    ## Define initial state and guess:
-    initial_state = Fock.excited_state_density_matrix(num_moments)
-    initial_guess = _initial_guess()
-
-    ## Learn how to prepare a cat state:
-    noon_creation_operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
-    ]
-    matrix_size = initial_state.shape[0]
-    target_state = np.zeros(shape=(matrix_size,matrix_size))
-    for i in [0, matrix_size-1]:
-        for j in [0, matrix_size-1]:
-            target_state[i,j]=0.5
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        return (-1) * metrics.fidelity(final_state, target_state)
-    noon_results = learn_custom_operation(
-        num_moments=num_moments, 
-        initial_state=initial_state, 
-        cost_function=cost_function, 
-        operations=noon_creation_operations, 
-        max_iter=max_iter, 
-        initial_guess=initial_guess
-    )
-    noon_creation_params = noon_results.theta
-    noon_creation_params[T4_PARAM_INDEX] = noon_creation_params[T4_PARAM_INDEX] / 4
-
-
-    # Define new initial state:
-    cat_creation_operations = \
-        noon_creation_operations + \
-        [standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])] + \
-        noon_creation_operations
-
-    cat_creation_params = []
-    cat_creation_params.extend(noon_creation_params)
-    cat_creation_params.append(pi)  # x pi pulse
-    cat_creation_params.extend(noon_creation_params)
-
-    # our almost gkp state:
-    cat_state = coherent_control.custom_sequence(state=initial_state, theta=cat_creation_params, operations=cat_creation_operations)
-
-
-    ## Center the cat-state:
-    operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-    ]
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        observation_mean = np.trace( final_state @ Sp )
-        cost = abs(observation_mean)
-        return cost
-    results = learn_custom_operation(
-        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
-    )
-    cat_state = results.final_state
-
-    ## Force cat-state to be on the bottom:
-    z_projection = np.real(np.trace( cat_state @ Sz ))
-    if z_projection>0:
-        cat_state = coherent_control.pulse_on_state(cat_state, x=pi)
-
-    ## Aligning with the y axis:
-    operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
-    ]
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        observation_mean = np.trace( final_state @ Sx @ Sx )
-        cost = observation_mean
-        return cost
-    results = learn_custom_operation(
-        num_moments=num_moments, initial_state=cat_state, cost_function=cost_function, operations=operations, max_iter=max_iter, initial_guess=None
-    )
-    cat_state = results.final_state
-
-
-    trial_state = coherent_control.pulse_on_state(cat_state, x=+0.35)
-    _wigner(trial_state)
-
-    # visuals.close_all()
-    visuals.draw_now()
-    for s in np.linspace(0.008, 0.016, 6):
-        gkp = coherent_control.squeezing(trial_state, strength=s, axis=(1,0) )
-        _wigner(gkp, title=f"s={s}")
-
-
-    # visuals.plot_matter_state(cat_state)
-    visuals.plot_matter_state(gkp)
-    
-
-    
-    return results
-
 
 def main():
-    # results = _run_many_guesses()
-    results = creating_gkp_algo()
-    print("End")
+    print("no main")
 
 if __name__ == "__main__":
     main()

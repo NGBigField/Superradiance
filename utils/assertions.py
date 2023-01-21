@@ -7,6 +7,7 @@ from typing import (
     Union,
     Optional,
     TypeVar,
+    Iterator,
 )
 
 import numpy as np
@@ -95,3 +96,12 @@ def density_matrix(m:_T, reason:Optional[str]=None, robust_check:bool=True) -> _
         _assert( _is_hermitian(m), reason=reason, default_reason="Density Matrix must be hermitian")
         _assert( _is_positive_semidefinite(m), reason=reason, default_reason="Density Matrix must be positive semidefinite")
     return m
+
+def depleted_iterator(it:Iterator) -> Iterator:
+    try:
+        next(it)
+    except:
+        pass
+    else:
+        raise AssertionError(f"Iterator is not depleted!")
+    return it

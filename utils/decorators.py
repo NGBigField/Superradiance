@@ -2,7 +2,37 @@ from typing import (
     Literal,
     Callable,
     Iterable,
+    Any,
+    List,
+    Tuple,
 )
+
+# for sleeping between tries:
+from time import sleep
+
+
+
+def sparse_execution(skip_num:int, default_results:Any) -> Callable[[Callable], Callable]:
+    assert isinstance(skip_num, int)
+    assert skip_num > 0
+
+    def decorator(func:Callable) -> Callable:
+        counter : int = 0
+    
+        def wrapper(*args, **kwargs) -> Any:
+            nonlocal counter
+            
+            if counter >= skip_num:
+                results = func(*args, **kwargs)
+                counter = 0
+            else:
+                results = default_results
+                counter += 1
+            
+            return results
+        return wrapper
+    return decorator
+
 
 def timeit(func: Callable):
     def wrapper(*args, **kwargs):
@@ -75,6 +105,53 @@ def assert_type(Type: type, at: Literal['input', 'output', 'both'] = 'both' ) ->
     return decorator
 
 
+# = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = # = #
+
+def save_results(name:str)->Callable[[Callable], Callable]: # function that returns a decorator
+    def decorator(func:Callable)->Callable: # decorator that returns a wrapper:
+        def wrapper(*args, **kwargs)->Any: # wrapeer that cals the function            
+            results = func(*args, **kwargs)
+            Dict = dict(results=results, args=args, kwargs=kwargs, func_name=func.__name__)
+            file_name = f"{name}_{strings.time_stamp()}"
+            saveload.save(Dict, file_name)
+            return results
+        return wrapper
+    return decorator
+
+def ignore_first_method_call(func:Callable)->Callable: # decorator that returns a wrapper:
+    objects_that_already_called : List[Tuple[object, Callable]] = []
+
+    def wrapper(self, *args, **kwargs)->Any: # wrapeer that cals the function            
+        nonlocal objects_that_already_called
+        if (self, func) in objects_that_already_called:
+            results = func(self, *args, **kwargs)
+        else:
+            objects_that_already_called.append((self, func))
+            results = None
+        return results
+    return wrapper
+
+def multiple_tries(num:int, sleep_time_between_attempts:float=0.0)->Callable[[Callable], Callable]: # function that returns a decorator
+    # Check input:
+    assert sleep_time_between_attempts>=0.00, f"sleep_time_between_attempts must be a non-negative float."
+    # Return decorator:
+    def decorator(func:Callable)->Callable: # decorator that returns a wrapper:
+        def wrapper(*args, **kwargs)->Any: # wrapeer that cals the function            
+            func_name = func.__name__
+            last_error = Exception("Temp Exception")
+            for i in range(num):
+                try:
+                    results = func(*args, **kwargs)
+                    return results
+                except Exception as e:
+                    last_error = e
+                    print("")
+                    print(f"Failed to run '{func_name}' at attempt {i+1}. Reason:")
+                    print(str(e))
+                    sleep(sleep_time_between_attempts)
+            raise last_error
+        return wrapper
+    return decorator
 
 
 # ============================================================================ #

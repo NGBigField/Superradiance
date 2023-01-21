@@ -13,9 +13,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.axes import Axes
 from matplotlib.transforms import Bbox
 
-# For defining print std_out or other:
-import sys
-
 # Everyone needs numpy in their life and other math stuff:
 import numpy as np
 import math
@@ -59,6 +56,8 @@ from moviepy.editor import ImageClip, concatenate_videoclips
 from sympy.physics.wigner import wigner_3j
 from scipy.special import sph_harm
 
+# for smart iterations
+import itertools
 
 
 # ==================================================================================== #
@@ -117,7 +116,16 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     fig.savefig(fullpath_str)
     return 
 
-def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, colorbar_ax:Axes=None, warn_imaginary_part:bool=False, title:str=None, with_axes_arrows:bool=True) :
+def plot_wigner_bloch_sphere(
+    rho:np.matrix, 
+    num_points:int=100, 
+    ax:Optional[Axes3D]=None, 
+    colorbar_ax:Axes=None, 
+    warn_imaginary_part:bool=False, 
+    title:str=None, 
+    with_axes_arrows:bool=True,
+    lowest_alpha:float=0.2
+) :
     # Constants:
     radius = 1
 
@@ -143,42 +151,56 @@ def plot_wigner_bloch_sphere(rho:np.matrix, num_points:int=100, ax:Axes=None, co
     floor = math.floor
     
     # Iterate:
-    k_vals = np.linspace(0, 2 * j, floor(2 * j + 1))
+    k_vals = np.linspace(0, 2*j, floor(2*j + 1))
     m_vals = np.linspace(-j, j, floor(2 * j + 1))
-    pb = ProgressBar(len(k_vals), print_prefix="calculating wigner-function")
+
+    prog_bar_k = strings.ProgressBar(len(k_vals), print_prefix="calculating wigner-function... ")
     for k in k_vals :
-        pb.next()
+        prog_bar_k.next()
+        
         for q in np.linspace(-k, k, floor(2 * k + 1)):
 
             if q >= 0:
                 Ykq = sph_harm(q, k, phi, theta)
             else:
-                Ykq = sph_harm(-q, k, phi, theta)
+                Ykq = (-1)**q*np.conj(sph_harm(-q, k, phi, theta))
             Gkq = 0
-            for m1 in m_vals:
-                for m2 in m_vals:
-                    if -m1 + m2 + q == 0:
-                        tracem1m2 = rho[floor(m1 + j), floor(m2 + j)]
-                        Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * np.conj(
-                            np.complex(wigner_3j(j, k, j, -m1, q, m2)))
+            
+            for m1, m2 in itertools.product(m_vals, repeat=2):                
+                if -m1 + m2 + q == 0:
+                    tracem1m2 = rho[floor(m1 + j), floor(m2 + j)]
+                    wig_sym = wigner_3j(j, k, j, -m1, q, m2)
+                    wig_val = np.conj(complex(wig_sym))
+                    Gkq = Gkq + tracem1m2 * np.sqrt(2 * k + 1) * (-1) ** (j - m1) * wig_val
+                    
             W = W + Ykq * Gkq;
-    pb.close()
+    prog_bar_k.clear()
 
     if warn_imaginary_part and ( np.max(abs(np.imag(W))) > 1e-3 ):
         print('The wigner function has non negligible imaginary part ', str(np.max(abs(np.imag(W)))))
     W = np.real(W)
 
-    fmax, fmin = W.max(), W.min()
+    ## Set colors on the spectrum red to blue:
+    normalized_face_values = W / np.max(np.abs(W))
+    face_colors = cm.bwr(normalized_face_values / 2 + 0.5)
+    ## Adjust opacity values:
+    alpha_func = lambda face_value : (1-lowest_alpha)*abs(face_value) + lowest_alpha
+    for i, j in np.ndindex(normalized_face_values.shape):
+        face_colors[i,j,3] = alpha_func(normalized_face_values[i,j])
 
-    fcolors = W / np.max(np.abs(W))
+
     # Set the aspect ratio to 1 so our sphere looks spherical
-    surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=cm.bwr(fcolors / 2 + 0.5))
+    surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=face_colors)
     m = cm.ScalarMappable(cmap=cm.bwr)
-    m.set_array(fcolors)
+    m.set_array(normalized_face_values)
     m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
     
+    # Set title:
     if title is not None:
         ax.set_title(title, y=1.10)
+        
+    # Set "sphere orientation":
+    ax.view_init(elev=10, azim=10)
 
     # Color bar:
     if colorbar_ax is None:
@@ -417,64 +439,6 @@ class VideoRecorder():
         return frames_dir
 
 
-
-class ProgressBar():
-
-    def __init__(self, expected_end:int, print_prefix:str="", print_length:int=60, print_out=sys.stdout): 
-        self.expected_end = expected_end
-        self.print_prefix = print_prefix
-        self.print_length = print_length
-        self.print_out = print_out
-        self.counter = 0
-        self._as_iterator : bool = False
-
-    def __next__(self) -> int:
-        return self.next()
-
-    def __iter__(self):
-        self._as_iterator = True
-        return self
-
-    def next(self) -> int:
-        self.counter += 1
-        if self._as_iterator and self.counter > self.expected_end:
-            self.close()
-            raise StopIteration
-        self._show()
-        return self.counter
-
-    def close(self):
-        full_bar_length = self.print_length+len(self.print_prefix)+4+len(str(self.expected_end))*2
-        print(
-            f"{(' '*(full_bar_length))}", 
-            end='\r', 
-            file=self.print_out, 
-            flush=True
-        )
-
-    def _show(self):
-        # Unpack properties:
-        i = self.counter
-        prefix = self.print_prefix
-        expected_end = self.expected_end
-        print_length = self.print_length
-
-        # Derive print:
-        if i>expected_end:
-            crnt_bar_length = print_length
-        else:
-            crnt_bar_length = int(print_length*i/expected_end)
-        s = f"{prefix}[{u'█'*crnt_bar_length}{('.'*(print_length-crnt_bar_length))}] {i}/{expected_end}"
-
-        # Print:
-        print(
-            s,
-            end='\r', 
-            file=self.print_out, 
-            flush=True
-        )
-
-
 # ==================================================================================== #
 # |                                  Tests                                           | #
 # ==================================================================================== #
@@ -497,27 +461,19 @@ def _test_prog_bar_as_object():
     print("Done iteration")
 
 def _test_bloch_sphere():
+    # Constants:
+    num_moments = 4
+    num_points = 40
     # Specific imports:
     import pathlib, sys
     sys.path.append(str(pathlib.Path(__file__).parent.parent))
-    from fock import Fock
-    # Figure:
-    plt.show(block=False)
-    fig = plt.figure(figsize=(11,6))
-    ax1 = fig.add_subplot(1,2,1, projection='3d')
-    # ax2 = fig.add_subplot(1,2,2, projection='3d')
-    ax2 = _axes3D(fig)
-    ax1.set_position(Bbox([[0.0, 0.2], [0.45, 0.8]])) 
-    ax2.set_position(Bbox([[0.4, 0.0], [0.95, 1.0]]))    
-    # Define state:
-    num_moments = 2
-    initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
+    from fock import Fock, cat_state
+    # State
+    initial_state = cat_state(num_moments=num_moments, alpha=4, num_legs=4).to_density_matrix(num_moments=num_moments)
     # Plot:
-    plot_city(initial_state, ax=ax2)
-    plot_wigner_bloch_sphere(initial_state, ax=ax1, num_points=10)
-    # Done:
-    plt.show(block=False)
-    print("Finished print")
+    draw_now()
+    plot_wigner_bloch_sphere(initial_state, num_points=num_points )
+    
 
 def _test_bloch_sphere_object():
     # Specific imports:
@@ -558,9 +514,10 @@ def _test_gkp_state():
 def tests():
     # _test_prog_bar_as_iterator()
     # _test_prog_bar_as_object()
-    # _test_bloch_sphere()
+    _test_bloch_sphere()
     # _test_bloch_sphere_object()
-    _test_gkp_state()
+    # _test_gkp_state()
+    
     
     print("Done tests.")
 

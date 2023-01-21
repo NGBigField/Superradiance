@@ -88,6 +88,30 @@ class Operation():
     string : str = None
     positive_params_only : bool = False
     rotation_params : List[int] = None
+    
+    def get_string(self, params:List[float]) -> str:
+        if self.string_func is not None:
+            return self.string_func(*params)
+        elif self.string is not None:
+            return self.string
+        else:
+            return None
+        
+    def get_outputs(self, in_state:_DensityMatrixType, params:List[float], num_intermediate:int=1) -> Tuple[
+        _DensityMatrixType,
+        List[_DensityMatrixType]
+    ]:
+        op_output = self.function(in_state, *params)                
+        if isinstance(op_output, list):
+            out_state = op_output[-1]
+            transition_states = op_output
+        elif isinstance(op_output, (np.matrix, np.ndarray) ):
+            out_state = op_output
+            transition_states = [op_output]                
+        else: 
+            raise ValueError(f"Bug")
+        
+        return out_state, transition_states
 
 
 
@@ -261,6 +285,9 @@ def _list_of_intermediate_pulsed_states(state:_DensityMatrixType, p:np.matrix, n
 # |                            Declared Functions                                    | #
 # ==================================================================================== #
 
+
+
+
 def S_mats(N:int) -> Tuple[ np.matrix, np.matrix, np.matrix ] :
     # Check input:
     _assert_N(N)
@@ -339,7 +366,7 @@ class SequenceMovieRecorder():
     
     def __init__(
         self, 
-        initial_state : _DensityMatrixType,
+        initial_state : Optional[_DensityMatrixType] = None,
         config : Optional[Config] = None,
     ) -> None:
         # Base properties:        
@@ -357,7 +384,7 @@ class SequenceMovieRecorder():
             self.config.score_str_func = SequenceMovieRecorder._default_score_str_func
         self.score_str_func : Callable[[np.matrix], str] = self.config.score_str_func
         # Keep last state:
-        self.last_state = initial_state
+        self.last_state : _DensityMatrixType = initial_state
         
     def _record_single_state(
         self,
@@ -377,7 +404,7 @@ class SequenceMovieRecorder():
 
     def record_transition(
         self, 
-        transition_states:np.matrix, 
+        transition_states:List[_DensityMatrixType], 
         title:str, 
     ) -> None:
         # Check inputs:
@@ -385,10 +412,13 @@ class SequenceMovieRecorder():
             return  # We don't want to record a video
         final_state = transition_states[-1]
         # Capture shots: (transition and freezed state)
+        prog_bar = strings.ProgressBar(len(transition_states), print_prefix="Capturing transition frames... ")
         for transition_state in transition_states:
+            prog_bar.next()
             if np.array_equal(transition_state, self.last_state):
                 continue
             self._record_single_state(transition_state, title=title, duration=1 )
+        prog_bar.clear()
         self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames)
         # Keep info for next call:
         self.last_state = deepcopy(transition_states)
@@ -529,14 +559,14 @@ class CoherentControl():
             indices = [0, 1, 2]  # all indices
             return self.power_pulse_on_specific_directions(power=power, indices=indices)
 
-        def power_pulse_on_specific_directions(self, power:int, indices:List[int]) -> Operation:
+        def power_pulse_on_specific_directions(self, power:int, indices:List[int] = [0,1,2]) -> Operation:
             return Operation(
                 num_params = len(indices),
                 function = lambda rho, *theta: self._power_pulse_func(rho, power=power, theta=theta, indices=indices),
                 string_func = lambda *theta: self._power_pulse_string_func(theta=theta, indices=indices, power=power )
             )
         
-        def squeezing(self, axis:Optional[Tuple[float, float]]) -> Operation:
+        def squeezing(self, axis:Optional[Tuple[float, float]]=None) -> Operation:
             # Define num params:
             if axis is None:
                 num_params = 3
@@ -564,10 +594,10 @@ class CoherentControl():
             return Operation(
                 num_params=num_params,
                 function=_func,
-                string_func=str_func
+                string_func=_str_func
             )
 
-        def stark_shift(self, indices:List[int]=None) -> Operation:
+        def stark_shift(self, indices:Optional[List[int]]=None) -> Operation:
             if indices is None:
                 num_params = self.density_matrix_size
             else:
@@ -583,7 +613,7 @@ class CoherentControl():
         def stark_shift_and_rot(self, stark_shift_indices:List[int]=[1], rotation_indices:List[int] = [0, 1] ):
             # Check inputs:
             num_stark_shifts = len(stark_shift_indices)
-            assert num_stark_shifts<2
+            assert num_stark_shifts<2, "We don't yet support many stark-shifts"
 
             # prepare inputs:
             if len(rotation_indices) in [0, 1]:
@@ -592,9 +622,12 @@ class CoherentControl():
                 num_rotation_directions = 1
 
             num_params = num_stark_shifts + num_rotation_directions + 1
-
-            def _func(rho, *theta):
-                # Deal params:
+            
+            def _deal_params(*theta)->Tuple[
+                float,  # global_strength
+                float,  # rotation_angle
+                float   # stark_shift_strength
+            ]:
                 global_strength = theta[0]
 
                 if num_rotation_directions == 0:
@@ -618,8 +651,13 @@ class CoherentControl():
                         raise NotImplementedError(f"We don't yet support many stark-shifts")
 
                 else:
-                    raise NotImplementedError(f"We don't yet support many thetas")
+                    raise NotImplementedError(f"We don't yet support many thetas")                
+                
+                return global_strength, rotation_angle, stark_shift_strength
 
+            def _func(rho:_DensityMatrixType, *theta)->List[_DensityMatrixType]:
+                # Deal params:
+                global_strength, rotation_angle, stark_shift_strength = _deal_params(*theta)
 
                 # Call func:
                 return self.coherent_control.stark_shift_and_rot_with_intermediate_states(
@@ -631,12 +669,18 @@ class CoherentControl():
                     rotation_angle = rotation_angle,
                     stark_shift_strength = stark_shift_strength
                 )
+                
+            def _str_func(*theta) -> str:
+                # Deal params:
+                global_strength, rotation_angle, stark_shift_strength = _deal_params(*theta)
+                return f"Stark-shift on {stark_shift_indices} with global_strength={global_strength} and stark_shift_strength={stark_shift_strength} \n"+\
+                    f"and rotation on {rotation_indices} with rotation_angle={rotation_angle}"
 
             # Return operation
             return Operation(
                 num_params = num_params,
                 function = _func,
-                string_func = lambda *theta: f"Stark-shift on indices {stark_shift_indices} with delta=[--] with values rotation theta={theta[1]} and global power={theta[0]}",
+                string_func = _str_func,
                 rotation_params=[]
             )
 
@@ -746,6 +790,18 @@ class CoherentControl():
             raise ValueError(f"`num_intermediate_states` must be a non-negative integer")
         return [rho_at_all_times[:,:,ind] for ind in indices ]
 
+    def _z_squeezing_operator(self, strength:float) -> np.matrix:        
+        # Bring matrices
+        Sz = self.s_pulses.Sz   # force casting to complex
+        # Define params:
+        w_0 = 0.495
+        w_j = 0.010
+        num_atoms = self.num_moments
+        # Create operator:
+        exponent =  - 1j * ( Sz * ( w_0 / 2 ) -  (Sz@Sz) * (w_j / num_atoms) ) * strength 
+        op = expm(exponent)
+        return np.matrix( op )
+
     def _squeezing_operator(self, strength:float, axis:Tuple[float, float]) -> np.matrix:
         # Bring matrices
         Sp = self.s_pulses.Sp   # force casting to complex
@@ -772,6 +828,18 @@ class CoherentControl():
         # Return output:
         return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
 
+    def z_squeezing(self, state:_DensityMatrixType, strength:float) -> List[_DensityMatrixType] :
+        return self.z_squeezing_with_intermediate_states(state=state, strength=strength, num_intermediate_states=0)[-1]
+
+    def z_squeezing_with_intermediate_states(self, state:_DensityMatrixType, strength:float, num_intermediate_states:int=0 ) -> List[_DensityMatrixType] :
+        # Check input:
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)    
+        # Divide requested pulse into fragments
+        strength_frac = strength/num_divides
+        p = self._z_squeezing_operator(strength=strength_frac)
+        # Return output:
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
+
     def custom_sequence(
         self, 
         state:np.matrix, 
@@ -790,28 +858,20 @@ class CoherentControl():
         sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
 
         # iterate:
-        for params, operation in zip(all_params, operations):    
+        num_iter = len(operations)
+        prog_bar = strings.ProgressBar(num_iter, print_prefix="Performing custom sequence...  ")
+        for i, (params, operation) in enumerate(zip(all_params, operations)):    
+            if movie_config.active: prog_bar.next()
             # Check params:
             assert operation.num_params == len(params)
             # Apply operation:
-            op_output = operation.function(crnt_state, *params)                
-            if isinstance(op_output, list):
-                crnt_state = op_output[-1]
-                transition_states = op_output
-            elif isinstance(op_output, (np.matrix, np.ndarray) ):
-                crnt_state = op_output
-                transition_states = [op_output]                
-            else: 
-                raise ValueError(f"Bug")
+            num_intermediate : int = movie_config.num_transition_frames if movie_config.active else 1
+            crnt_state, transition_states = operation.get_outputs(crnt_state, params, num_intermediate)
             # Get title:
-            if operation.string_func is not None:
-                title = operation.string_func(*params)
-            elif operation.string is not None:
-                title = operation.string
-            else:
-                title = None
+            title = operation.get_string(params)
             # Record:
             sequence_recorder.record_transition(transition_states, title=title)
+        prog_bar.clear()
 
         sequence_recorder.write_video()
 

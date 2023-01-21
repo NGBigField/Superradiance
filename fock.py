@@ -22,6 +22,7 @@ from utils import (
     types,
     visuals,
     args,
+    numpy_tools,
 )
 
 
@@ -62,6 +63,17 @@ def _ket_or_bra_str( num:int, ket_or_bra:KetBra ) -> str:
         raise Exception(f"Bug")
     return res
 
+
+def _root_factorial(num:int) -> float :
+    res = 1.0
+    
+    if num==0 or num==1:
+        return res
+    
+    for i in range(1, num+1):
+        res *= np.sqrt(i)
+
+    return res
 
 # ==================================================================================== #
 # |                                    types                                         | #
@@ -155,7 +167,9 @@ class Fock():
     def date_type(self) -> np.dtype:
         data_type = type(self.weight)
         if types.is_numpy_float_type(data_type):
-            data_type = float
+            return float
+        if types.is_numpy_complex_type(data_type):
+            return complex
         return data_type
 
     @property
@@ -358,6 +372,41 @@ class FockSum():
 # |                             Declared Functions                                   | #
 # ==================================================================================== #
 
+def cat_state(num_moments:int, alpha:float, num_legs:int, odd:bool=False)->FockSum:
+    # check inputs:
+    num_moments = assertions.integer(num_moments)
+    num_legs = assertions.integer(num_legs)
+
+    # fock space object:
+    fock = FockSum()
+
+    # on moments
+    for moment in range(0, num_moments+1):
+        
+        total_coefficient = 0.0
+        for leg in range(num_legs):
+            leg_alpha = alpha * np.exp(1j * 2*np.pi * leg / num_legs)
+            leg_alpha = numpy_tools.reduce_small_imaginary_to_zero(leg_alpha)
+
+            # compute coefficient
+            if leg_alpha == 0:
+                coef = 0
+            else:
+                power = np.power(leg_alpha, moment) 
+                coef = np.exp( -(abs(leg_alpha)**2)/2 ) * power / _root_factorial(moment) 
+
+            if odd and num_legs==2 and leg!=0:
+                coef *= -1
+                
+            total_coefficient += coef
+
+        fock += Fock(moment)*total_coefficient
+    
+    # Normalize:
+    fock /= fock.norm
+    return fock
+
+
 def coherent_state(num_moments:int, alpha:float, type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum:
     # Choose iterator:
     if type_=='normal':
@@ -417,7 +466,32 @@ def _test_simple_fock_density_matrix():
     rho = Fock.create_coherent_state(num_moments=2, alpha=0, output='density_matrix')
     print(rho)
 
+def _test_cat_state(
+    num_moments:int = 40,
+    alpha:float = 3,
+    num_legs:int = 4
+):
+    fock_sum = cat_state(num_moments=num_moments, alpha=alpha, num_legs=num_legs)
+    print(fock_sum)
+    rho = fock_sum.to_density_matrix(num_moments=num_moments)
+    visuals.plot_matter_state(rho)
+    visuals.draw_now()
+    print("Printed")
+
+def _test_root_factorial(N:int=40):
+    for n in range(N):
+        print(f" == n={n:3} == ")
+        try:
+            fact1 = np.sqrt( math.factorial(n) )
+        except:
+            fact1 = None
+        fact2 = _root_factorial(n)
+        print(fact1)
+        print(fact2)
+
 if __name__ == "__main__":
     # _test_coherent_state()
-    _test_simple_fock_density_matrix()
+    # _test_simple_fock_density_matrix()
+    # _test_root_factorial()
+    _test_cat_state()
     print("Done.")

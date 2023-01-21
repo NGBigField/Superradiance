@@ -4,10 +4,12 @@
         "hbar",
         "kets",
         "kets_and_bras",
+        "num_moments",
         "superradiance"
     ]
     ,
     "python.analysis.extraPaths": [
         
-    ]
+    ],
+    "python.analysis.typeCheckingMode": "basic"
 }
