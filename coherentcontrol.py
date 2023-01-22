@@ -1065,7 +1065,7 @@ def _test_custom_sequence():
     # Const:
     num_moments:int=40
     num_transition_frames=50
-    active_movie_recorder:bool=True
+    active_movie_recorder:bool=False
     fps=10
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
@@ -1081,18 +1081,18 @@ def _test_custom_sequence():
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
     operations = [
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
+        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0,1]),
     ]
 
-    theta = [pi/2]
+    theta = [pi/8, pi/8]
 
     initial_state = Fock.ground_state_density_matrix(num_moments)
     
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     # plot
-    # visuals.plot_matter_state(final_state, block_sphere_resolution=150)
-    # visuals.draw_now()
+    visuals.plot_matter_state(final_state, block_sphere_resolution=150)
+    visuals.draw_now()
     print("Movie is ready in folder 'video' ")
     
 if __name__ == "__main__":    

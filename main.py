@@ -32,6 +32,7 @@ from utils import (
     assertions,
     sounds,
     lists,
+    errors,
 )
 
 # For coherent control
@@ -315,36 +316,6 @@ def common_good_starts() -> Generator[list, None, None]:
         yield item
 
 
-def _sx_sequence_params(num_operation_params:int)->List[FreeParam]:
-    
-    # np.random.seed = int(time.time())
-        
-    num_expected_params = 4*3+3
-        
-    _rot_bounds = lambda : [(-pi, pi)]*3
-    _inf_bounds = lambda : [(None, None)]
-    
-    # Use the unique combination of params for this run:
-    # params_value = [ \
-    #     -1.81807419,  0.52007035,  1.01271901,   0.44214809,  -1.07930578, -1.08874568, 1.52271788,  0.39505837,  0.81025438, -1.56405965,  
-    #     0.98516957,  0.40127439, 1.04201596 ,  0.33755851 , -0.25330203
-    # ]
-    params_value = [
-       -2.89840898,  0.60482827, -3.14034237, -0.7459593 , -0.21135322,
-       -3.14042437, -0.2560056 ,  0.18200392,  1.29437435, -0.13448482,
-        2.54093331,  0.14140911,  1.84052375,  0.21150859,  1.23141363
-    ]
-    params_value = lists.add( params_value , _rand(num_expected_params, sigma=0.02) )
-    params_bound = _rot_bounds() + _inf_bounds() + _rot_bounds() + _inf_bounds() +  _rot_bounds() + _inf_bounds() + _rot_bounds() 
-    assert len(params_value)==len(params_bound)==num_expected_params==num_operation_params    
-    param_config : List[FreeParam] = []
-    for i, (initial_value, bounds) in enumerate(zip(params_value, params_bound)):        
-        param_config.append(
-            FreeParam(index=i, initial_guess=initial_value, bounds=bounds, affiliation=None)   # type: ignore       
-    )
-    assert len(param_config)==num_expected_params  
-    
-    return param_config        
 
 # ==================================================================================== #
 # |                                     main                                         | #
@@ -654,48 +625,192 @@ def disassociate_affiliation()->LearnedResults:
 
     
     
-def optimized_Sx2_pulses(num_attempts:int=50, num_runs_per_attempt:int=int(1e6), num_moments:int=40, num_transition_frames:int=0) -> LearnedResults:
+    
+
+def _sx_sequence_params(
+    standard_operations:CoherentControl.StandardOperations, sigma:float=0.2
+)-> Tuple[
+    List[BaseParamType],
+    List[Operation]
+]:
+    
+    rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
+    p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
+    stark_shift = standard_operations.stark_shift_and_rot()
+            
+        
+    _rot_bounds   = lambda n : [(-pi, pi)]*n
+    _p2_bounds    = lambda n : [(None, None)]*n
+    _stark_bounds = lambda n : [(None, None)]*n
+    
+    _rot_lock   = lambda n : [False]*n 
+    _p2_lock    = lambda n : [False]*n
+    _stark_lock = lambda n : [False]*n
+    
+    # previos_best_values = [
+    #     -3.13496905e+00,  6.04779209e-01, -2.97065809e+00,  # rot
+    #     -7.21249786e-01,  7.92523986e-02,                   # p2
+    #      0.0           ,  0.0           ,  0.0,             # stark-shift
+    #     -2.26480360e-01, -3.06453241e+00, -7.77837060e-01,  # rot
+    #      1.89698575e-01,  1.44668992e-03,                   # p2
+    #      0.0           ,  0.0           ,  0.0,             # stark-shift
+    #      1.10893652e+00, -6.32039487e-02,  2.43629268e+00,  # rot
+    #      1.39075989e-01, -5.08093640e-03,                   # p2
+    #      2.03338557e+00,  3.54986211e-01,  1.23905514e+00   # rot
+    # ]
+    # previous_best_values = [
+    #     -3.14132341e+00,  7.26499599e-01, -2.81640184e+00, 
+    #     -7.21249786e-01,  0.0,
+    #     -2.24533824e-01, -3.06451820e+00, -8.04970536e-01,
+    #      1.89698575e-01,  0.0,
+    #     -1.20910238e-03, -1.13211280e-03,  1.22899846e-03,
+    #      1.39075989e-01,  0.0,
+    #      2.03532868e+00,  3.53830170e-01,  1.23912615e+00
+    # ]
+    # previous_best_values = [-3.14159265e+00,  7.48816345e-01, -3.14158742e+00, -1.11845072e+00,
+    #    -2.54551167e-01, -1.29370443e-04, -3.00227534e+00, -8.38431494e-01,
+    #     5.62570928e-02, -1.00562122e-01,  5.38651426e-02,  1.86925119e-02,
+    #     1.29525864e-01,  2.92131952e-01,  5.46879499e-02,  2.13122296e+00,
+    #     3.05040262e-01,  8.45120583e-01]
+    
+    # previous_best_values = [
+    #     -3.14030032,  1.56964558, -1.23099066, -1.06116912, 
+    #     -0.20848513, -0.00737964, -2.79015456, -1.1894669 ,
+    #      0.04517585, -0.10835456, -0.03379094, -0.12314313,
+    #      0.17918845,  0.31359876,  0.07170169,  2.24711138,  0.36310499,  0.91055266
+    # ]
+    
+    # previous_best_values = [ 
+    #     -3.14030032,     1.56964558,     -1.23099066,     -1.06116912,     -0.20848513,
+    #     3.61693959e-03, -2.75791882e+00, -1.13001522e+00,  4.37562070e-02,
+    #    -1.09556315e-01,  3.00420606e-02, -1.89985052e-01,  1.90603431e-01,
+    #     3.08800775e-01,  7.66210890e-02,  2.14303499e+00,  2.61838147e-01,
+    #     8.67099173e-01,  7.57309369e-03,  2.43802801e-03, -3.69501207e-03,
+    #    -9.91619336e-03,  2.54274091e-02
+    # ]
+    
+    # previous_best_values = [-3.14030032,  1.56964558, -1.23099066, -1.06116912, -0.20848513,
+    #     0.00361694, -2.75791882, -1.13001522,  0.04375621, -0.10955632,
+    #     0.01501858, -0.18233922,  0.18501545,  0.31482114,  0.07721763,
+    #     2.04140464,  0.17904715,  1.29808372,  0.01239275,  0.00664981,
+    #    -0.11626285,  0.32799851, -0.14023262]
+    
+    # previous_best_values = [
+    #     -3.11809877e+00,  1.80059370e+00, -1.55462574e+00, -1.08964755e+00,
+    #    -2.14198793e-01,  8.51353082e-03, -2.62218220e+00, -1.11777407e+00,
+    #     2.17978038e-02, -1.16416204e-01, -1.25477684e-02, -2.92207523e-01,
+    #     2.38461118e-01,  3.13539220e-01,  7.49079999e-02,  1.97132229e+00,
+    #     4.73772111e-02,  1.23930114e+00,  1.40898647e-02,  7.34119457e-03,
+    #    -8.82234915e-02,  3.67593470e-01,  1.61897263e-03,
+    #    0.0, 0.0, 0.0, 0.0, 0.0, 
+    # ]
+    
+    # previous_best_values = [
+    #     0.0, 0.0, 0.0, 0.0, 0.0, 
+    #    -2.73964174e+00,  2.03423352e+00, -1.62928889e+00, -1.08470481e+00,
+    #    -2.10877461e-01, -2.80748413e-02, -2.56002461e+00, -1.09108989e+00,
+    #     2.29558918e-02, -1.15905236e-01, -7.05754005e-03, -3.56090360e-01,
+    #     2.40560895e-01,  3.12555987e-01,  7.45061506e-02,  1.99923603e+00,
+    #    -1.49483597e-02,  1.17152967e+00,  1.50856556e-02,  7.67289787e-03,
+    #    -1.00619005e-01,  3.27342370e-01,  2.63205029e-02,  7.41929725e-04,
+    #     9.55277316e-04,  3.46883173e-03,  4.86919756e-04,  2.12570641e-03
+    # ]
+    
+    # previous_best_values = [ 2.64551298e-02, -1.16495825e-01, -9.04855043e-03, -3.87190166e-02,
+    #    -1.77760170e-01, -2.27747555e+00,  2.30208055e+00, -1.65254288e+00,
+    #    -1.09125669e+00, -2.13360234e-01, -2.12295400e-02, -2.56579479e+00,
+    #    -1.07664641e+00,  2.19823025e-02, -1.16139925e-01, -4.95983723e-03,
+    #    -3.62125331e-01,  2.38295456e-01,  3.11773381e-01,  7.49915536e-02,
+    #     2.05874179e+00, -6.58375089e-02,  1.25318017e+00,  1.25353393e-02,
+    #     3.72244913e-03, -1.94542231e-01,  3.47964229e-01,  6.49519029e-03,
+    #     2.06871716e-03,  4.03951412e-03,  2.95672995e-03,  1.47839729e-02,
+    #     2.66335759e-02]
+    
+    previous_best_values =  [
+        -7.20670400e-02, -2.77369100e-02, -3.05884900e-02, -3.16058400e-02,
+       -2.00039760e-01, -2.32642449e+00,  2.35581955e+00, -1.67368467e+00,
+       -1.08873071e+00, -2.09049130e-01, -2.91800625e-02, -2.55401166e+00,
+       -1.06273587e+00,  2.23209873e-02, -1.16572636e-01,  5.94352619e-03,
+       -3.71775541e-01,  2.28830586e-01,  3.13244374e-01,  7.59811122e-02,
+        1.90984084e+00, -3.58182968e-01,  1.04943798e+00,  1.44282450e-02,
+        1.93743248e-02, -1.07626860e-01,  2.69762649e-01, -3.26275191e-03,
+        8.78877606e-04, -1.17174940e-02,  6.37500647e-02,  1.01841158e-01,
+        3.43182294e-01]
+    
+    operations  = [ rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation]
+    num_operation_params : int = sum([op.num_params for op in operations])
+    assert num_operation_params==len(previous_best_values)
+    params_value = lists.add(previous_best_values, _rand(num_operation_params, sigma=sigma))
+    
+    params_bound = []
+    params_lock  = []
+    for op in operations:
+        n = op.num_params
+        if op is rotation:
+            params_bound += _rot_bounds(n)
+            params_lock  += _rot_lock(n)
+        elif op is stark_shift:
+            params_bound += _stark_bounds(n)
+            params_lock  += _stark_lock(n)
+        elif op is p2_pulse:
+            params_bound += _p2_bounds(n)
+            params_lock  += _p2_lock(n)
+        else:
+            raise ValueError("Not an option")
+    
+    assert len(params_value)==len(params_bound)==num_operation_params==len(params_lock)  
+    param_config : List[BaseParamType] = []
+    for i, (initial_value, bounds, is_locked) in enumerate(zip(params_value, params_bound, params_lock)):        
+        if is_locked:
+            this_config = FixedParam(index=i, value=initial_value)
+        else:
+            this_config = FreeParam(index=i, initial_guess=initial_value, bounds=bounds, affiliation=None)   # type: ignore       
+        param_config.append(this_config)
+        
+    ## Lock first operations:
+    # for i in range(10):
+    #     param : FreeParam = param_config[i]
+    #     param_config[i] = param.fix()
+    
+    return param_config, operations          
+    
+    
+def optimized_Sx2_pulses(num_attempts:int=1, num_runs_per_attempt:int=int(1e5), num_moments:int=40, num_transition_frames:int=0) -> LearnedResults:
     # Similar to previous method:
     _, cost_function, _, _ = _common_4_legged_search_inputs(num_moments, num_transition_frames=0)
     initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
     
     # Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)
-    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
-    rotation = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
-    sx_squar = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0])
-    operations : List[Operation] = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-    ]
+    coherent_control = CoherentControl(num_moments=num_moments)    
+    standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
-    num_operation_params = sum([op.num_params for op in operations])
     best_result : LearnedResults = None
     best_score = np.inf
     
     for attempt_ind in range(num_attempts):
-        param_config = _sx_sequence_params(num_operation_params)
-                
+        print(strings.num_out_of_num(attempt_ind+1, num_attempts))
         
-        results = learn_custom_operation(
-            num_moments=num_moments, 
-            initial_state=initial_state, 
-            cost_function=cost_function, 
-            operations=operations, 
-            max_iter=num_runs_per_attempt, 
-            parameters_config=param_config
-        )
-                
-        if results.score < best_score:
-            print("Score: ",results.score)
-            print("Theta: ",results.theta)
-            best_result = results
-            best_score = results.score
+        param_config, operations = _sx_sequence_params(standard_operations, sigma=0.00)
+        
+        try:            
+            results = learn_custom_operation(
+                num_moments=num_moments, 
+                initial_state=initial_state, 
+                cost_function=cost_function, 
+                operations=operations, 
+                max_iter=num_runs_per_attempt, 
+                parameters_config=param_config
+            )
+        
+        except Exception as e:
+            errors.print_traceback(e)
+        
+        else:
+            if results.score < best_score:
+                print("Score: ",results.score)
+                print("Theta: ",results.theta)
+                best_result = results
+                best_score = results.score
         
     return best_result
 
