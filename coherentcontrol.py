@@ -35,6 +35,7 @@ from utils import (
     visuals,
     strings,
     decorators,
+    lists,
 )
 
 # For measuring time:
@@ -423,17 +424,22 @@ class SequenceMovieRecorder():
         if not self.is_active:
             return  # We don't want to record a video
         final_state = transition_states[-1]
+        
         # Capture shots: (transition and freezed state)
         prog_bar = strings.ProgressBar(len(transition_states), print_prefix="Capturing transition frames... ")
-        for transition_state in transition_states:
+        for is_first, is_last, transition_state in lists.iterate_with_edge_indicators(transition_states):
             prog_bar.next()
             if np.array_equal(transition_state, self.last_state):
                 continue
-            self._record_single_state(transition_state, title=title, duration=1 )
+            if is_last:
+                assert np.array_equal(transition_state, final_state)
+                self._record_single_state(final_state, title=title, duration=self.config.num_freeze_frames)
+            else:
+                self._record_single_state(transition_state, title=title, duration=1 )
         prog_bar.clear()
-        self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames)
+        
         # Keep info for next call:
-        self.last_state = deepcopy(transition_states)
+        self.last_state = deepcopy(final_state)
         
     def write_video(self) -> None:
         if not self.is_active:
@@ -1069,10 +1075,10 @@ def _test_goal_gkp():
     
 def _test_custom_sequence():
     # Const:
-    num_moments:int = 8 # 40
-    num_transition_frames=1
+    num_moments:int = 40
+    num_transition_frames=20
     active_movie_recorder:bool=True
-    fps=2
+    fps=10
     
     
     # define score function:
@@ -1087,10 +1093,10 @@ def _test_custom_sequence():
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
         active=active_movie_recorder,
-        show_now=True,
+        show_now=False,
         num_freeze_frames=fps,
         fps=fps,
-        bloch_sphere_resolution=20,
+        bloch_sphere_resolution=200,
         score_str_func=_score_str_func
     )
 
@@ -1120,8 +1126,8 @@ def _test_custom_sequence():
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     # plot
-    # visuals.plot_matter_state(final_state, block_sphere_resolution=150)
-    # visuals.draw_now()
+    visuals.plot_matter_state(final_state, block_sphere_resolution=150)
+    visuals.draw_now()
     print("Movie is ready in folder 'video' ")
     
 if __name__ == "__main__":    
