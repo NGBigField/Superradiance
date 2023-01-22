@@ -125,6 +125,9 @@ class BaseParamType():
     def lock(self)->ParamLock:
         raise AttributeError("Abstract super class without implementation")
 
+    def get_value(self)->float:
+        raise AttributeError("Abstract super class without implementation")
+
 @dataclass
 class FreeParam(BaseParamType): 
     affiliation : int | None
@@ -134,6 +137,9 @@ class FreeParam(BaseParamType):
     @property
     def lock(self)->ParamLock:
         return ParamLock.FREE
+    
+    def get_value(self)->float:
+        return self.initial_guess
     
     def fix(self)->'FixedParam':
         """fix Turn param into a fix param
@@ -155,6 +161,9 @@ class FixedParam(BaseParamType):
     @property
     def lock(self)->ParamLock:
         return ParamLock.FIXED
+    
+    def get_value(self)->float:
+        return self.value    
     
     def free(self)->FreeParam:
         """free Turn param into a free param
@@ -548,6 +557,16 @@ class CostFunctions():
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
+
+def fix_random_params(params:List[BaseParamType], num:int)->List[BaseParamType]:
+    n = len(params)
+    indices = np.random.choice(n, num, replace=False) 
+    for i, param in enumerate(params):
+        assert isinstance(param, FreeParam)
+        if i in indices:
+            params[i] = param.fix()
+    return params
+
 
 def learn_custom_operation(    
     num_moments : int,

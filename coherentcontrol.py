@@ -1075,7 +1075,7 @@ def _test_goal_gkp():
     
 def _test_custom_sequence():
     # Const:
-    num_moments:int = 40
+    num_moments:int=40
     num_transition_frames=20
     active_movie_recorder:bool=True
     fps=10
@@ -1107,28 +1107,24 @@ def _test_custom_sequence():
     rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
     p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
     
-    operations = [ rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation]
-
-    theta = [-5.21647351e-03,  3.64780064e-03,  1.20317122e-02, -4.12743795e-02,
-       -2.65510012e-01, -2.07504236e+00,  2.38107513e+00, -1.74325902e+00,
-       -1.08841124e+00, -2.26276465e-01,  5.04960332e-02, -2.59261655e+00,
-       -1.11872351e+00,  3.17614938e-02, -1.11687854e-01, -3.08959109e-02,
-       -3.16065208e-01,  2.44773268e-01,  3.50447005e-01,  8.86457067e-02,
-        1.83953416e+00, -8.73191456e-01,  9.69922919e-01,  2.73776070e-03,
-        4.46671650e-02, -9.16588448e-02,  7.51263302e-02,  2.33997781e-01,
-        2.26520181e-02, -1.73708288e-02, -7.91001370e-03,  4.65841533e-01,
-        5.42649379e-01, -4.04111395e-02, -2.03337020e-02,  1.01744864e-03,
-       -3.93635191e-03,  2.99703456e-01]
-
+    operations  = [
+        rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation
+    ]
+    theta = [
+        -0.47595144837934417, 1.0524650373861704, 0.11899362035094888, 0.0038734140503491905, 0.04019117732279853, 0.6547273557595066, 0.14979464751529864, 1.6318703840768194, -0.040226257224637095, -0.24984801010669, -2.085717670983983, 2.3230660056054386, -1.7476407679636696, -1.094254062606245, -0.22847955805236903, 0.08531543253999062, -2.625673290913198, -1.129719153446827, 0.030842526278989223, -0.10953205760973363, -0.05154813549984682, -0.28130682544338614, 0.2494463200963285, 0.35070233052562194, 0.09103381002153813, 1.7743827475189797, -0.7994344336349177, 0.8818754483585529, -0.009631227698231597, 0.04808973021184635, -0.05941691779947954, 0.24361184988357193, 0.3368023960598062, 0.01932312684638582, -0.018061589250921405, -0.02880173757253086, 0.4987486143327268, 0.8423185930550972, -0.04862164878804154, -0.021335033058846757, 0.163755525532994, -0.049597526625344446, 0.0016411107815335777
+    ]
     
     initial_state = Fock.ground_state_density_matrix(num_moments)
     
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
-    # plot
-    visuals.plot_matter_state(final_state, block_sphere_resolution=150)
-    visuals.draw_now()
     print("Movie is ready in folder 'video' ")
+    # plot
+    '''
+        fig = visuals.plot_matter_state(final_state, block_sphere_resolution=150)
+        fig.suptitle(_score_str_func(final_state), fontsize=16)
+        visuals.draw_now()
+    '''
     
 if __name__ == "__main__":    
     np_utils.fix_print_length()
