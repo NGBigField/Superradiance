@@ -88,8 +88,8 @@ T4_PARAM_INDEX : Final[int] = 5
 # ==================================================================================== #
 
 
-def _rand(n:int)->list:
-    return list(np.random.randn(n))
+def _rand(n:int, sigma:float=1)->list:
+    return list(np.random.randn(n)*sigma)
 
 def _load_or_find_noon(num_moments:int, print_on:bool=True) -> NOON_DATA:
     if exist_saved_noon(num_moments):
@@ -325,8 +325,17 @@ def _sx_sequence_params(num_operation_params:int)->List[FreeParam]:
     _inf_bounds = lambda : [(None, None)]
     
     # Use the unique combination of params for this run:
-    params_value       = _rand(3)      + [pi/8]        + _rand(3)      + [pi/8]        +  _rand(3)      + [pi/8]        + _rand(3)       
-    params_bound       = _rot_bounds() + _inf_bounds() + _rot_bounds() + _inf_bounds() +  _rot_bounds() + _inf_bounds() + _rot_bounds() 
+    # params_value = [ \
+    #     -1.81807419,  0.52007035,  1.01271901,   0.44214809,  -1.07930578, -1.08874568, 1.52271788,  0.39505837,  0.81025438, -1.56405965,  
+    #     0.98516957,  0.40127439, 1.04201596 ,  0.33755851 , -0.25330203
+    # ]
+    params_value = [
+       -2.89840898,  0.60482827, -3.14034237, -0.7459593 , -0.21135322,
+       -3.14042437, -0.2560056 ,  0.18200392,  1.29437435, -0.13448482,
+        2.54093331,  0.14140911,  1.84052375,  0.21150859,  1.23141363
+    ]
+    params_value = lists.add( params_value , _rand(num_expected_params, sigma=0.02) )
+    params_bound = _rot_bounds() + _inf_bounds() + _rot_bounds() + _inf_bounds() +  _rot_bounds() + _inf_bounds() + _rot_bounds() 
     assert len(params_value)==len(params_bound)==num_expected_params==num_operation_params    
     param_config : List[FreeParam] = []
     for i, (initial_value, bounds) in enumerate(zip(params_value, params_bound)):        
@@ -645,7 +654,7 @@ def disassociate_affiliation()->LearnedResults:
 
     
     
-def optimized_Sx2_pulses(num_attempts:int=50, num_runs_per_attempt:int=int(1e4), num_moments:int=40, num_transition_frames:int=0) -> LearnedResults:
+def optimized_Sx2_pulses(num_attempts:int=50, num_runs_per_attempt:int=int(1e6), num_moments:int=40, num_transition_frames:int=0) -> LearnedResults:
     # Similar to previous method:
     _, cost_function, _, _ = _common_4_legged_search_inputs(num_moments, num_transition_frames=0)
     initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
@@ -653,6 +662,8 @@ def optimized_Sx2_pulses(num_attempts:int=50, num_runs_per_attempt:int=int(1e4),
     # Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
+    rotation = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
+    sx_squar = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0])
     operations : List[Operation] = [
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
         standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
@@ -690,6 +701,6 @@ def optimized_Sx2_pulses(num_attempts:int=50, num_runs_per_attempt:int=int(1e4),
 
 if __name__ == "__main__":
     # _study()
-    # results = disassociate_affiliation()
+    # results = disasseociate_affiliation()
     results = optimized_Sx2_pulses()
     print("Done.")

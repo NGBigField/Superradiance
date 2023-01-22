@@ -9,6 +9,11 @@ from typing import (
 _T = TypeVar('_T')
 
 
+def add(l1:List[_T], l2:List[_T])->List[_T]:
+    l3 = []
+    for v1, v2 in zip(l1, l2, strict=True):
+        l3.append(v1+v2)
+    return l3
 
 def same_length(*args:List[Any]) -> bool:
     is_first = True
