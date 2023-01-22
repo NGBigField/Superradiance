@@ -726,18 +726,31 @@ def _sx_sequence_params(
     #     2.06871716e-03,  4.03951412e-03,  2.95672995e-03,  1.47839729e-02,
     #     2.66335759e-02]
     
-    previous_best_values =  [
-        -7.20670400e-02, -2.77369100e-02, -3.05884900e-02, -3.16058400e-02,
-       -2.00039760e-01, -2.32642449e+00,  2.35581955e+00, -1.67368467e+00,
-       -1.08873071e+00, -2.09049130e-01, -2.91800625e-02, -2.55401166e+00,
-       -1.06273587e+00,  2.23209873e-02, -1.16572636e-01,  5.94352619e-03,
-       -3.71775541e-01,  2.28830586e-01,  3.13244374e-01,  7.59811122e-02,
-        1.90984084e+00, -3.58182968e-01,  1.04943798e+00,  1.44282450e-02,
-        1.93743248e-02, -1.07626860e-01,  2.69762649e-01, -3.26275191e-03,
-        8.78877606e-04, -1.17174940e-02,  6.37500647e-02,  1.01841158e-01,
-        3.43182294e-01]
+    # previous_best_values =  [
+    #     -6.11337359e-02, -4.48316330e-02, -2.82676017e-02, -3.25561302e-02,
+    #    -1.98010475e-01, -2.31842421e+00,  2.36194099e+00, -1.70163429e+00,
+    #    -1.08924675e+00, -2.10204448e-01, -2.75792429e-02, -2.55973218e+00,
+    #    -1.05334435e+00,  2.12767325e-02, -1.16811652e-01,  4.36041716e-03,
+    #    -3.71563640e-01,  2.29741367e-01,  3.13366952e-01,  7.62151375e-02,
+    #     1.90917446e+00, -3.62066282e-01,  1.05373414e+00,  1.47731610e-02,
+    #     1.99157089e-02, -1.08752683e-01,  2.72017441e-01, -2.72095759e-03,
+    #     8.58682076e-04, -1.17743989e-02,  6.01113733e-02,  1.02590587e-01,
+    #     3.39742620e-01]
     
-    operations  = [ rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation]
+    previous_best_values = [
+        -7.13588363e-02, -3.80137188e-02, -2.39536167e-02, -3.27949400e-02,
+       -1.96901816e-01, -2.31905117e+00,  2.37206637e+00, -1.70061176e+00,
+       -1.08833084e+00, -2.10303395e-01, -2.41519298e-02, -2.56865778e+00,
+       -1.05087505e+00,  2.14462515e-02, -1.16775193e-01,  4.81643506e-03,
+       -3.65193448e-01,  2.27217170e-01,  3.14479557e-01,  7.65798517e-02,
+        1.90738399e+00, -4.26370890e-01,  1.05314249e+00,  1.61049232e-02,
+        2.31567874e-02, -1.12499156e-01,  2.95158748e-01, -2.82196522e-03,
+        5.08932313e-04, -1.38633239e-02,  4.88258818e-02,  9.38795946e-02,
+        3.75208008e-01,
+        0.0, 0.0, 0.0, 0.0, 0.0
+        ]
+    
+    operations  = [ rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation]
     num_operation_params : int = sum([op.num_params for op in operations])
     assert num_operation_params==len(previous_best_values)
     params_value = lists.add(previous_best_values, _rand(num_operation_params, sigma=sigma))
@@ -767,10 +780,10 @@ def _sx_sequence_params(
             this_config = FreeParam(index=i, initial_guess=initial_value, bounds=bounds, affiliation=None)   # type: ignore       
         param_config.append(this_config)
         
-    ## Lock first operations:
-    # for i in range(10):
-    #     param : FreeParam = param_config[i]
-    #     param_config[i] = param.fix()
+    # Lock first operations:
+    for i in range(14):
+        param : FreeParam = param_config[i]
+        param_config[i] = param.fix()
     
     return param_config, operations          
     

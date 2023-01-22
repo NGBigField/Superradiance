@@ -25,6 +25,7 @@ from typing import (
     Generator,
     List,
     ClassVar,
+    Final,
 )
 
 # Import our tools and utils:
@@ -65,6 +66,12 @@ import itertools
 # ==================================================================================== #
 VIDEOS_FOLDER = os.getcwd()+os.sep+"videos"+os.sep
 
+# Plot bloch default params:
+DEFAULT_ELEV : Final[float] = -30
+DEFAULT_AZIM : Final[float] =  45
+DEFAULT_ROLL : Final[float] =   0
+
+
 # ==================================================================================== #
 #|                              Inner Functions                                       |#
 # ==================================================================================== #
@@ -78,6 +85,14 @@ else:
         return Axes3D(*args, **kwargs)
 
 
+def _sigmoid(x, center_x:float, steepness:float):
+    exponent = -steepness*((x-center_x))
+    return 1/( 1 + np.exp(exponent) )
+
+def _face_value_function( value:float, lowest_alpha:float) -> float:
+    x = abs(value)
+    y = max(_sigmoid(x, 0.1, 10), 0)
+    return (1-lowest_alpha)*y + lowest_alpha
 
 # ==================================================================================== #
 #|                             Declared Functions                                     |#
@@ -124,7 +139,10 @@ def plot_wigner_bloch_sphere(
     warn_imaginary_part:bool=False, 
     title:str=None, 
     with_axes_arrows:bool=True,
-    lowest_alpha:float=0.2
+    lowest_alpha:float=0.2,
+    view_elev:float=DEFAULT_ELEV,
+    view_azim:float=DEFAULT_AZIM,
+    view_roll:float=DEFAULT_ROLL    
 ) :
     # Constants:
     radius = 1
@@ -184,7 +202,7 @@ def plot_wigner_bloch_sphere(
     normalized_face_values = W / np.max(np.abs(W))
     face_colors = cm.bwr(normalized_face_values / 2 + 0.5)
     ## Adjust opacity values:
-    alpha_func = lambda face_value : (1-lowest_alpha)*abs(face_value) + lowest_alpha
+    alpha_func = lambda normalized_face_value : _face_value_function(normalized_face_value, lowest_alpha)
     for i, j in np.ndindex(normalized_face_values.shape):
         face_colors[i,j,3] = alpha_func(normalized_face_values[i,j])
 
@@ -200,7 +218,7 @@ def plot_wigner_bloch_sphere(
         ax.set_title(title, y=1.10)
         
     # Set "sphere orientation":
-    ax.view_init(elev=10, azim=10)
+    ax.view_init(elev=view_elev, azim=view_azim, roll=view_roll)
 
     # Color bar:
     if colorbar_ax is None:
@@ -219,7 +237,7 @@ def plot_wigner_bloch_sphere(
             arrow.set_linewidth(4)
             xyz[i] = 1.7
             ax.text(*xyz, str_, font=dict(size=18))
-
+    
 
     ax.set_title('$W(\\theta,\phi)$', fontsize=16)
     # Turn off the axis planes
@@ -443,36 +461,22 @@ class VideoRecorder():
 # |                                  Tests                                           | #
 # ==================================================================================== #
 
-def _test_prog_bar_as_iterator():
-    import time    
-    n = 5
-    for p in ProgressBar(n, "Computing: "):
-        time.sleep(0.1) # any code you need
-    print("Done iteration")
-
-def _test_prog_bar_as_object():
-    import time    
-    n = 5
-    prog_bar = ProgressBar(n, "Computing: ")
-    for p in range(n+10):
-        next(prog_bar)
-        time.sleep(0.1) # any code you need
-    print("")
-    print("Done iteration")
 
 def _test_bloch_sphere():
     # Constants:
-    num_moments = 4
+    num_moments = 8
     num_points = 40
     # Specific imports:
     import pathlib, sys
     sys.path.append(str(pathlib.Path(__file__).parent.parent))
     from fock import Fock, cat_state
     # State
-    initial_state = cat_state(num_moments=num_moments, alpha=4, num_legs=4).to_density_matrix(num_moments=num_moments)
+    initial_state = cat_state(num_moments=num_moments, alpha=1, num_legs=4).to_density_matrix(num_moments=num_moments)
     # Plot:
-    draw_now()
     plot_wigner_bloch_sphere(initial_state, num_points=num_points )
+    draw_now()
+    # Finish
+    print("Done.")
     
 
 def _test_bloch_sphere_object():
