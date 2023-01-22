@@ -349,6 +349,8 @@ class SPulses():
 
 class SequenceMovieRecorder():
     
+    ViewingAngles = visuals.ViewingAngles
+    
     def _default_score_str_func(state:_DensityMatrixType) -> str:
         s = f"Purity = {purity(state)}"
         return s
@@ -362,6 +364,7 @@ class SequenceMovieRecorder():
         num_freeze_frames : int = 5
         bloch_sphere_resolution : int = 25
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
+        viewing_angles : Optional[visuals.ViewingAngles] = None
 
     
     def __init__(
@@ -371,11 +374,13 @@ class SequenceMovieRecorder():
     ) -> None:
         # Base properties:        
         self.config : SequenceMovieRecorder.Config = args.default_value(config, default_factory=SequenceMovieRecorder.Config )
+        viewing_angles = args.default_value( self.config.viewing_angles, visuals.ViewingAngles(elev=-20)  )
         self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps)
         if self.config.active:
             self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(
                 block_sphere_resolution=self.config.bloch_sphere_resolution,
-                initial_state=initial_state
+                initial_state=initial_state,
+                viewing_angles=viewing_angles
             )            
         else:
             self.figure_object = None
@@ -449,6 +454,7 @@ class CoherentControl():
     # Class Attributes:
     _default_state_decay_resolution : ClassVar[int] = 1000
     MovieConfig = SequenceMovieRecorder.Config
+    
 
     # ==================================================== #
     #|                    constructor                     |#
@@ -1063,36 +1069,59 @@ def _test_goal_gkp():
     
 def _test_custom_sequence():
     # Const:
-    num_moments:int=40
-    num_transition_frames=50
-    active_movie_recorder:bool=False
-    fps=10
+    num_moments:int = 8 # 40
+    num_transition_frames=1
+    active_movie_recorder:bool=True
+    fps=2
+    
+    
+    # define score function:
+    from metrics import fidelity
+    from fock import cat_state
+    target_state = cat_state(num_moments, alpha=3, num_legs=4).to_density_matrix()
+    def _score_str_func(rho:np.matrix)->str:
+        fidel = fidelity(rho, target_state)
+        s = f"Fidelity: {fidel}"
+        return s
+    
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
         active=active_movie_recorder,
-        show_now=False,
+        show_now=True,
         num_freeze_frames=fps,
         fps=fps,
-        bloch_sphere_resolution=50
+        bloch_sphere_resolution=20,
+        score_str_func=_score_str_func
     )
 
     ## Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
-    operations = [
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0,1]),
-    ]
+    rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
+    p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
+    
+    operations = [ rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation]
 
-    theta = [pi/8, pi/8]
+    theta = [-5.21647351e-03,  3.64780064e-03,  1.20317122e-02, -4.12743795e-02,
+       -2.65510012e-01, -2.07504236e+00,  2.38107513e+00, -1.74325902e+00,
+       -1.08841124e+00, -2.26276465e-01,  5.04960332e-02, -2.59261655e+00,
+       -1.11872351e+00,  3.17614938e-02, -1.11687854e-01, -3.08959109e-02,
+       -3.16065208e-01,  2.44773268e-01,  3.50447005e-01,  8.86457067e-02,
+        1.83953416e+00, -8.73191456e-01,  9.69922919e-01,  2.73776070e-03,
+        4.46671650e-02, -9.16588448e-02,  7.51263302e-02,  2.33997781e-01,
+        2.26520181e-02, -1.73708288e-02, -7.91001370e-03,  4.65841533e-01,
+        5.42649379e-01, -4.04111395e-02, -2.03337020e-02,  1.01744864e-03,
+       -3.93635191e-03,  2.99703456e-01]
 
+    
     initial_state = Fock.ground_state_density_matrix(num_moments)
     
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     # plot
-    visuals.plot_matter_state(final_state, block_sphere_resolution=150)
-    visuals.draw_now()
+    # visuals.plot_matter_state(final_state, block_sphere_resolution=150)
+    # visuals.draw_now()
     print("Movie is ready in folder 'video' ")
     
 if __name__ == "__main__":    

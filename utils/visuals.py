@@ -60,6 +60,9 @@ from scipy.special import sph_harm
 # for smart iterations
 import itertools
 
+# For oop style:
+from dataclasses import dataclass, field
+
 
 # ==================================================================================== #
 #|                                 Constants                                          |#
@@ -67,9 +70,9 @@ import itertools
 VIDEOS_FOLDER = os.getcwd()+os.sep+"videos"+os.sep
 
 # Plot bloch default params:
-DEFAULT_ELEV : Final[float] = -30
-DEFAULT_AZIM : Final[float] =  45
-DEFAULT_ROLL : Final[float] =   0
+DEFAULT_ELEV : Final[float] = 10
+DEFAULT_AZIM : Final[float] = 45
+DEFAULT_ROLL : Final[float] =  0
 
 
 # ==================================================================================== #
@@ -341,25 +344,48 @@ def plot_matter_state(state:np.matrix, block_sphere_resolution:int=100):
 #|                                     Classes                                        |#
 # ==================================================================================== #
 
+@dataclass
+class ViewingAngles():
+     elev : float = DEFAULT_ELEV
+     azim : float = DEFAULT_AZIM
+     roll : float = DEFAULT_ROLL
+
 class MatterStatePlot():
 
     _separate_colorbar_axis : ClassVar[bool] = True
 
-    def __init__(self, block_sphere_resolution:int=100, initial_state:Optional[np.matrix]=None, show_now:bool=False) -> None:
+    def __init__(
+        self, 
+        block_sphere_resolution:int=100, 
+        initial_state:Optional[np.matrix]=None, 
+        show_now:bool=False, 
+        viewing_angles : Optional[ViewingAngles]=None
+    ) -> None:
         self.block_sphere_resolution = block_sphere_resolution
         fig, ax1, ax2, ax3 = MatterStatePlot._init_figure()
         self.axis_bloch_sphere : Axes3D = ax1
         self.axis_bloch_sphere_colorbar : Axes = ax2
         self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
+        self.viewing_angles : ViewingAngles = args.default_value(viewing_angles, default_factory=ViewingAngles)
         if initial_state is not None:
             self.update(initial_state, title="Initial-State", show_now=show_now)
     
-    def update(self, state:np.matrix, title:Optional[str]=None, score_str:Optional[str]=None, fontsize:int=16, show_now:bool=False) -> None:
+    def update(
+        self, 
+        state:np.matrix, 
+        title:Optional[str]=None, 
+        score_str:Optional[str]=None, 
+        fontsize:int=16, 
+        show_now:bool=False,        
+    ) -> None:
         assertions.density_matrix(state, robust_check=False)
         self.refresh_figure()
-        plot_wigner_bloch_sphere(state, ax=self.axis_bloch_sphere, num_points=self.block_sphere_resolution, colorbar_ax=self.axis_bloch_sphere_colorbar)
         plot_city(state, ax=self.axis_block_city)
+        plot_wigner_bloch_sphere(
+            state, ax=self.axis_bloch_sphere, num_points=self.block_sphere_resolution, colorbar_ax=self.axis_bloch_sphere_colorbar,
+            view_azim=self.viewing_angles.azim, view_elev=self.viewing_angles.elev, view_roll=self.viewing_angles.roll
+        )
         if title is not None:
             self.figure.suptitle(title, fontsize=fontsize)
         if show_now:
