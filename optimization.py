@@ -340,13 +340,6 @@ def add_noise_to_params(x:np.ndarray, std:float=1.0) -> np.ndarray:
     n = np.random.normal(scale=std, size=x.shape)
     y = x + n
     return y
-
-
-def _wigner(state:_DensityMatrixType, title:Optional[str]=None)->None:
-    fig, ax = qutip.plot_wigner( qutip.Qobj(state) )
-    plt.grid(True)
-    if title is not None:
-        ax.set_title(title)
         
         
 def _initial_guess() -> List[float] :

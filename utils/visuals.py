@@ -63,6 +63,7 @@ import itertools
 # For oop style:
 from dataclasses import dataclass, field
 
+import qutip
 
 # ==================================================================================== #
 #|                                 Constants                                          |#
@@ -101,6 +102,7 @@ def _face_value_function( value:float, lowest_alpha:float) -> float:
 #|                             Declared Functions                                     |#
 # ==================================================================================== #
 
+
 def close_all():
     plt.close('all')
 
@@ -115,6 +117,7 @@ def new_axis(is_3d:bool=False):
     else:
         axis : Axes = plt.axes(fig)
     return axis
+
 
 def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> None:
     # Figure:
@@ -133,6 +136,14 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     # Save:
     fig.savefig(fullpath_str)
     return 
+
+
+
+def plot_light_wigner(state:np.matrix, title:Optional[str]=None)->None:
+    fig, ax = qutip.plot_wigner( qutip.Qobj(state) )
+    plt.grid(True)
+    if title is not None:
+        ax.set_title(title)
 
 def plot_wigner_bloch_sphere(
     rho:np.matrix, 
