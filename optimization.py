@@ -170,7 +170,8 @@ class FixedParam(BaseParamType):
         """
         return FreeParam(
             index=self.index,
-            affiliation=None
+            affiliation=None,
+            initial_guess=self.value
         )
 
     

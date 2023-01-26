@@ -659,7 +659,7 @@ def _sx_sequence_params(
     operations = operations + [p2_pulse, rotation]
     
     if theta is None:
-        theta = previous_best_values + [0.0, 0.0, 0.0, 0.0, 0.0, ]
+        theta = previous_best_values + [0.0, 0.0, 0.0, 0.0, 0.0]
     
     num_operation_params : int = sum([op.num_params for op in operations])
     assert num_operation_params==len(theta)
@@ -697,6 +697,12 @@ def _sx_sequence_params(
         num_fixed_params = num_operation_params-num_free_params
     param_config = fix_random_params(param_config, num_fixed_params)
     assert num_fixed_params == sum([1 if param.lock==ParamLock.FIXED else 0 for param in param_config ])
+    
+    # Free new params:
+    for i in range(5):
+        param = param_config[-i-1]
+        if isinstance(param, FixedParam):
+            param_config[-i-1] = param.free()
     
     return param_config, operations          
     
