@@ -332,11 +332,11 @@ class SPulses():
         self.N = N
         Sx, Sy, Sz = S_mats(N)
         D_plus, D_minus = _D_plus_minus_mats(N)
-        self.Sx = Sx 
-        self.Sy = Sy 
-        self.Sz = Sz
-        self.Sp = D_plus  + 0*1j  # force casting to complex
-        self.Sm = D_minus + 0*1j  # force casting to complex
+        self.Sx  = Sx 
+        self.Sy  = Sy 
+        self.Sz  = Sz
+        self.Sp  = D_plus  + 0*1j  # force casting to complex
+        self.Sm  = D_minus + 0*1j  # force casting to complex
 
     def __repr__(self) -> str:
         res = f"S Pulses with N={self.N}: \n"
@@ -1074,13 +1074,63 @@ def _test_goal_gkp():
     visuals.plot_wigner_bloch_sphere(gkp, num_points=block_sphere_resolution)
     print("Done")
     
+def _show_analitical_gkp():
+    # Const:
+    num_moments:int=100
+    num_transition_frames=0 #20
+    active_movie_recorder:bool=False
+    fps=10
+
+    # Movie config:
+    movie_config=CoherentControl.MovieConfig(
+        active=active_movie_recorder,
+        show_now=False,
+        num_freeze_frames=fps,
+        fps=fps,
+        bloch_sphere_resolution=200,
+        # score_str_func=_score_str_func
+    )
+
+    ## Define operations:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
+    initial_state = Fock.ground_state_density_matrix(num_moments)
+
+    x1 = 0.02
+    z1 = -1.1682941853606887
+    x2 = 0.4
+    z2 = pi/2
+
+    x_op  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])
+    x2_op = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0])
+    z_op  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[2])
+    z2_op = standard_operations.power_pulse_on_specific_directions(power=2, indices=[2])
+    
+    operations = [x2_op, z_op, x_op, z2_op, x_op, z2_op ]
+    theta      = [x1,    z1,   x2,   z2,    x2,   z2    ]
+        
+    # Apply:
+    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
+    
+    # Plot
+    visuals.plot_light_wigner(final_state)
+    visuals.draw_now()
+    
+    fig = visuals.plot_wigner_bloch_sphere(final_state, num_points=150, view_elev=-50)
+    fig.suptitle("GKP State", fontsize=16)
+
+    print("Movie is ready in folder 'video' ")
+
+    # plot
+    '''
+    '''    
+
 def _test_custom_sequence():
     # Const:
     num_moments:int=40
     num_transition_frames=0 #20
     active_movie_recorder:bool=False
     fps=10
-    
     
     # define score function:
     from metrics import fidelity
@@ -1135,7 +1185,8 @@ if __name__ == "__main__":
     # _test_record_sequence()
     # _test_power_pulse()
     # _test_goal_gkp()
-    _test_custom_sequence()
+    # _test_custom_sequence()
+    _show_analitical_gkp()
 
     print("Done.")
 

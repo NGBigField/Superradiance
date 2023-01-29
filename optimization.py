@@ -4,9 +4,11 @@
 # |                                   Imports                                        | #
 # ==================================================================================== #
 
-# Everyone needs numpy:
+# Everyone needs numpy and numeric stuff:
 import numpy as np
 from numpy import pi
+from scipy.linalg import expm  # matrix exponential
+
 
 # For typing hints:
 from typing import (
@@ -551,6 +553,29 @@ class CostFunctions():
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
+
+def learn_single_op(
+    initial_state:_DensityMatrixType, op:np.matrix, op_proj_to_minimize:np.matrix
+) -> Tuple[
+    _DensityMatrixType,
+    float
+]:
+
+    def pulse_on_state(var:float)->_DensityMatrixType:
+        p = np.matrix( expm(1j*op*var) )
+        return np.matrix( p @ initial_state @ p.getH() )
+
+    def cost_func(theta:np.ndarray)->float:
+        var = theta[0]        
+        final_state = pulse_on_state(var)
+        x2_proj = np.trace(final_state@op_proj_to_minimize)
+        return x2_proj
+
+    result = minimize(cost_func, [0])
+    
+    var = result.x[0]
+    final_state = pulse_on_state(var)
+    return final_state, var  # type: ignore
 
 def fix_random_params(params:List[BaseParamType], num:int)->List[BaseParamType]:
     n = len(params)
