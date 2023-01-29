@@ -27,55 +27,52 @@ def goal_gkp_state(num_moments:int):
     # Get un-rotated state:
     psi = _goal_gkp_state_ket(num_moments)
     rho = qutip.ket2dm(psi).full()
+    
     # Rotate the state:
     coherent_control = CoherentControl(num_moments=num_moments)
-    gkp = coherent_control.pulse_on_state(rho, x=pi/2)
+    # gkp = coherent_control.pulse_on_state(rho, x=pi/2)
+    gkp = rho
     return gkp
     
-def _goal_gkp_state_ket(num_moments:int):
+def _goal_gkp_state_ket(
+    num_moments:int,
+    d_b = 10.0
+):
+    # Constants:
+    alpha =  np.sqrt(pi/2)
+    
+    r = np.log( np.sqrt( d_b ) )
+    m = round( (np.exp(r)**2) /pi )  # 3 when dB=10
+    
+    # Basic operators:
     n = num_moments + 1 
-    alpha =  np.sqrt(2*pi)
-
-    S = qutip.squeeze(n, 1)
-
+    S = qutip.squeeze(n, r)
     D_alpha = qutip.displace(n, alpha) + qutip.displace(n, -alpha)
-
+    
+    # Perform sequence:
     psi = qutip.basis(n, 0)
     psi = S * psi
-    psi = psi.unit()
+    for _ in range(m):
+        psi = D_alpha * psi    
 
-    psi = D_alpha * psi
-    psi = psi.unit()
-    psi = D_alpha * psi
-
+    # Normalize:
     psi = psi.unit()
 
     return psi
 
-def main():
+def _test_plot_goal_gkp():
     num_moments = 40
 
-    psi = _goal_gkp_state_ket(num_moments)
     rho = goal_gkp_state(num_moments)
 
-    qutip.plot_wigner(psi)
-    f = plt.figure(2)
-    ax = f.add_subplot(111)
-    print(rho)
-    ax.pcolormesh(np.real(rho), cmap='bwr')
-    ax.set_aspect('equal')
-    ax.set_ylabel('m')
-    ax.set_xlabel('n')
-    ax.set_title('real($\\rho$)')
-    np.save('goal_gkp',rho)
-    m = ax.collections[0]
-    m.set_clim(-np.max(np.abs(np.real(rho))), np.max(np.abs(np.real(rho))))
-    plt.colorbar(m)
+    from utils.visuals import plot_matter_state, plot_light_wigner
 
-    plt.show()
-
+    plot_matter_state(rho)
+    plot_light_wigner(rho)
+    
+    print("Done.")
 
 if __name__ == '__main__':
-    main()
+    _test_plot_goal_gkp()
     print("Done.")
 
