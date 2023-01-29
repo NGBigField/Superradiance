@@ -572,19 +572,8 @@ def learn_custom_operation(
     initial_guess : Optional[np.ndarray] = None,
     parameters_config : Optional[List[BaseParamType]|List[tuple]] = None,
     save_results : bool = True,
+    print_interval : int = 50
 ) -> LearnedResults:
-
-    # Progress_bar
-    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ")
-    
-    skip_num = 10
-    @decorators.sparse_execution(skip_num=skip_num, default_results=False)
-    def _after_each(xk:np.ndarray) -> bool:
-        cost = _total_cost_function(xk)
-        prog_bar.next(increment=skip_num, extra_str=f"cost = {cost}")
-        finish : bool = False
-        return finish
-    
 
     num_operation_params = sum([op.num_params for op in operations])
     positive_indices = _positive_indices_from_operations(operations)
@@ -594,6 +583,17 @@ def learn_custom_operation(
     else:
         assert len(initial_guess)==param_config.num_variables
 
+
+    # Progress_bar
+    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ", print_length=80)    
+    @decorators.sparse_execution(skip_num=print_interval, default_results=False)
+    def _after_each(xk:np.ndarray) -> bool:
+        cost = _total_cost_function(xk)
+        operation_params = param_config.optimization_theta_to_operations_params(xk)
+        extra_str = f"cost = {cost}"+"\n"+f"{operation_params}"
+        prog_bar.next(increment=print_interval, extra_str=extra_str)
+        finish : bool = False
+        return finish
 
     ## Optimization Config:
     # Define operations:
