@@ -25,6 +25,7 @@ from typing import (
     Generator,
     overload,
     TypeVar,
+    TypeAlias,
 )
 
 # import our helper modules
@@ -79,7 +80,7 @@ class _PulseSequenceParams():
     pause : float
 
 
-_DensityMatrixType = np.matrix
+_DensityMatrixType : TypeAlias = np.matrix
 
 @dataclass
 class Operation():
