@@ -930,7 +930,7 @@ class CoherentControl():
         # For sequence recording:
         movie_config.active = record_movie | movie_config.active
         sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
-        num2str = lambda x : strings.formatted(x, width=5, decimals=5)
+        num2str = lambda x : strings.formatted(x, width=5, precision=5)
         if sequence_recorder.is_active:
             num_intermediate_states = sequence_recorder.config.num_transition_frames
         else:
