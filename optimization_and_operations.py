@@ -101,7 +101,7 @@ def main_test():
             3.01919738,    3.14159265,   -0.32642685,   -0.87976521,
             -0.83782409])
     
-    from main import _common_4_legged_search_inputs
+    from main_4cat import _common_4_legged_search_inputs
     initial_state, cost_function, cat4_creation_operations, param_config = _common_4_legged_search_inputs(num_moments)
     
     theta = []

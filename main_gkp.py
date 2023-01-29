@@ -193,7 +193,7 @@ def optimized_Sx2_pulses_by_partial_repetition(
     num_attempts:int=2000, 
     num_runs_per_attempt:int=int(20*1e3), 
     num_free_params:int|None=None,
-    sigma:float=0.0000002
+    sigma:float=0.000002
 ) -> LearnedResults:
     
     # Constants:
