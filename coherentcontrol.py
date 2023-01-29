@@ -35,6 +35,7 @@ from utils import (
     visuals,
     strings,
     decorators,
+    lists,
 )
 
 # For measuring time:
@@ -349,6 +350,8 @@ class SPulses():
 
 class SequenceMovieRecorder():
     
+    ViewingAngles = visuals.ViewingAngles
+    
     def _default_score_str_func(state:_DensityMatrixType) -> str:
         s = f"Purity = {purity(state)}"
         return s
@@ -362,6 +365,7 @@ class SequenceMovieRecorder():
         num_freeze_frames : int = 5
         bloch_sphere_resolution : int = 25
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
+        viewing_angles : Optional[visuals.ViewingAngles] = None
 
     
     def __init__(
@@ -371,11 +375,13 @@ class SequenceMovieRecorder():
     ) -> None:
         # Base properties:        
         self.config : SequenceMovieRecorder.Config = args.default_value(config, default_factory=SequenceMovieRecorder.Config )
+        viewing_angles = args.default_value( self.config.viewing_angles, visuals.ViewingAngles(elev=-20)  )
         self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps)
         if self.config.active:
             self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(
                 block_sphere_resolution=self.config.bloch_sphere_resolution,
-                initial_state=initial_state
+                initial_state=initial_state,
+                viewing_angles=viewing_angles
             )            
         else:
             self.figure_object = None
@@ -402,6 +408,13 @@ class SequenceMovieRecorder():
         else:
             return self.score_str_func(state)
 
+    def final_state(self, length_multiplier:float=2.0)->None:
+        if not self.is_active:
+            return  # We don't want to record a video
+        default_duration = self.video_recorder.frames_duration[-1]
+        new_duration = int(round(default_duration*length_multiplier))
+        self.video_recorder.frames_duration[-1] = new_duration
+
     def record_transition(
         self, 
         transition_states:List[_DensityMatrixType], 
@@ -411,17 +424,22 @@ class SequenceMovieRecorder():
         if not self.is_active:
             return  # We don't want to record a video
         final_state = transition_states[-1]
+        
         # Capture shots: (transition and freezed state)
         prog_bar = strings.ProgressBar(len(transition_states), print_prefix="Capturing transition frames... ")
-        for transition_state in transition_states:
+        for is_first, is_last, transition_state in lists.iterate_with_edge_indicators(transition_states):
             prog_bar.next()
             if np.array_equal(transition_state, self.last_state):
                 continue
-            self._record_single_state(transition_state, title=title, duration=1 )
+            if is_last:
+                assert np.array_equal(transition_state, final_state)
+                self._record_single_state(final_state, title=title, duration=self.config.num_freeze_frames)
+            else:
+                self._record_single_state(transition_state, title=title, duration=1 )
         prog_bar.clear()
-        self._record_single_state(final_state, title=None, duration=self.config.num_freeze_frames)
+        
         # Keep info for next call:
-        self.last_state = deepcopy(transition_states)
+        self.last_state = deepcopy(final_state)
         
     def write_video(self) -> None:
         if not self.is_active:
@@ -442,6 +460,7 @@ class CoherentControl():
     # Class Attributes:
     _default_state_decay_resolution : ClassVar[int] = 1000
     MovieConfig = SequenceMovieRecorder.Config
+    
 
     # ==================================================== #
     #|                    constructor                     |#
@@ -872,7 +891,8 @@ class CoherentControl():
             # Record:
             sequence_recorder.record_transition(transition_states, title=title)
         prog_bar.clear()
-
+        
+        sequence_recorder.final_state()  # Just makes the last frame twice as long
         sequence_recorder.write_video()
 
         # End:
@@ -1055,54 +1075,60 @@ def _test_goal_gkp():
     
 def _test_custom_sequence():
     # Const:
-    num_moments:int=20
-    num_transition_frames=15
+    num_moments:int=40
+    num_transition_frames=20
     active_movie_recorder:bool=False
+    fps=10
+    
+    
+    # define score function:
+    from metrics import fidelity
+    from fock import cat_state
+    target_state = cat_state(num_moments, alpha=3, num_legs=4).to_density_matrix()
+    def _score_str_func(rho:np.matrix)->str:
+        fidel = fidelity(rho, target_state)
+        s = f"Fidelity: {fidel}"
+        return s
+    
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
         active=active_movie_recorder,
-        show_now=True,
-        num_freeze_frames=3,
-        fps=10,
-        bloch_sphere_resolution=50
+        show_now=False,
+        num_freeze_frames=fps,
+        fps=fps,
+        bloch_sphere_resolution=200,
+        score_str_func=_score_str_func
     )
 
     ## Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
-    operations = [
-        # These 4 pulses create a cat state:
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
-        # Bring in to the top of the bloch-sphere
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        # 4 Pulses again:
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[] , rotation_indices=[0, 1]),
-        standard_operations.stark_shift_and_rot(stark_shift_indices=[1], rotation_indices=[0, 1]),
+    rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
+    p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
+    
+    operations  = [
+        rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation
     ]
-    from optimization import _initial_guess
-    theta_cat_pulses = _initial_guess()
-
-    theta = []
-    theta.extend(theta_cat_pulses)
-    theta.append(pi)  # x pi pulse
-    theta.extend(theta_cat_pulses)
-
-
+    theta = [
+        0.12323862822219994, 0.6183957249611867, -1.0165705742142345e-07, -0.02053378563041057, 0.1134885760352155, 2.2063184637632265, -1.2176993620340708, 1.581510552917055, -0.04368232302559942, 
+        -0.2995771342128086, -2.078251685103651, 2.3357218100968105, -1.693370885695495, -1.094530222114177, -0.22991592079495887, 0.19458565700134434, -2.7022122279835763, -1.1754316964883986, 0.03930662498182427, -0.10751764456215751, -0.0399440723377351, -0.20068318144572594, 0.22289552985902322, 0.3743526040761691, 0.11138786358535796, 1.7083721852489306, -0.4541474115505293, 0.1160298920050179, -0.01320059768117341, 0.07305394210779279, 0.2919964803548851, 0.34185647226471017, 0.5299098416846537, 0.012334272750180918, -0.03678861063388446, 0.24186863038556694, -0.06018242363818872, 0.5800694910999753, -0.045004969045353505, 0.012395824029279932, 0.19218916830360588, -0.18519043725667417, -0.39014428728685546
+    ]
+    
     initial_state = Fock.ground_state_density_matrix(num_moments)
-    initial_state[0,0] = 0.0
-    initial_state[-1,-1] = 1.0
+    
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
-    # plot
-    visuals.plot_matter_state(final_state, block_sphere_resolution=150)
-    visuals.draw_now()
+    
+    
     print("Movie is ready in folder 'video' ")
+    # plot
+    '''
+        fig = visuals.plot_matter_state(final_state, block_sphere_resolution=150)
+        fig.suptitle(_score_str_func(final_state), fontsize=16)
+        visuals.plot_light_wigner(final_state)
+        visuals.draw_now()
+    '''
     
 if __name__ == "__main__":    
     np_utils.fix_print_length()

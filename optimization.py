@@ -125,6 +125,9 @@ class BaseParamType():
     def lock(self)->ParamLock:
         raise AttributeError("Abstract super class without implementation")
 
+    def get_value(self)->float:
+        raise AttributeError("Abstract super class without implementation")
+
 @dataclass
 class FreeParam(BaseParamType): 
     affiliation : int | None
@@ -134,6 +137,9 @@ class FreeParam(BaseParamType):
     @property
     def lock(self)->ParamLock:
         return ParamLock.FREE
+    
+    def get_value(self)->float:
+        return self.initial_guess
     
     def fix(self)->'FixedParam':
         """fix Turn param into a fix param
@@ -156,12 +162,16 @@ class FixedParam(BaseParamType):
     def lock(self)->ParamLock:
         return ParamLock.FIXED
     
+    def get_value(self)->float:
+        return self.value    
+    
     def free(self)->FreeParam:
         """free Turn param into a free param
         """
         return FreeParam(
             index=self.index,
-            affiliation=None
+            affiliation=None,
+            initial_guess=self.value
         )
 
     
@@ -331,13 +341,6 @@ def add_noise_to_params(x:np.ndarray, std:float=1.0) -> np.ndarray:
     n = np.random.normal(scale=std, size=x.shape)
     y = x + n
     return y
-
-
-def _wigner(state:_DensityMatrixType, title:Optional[str]=None)->None:
-    fig, ax = qutip.plot_wigner( qutip.Qobj(state) )
-    plt.grid(True)
-    if title is not None:
-        ax.set_title(title)
         
         
 def _initial_guess() -> List[float] :
@@ -382,7 +385,7 @@ def _deal_params_config(
     if parameter_configs is None:
         free_params  = [FreeParam( index=i, affiliation=None, bounds=_bounds(i)) for i in range(num_operation_params)  ]
         fixed_params = [ ]
-        return
+        return OptimizationParams(free_params=free_params, fixed_params=fixed_params, num_operation_params=num_operation_params)
     
     assert isinstance(parameter_configs, list)
     common_type = lists.common_super_class(parameter_configs)
@@ -548,6 +551,16 @@ class CostFunctions():
 # ==================================================================================== #
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
+
+def fix_random_params(params:List[BaseParamType], num:int)->List[BaseParamType]:
+    n = len(params)
+    indices = np.random.choice(n, num, replace=False) 
+    for i, param in enumerate(params):
+        assert isinstance(param, FreeParam)
+        if i in indices:
+            params[i] = param.fix()
+    return params
+
 
 def learn_custom_operation(    
     num_moments : int,
