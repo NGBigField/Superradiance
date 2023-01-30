@@ -1076,7 +1076,7 @@ def _test_goal_gkp():
     
 def _show_analitical_gkp():
     # Const:
-    num_moments:int=100
+    num_moments:int=20
     num_transition_frames=0 #20
     active_movie_recorder:bool=False
     fps=10
@@ -1096,10 +1096,19 @@ def _show_analitical_gkp():
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
     initial_state = Fock.ground_state_density_matrix(num_moments)
 
-    x1 = 0.02
-    z1 = -1.1682941853606887
-    x2 = 0.4
-    z2 = pi/2
+    if num_moments==100:
+        x1 = 0.02
+        x2 = 0.4
+        z1 = -1.1682941853606887
+    elif num_moments==40:
+        x1 = 0.042
+        x2 = 0.6
+        z1 = -1.1145407146104997
+    elif num_moments==20:
+        x1 = 0.07
+        x2 = 0.8
+        z1 = -1.0577828186946745
+    z2 = pi/2    
 
     x_op  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])
     x2_op = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0])
@@ -1114,11 +1123,12 @@ def _show_analitical_gkp():
     
     # Plot
     visuals.plot_light_wigner(final_state)
-    visuals.draw_now()
     
-    fig = visuals.plot_wigner_bloch_sphere(final_state, num_points=150, view_elev=-50)
+    plt = visuals.plot_wigner_bloch_sphere(final_state, num_points=150, view_elev=-50)
+    fig = plt.axes.figure
     fig.suptitle("GKP State", fontsize=16)
 
+    visuals.draw_now()
     print("Movie is ready in folder 'video' ")
 
     # plot

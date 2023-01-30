@@ -37,23 +37,35 @@ from optimization import learn_custom_operation, LearnedResults, minimize, learn
 # ==================================================================================== #
     
 def _example_gkp2(
-    num_moments = 100
+    num_moments = 40
 ):
+
+    # Define the basics:
     ground_state = Fock.ground_state_density_matrix(num_moments=num_moments)    
     coherent_control = CoherentControl(num_moments=num_moments)
     Sx = coherent_control.s_pulses.Sx
-    Sx2 = Sx@Sx
     Sy = coherent_control.s_pulses.Sy
     Sy2 = Sy@Sy
     Sz = coherent_control.s_pulses.Sz
 
-    x1 = 0.02
+    # Derive size-specific variables:
+    if num_moments==20:
+        x1 = 0.02
+        x2 = 0.8
+    elif num_moments==40:
+        x1 = 0.042
+        x2 = 0.6
+    elif num_moments==100:
+        x1 = 0.02
+        x2 = 0.4
+    else:
+        raise ValueError(f"This number is not supported. num_moments={num_moments}")
 
+    # Act with Pulses:
     rho = ground_state
     rho = coherent_control.pulse_on_state(rho, x=x1, power=2) 
     rho, z1 = learn_single_op(rho, Sz, Sy2)
 
-    x2 = 0.4
     z2 = pi/2
 
     rho = coherent_control.pulse_on_state(rho, x=x2, power=1)
