@@ -91,47 +91,43 @@ def _example_gkp2(
     
 
 
-def _example_gkp(
-    num_moments = 100
-):
+def _alexeys_recipe(num_moments:int=100):
+    # Define the basics:
     ground_state = Fock.ground_state_density_matrix(num_moments=num_moments)    
     coherent_control = CoherentControl(num_moments=num_moments)
-    Sx = coherent_control.s_pulses.Sx
-    Sx2 = Sx@Sx
-    Sy = coherent_control.s_pulses.Sy
-    Sy2 = Sy@Sy
 
+    # Learned parameters:
+    
+    N = num_moments
+    r = 1.1513
+    theta = 0
+    R = np.sqrt( (np.cosh(4*r)) / (2 * (N**2) ) )
+    phi = np.arcsin( (-2*N*R) / np.sqrt(4 * (N**4) * (R**4) - 1) )
+
+    x2 = 7.4
+    z2 = pi/2
+
+    # Act with pulses:
     rho = ground_state
-    rho = coherent_control.pulse_on_state(rho, x=0.03, power=2) 
 
-    def cost_func(theta:np.ndarray)->float:
-        z = theta[0]
-        final_state = coherent_control.pulse_on_state(rho, z=z, power=1) 
-        x2_proj = np.trace(final_state@Sy2)
-        return x2_proj
+    rho = coherent_control.pulse_on_state(rho, x=R,    power=2)
+    rho = coherent_control.pulse_on_state(rho, z=-phi, power=1) 
 
-    result = minimize(cost_func, [0])
-    z = result.x[0]
-    rho = coherent_control.pulse_on_state(rho, z=z, power=1)
+    rho = coherent_control.pulse_on_state(rho, x=x2, power=1)
+    rho = coherent_control.pulse_on_state(rho, z=z2, power=2)
 
-    x = 0.4
-    z = pi/2
+    rho = coherent_control.pulse_on_state(rho, x=x2, power=1)
+    rho = coherent_control.pulse_on_state(rho, z=z2, power=2)
 
-    rho = coherent_control.pulse_on_state(rho, x=x, power=1)
-    rho = coherent_control.pulse_on_state(rho, z=z, power=2)
-
-    # rho = coherent_control.pulse_on_state(rho, x=z, power=1)
-
-    rho = coherent_control.pulse_on_state(rho, x=x, power=1)
-    rho = coherent_control.pulse_on_state(rho, z=z, power=2)
-
+    # Plot:
     visuals.plot_light_wigner(rho)
     visuals.draw_now()
+    print("Done.")
+    
 
-
-    print("Finished.")
 
 if __name__ == "__main__":
-    _example_gkp2()
+    # _example_gkp2()
+    _alexeys_recipe()
     print("Finished main.")
 
