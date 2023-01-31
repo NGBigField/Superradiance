@@ -141,14 +141,42 @@ class ProgressBar():
 #|                              declared functions                                    |#
 # ==================================================================================== #
 
-def formatted(s:Any, fill:str=' ', alignment:Literal['<','^','>']='>', width:Optional[int]=None, decimals:Optional[int]=None) -> str:
-    if width is None:
-        width = len(f"{s}")
-    if decimals is None:
-        s_out = f"{s:{fill}{alignment}{width}}"  
-    else:
-        s_out = f"{s:{fill}{alignment}{width}.{decimals}f}"  
-    return s_out
+def formatted(
+    val:Any, 
+    fill:str=' ', 
+    alignment:Literal['<','^','>']='>', 
+    width:Optional[int]=None, 
+    precision:Optional[int]=None,
+    signed:bool=False
+) -> str:
+    
+    # Check info:
+    try:
+        if round(val)==val and precision is None:
+            force_int = True
+        else:
+            force_int = False
+    except:
+        force_int = False
+        
+        
+    
+    # Simple formats:
+    format = f"{fill}{alignment}"
+    if signed:
+        format += "+"
+    
+    # Width:
+    width = args.default_value(width, len(f"{val}"))
+    format += f"{width}"            
+    
+    
+    precision = args.default_value(precision, 0)
+    format += f".{precision}f"    
+        
+    s = f"{val:{format}}"  
+    
+    return s
 
 def num_out_of_num(num1, num2):
     width = len(str(num2))
@@ -182,39 +210,9 @@ def num_lines(s:str)->int:
 # ==================================================================================== #
 
 def _main_test():
-    sleep_time = 0.1
-    N = 10
-    def _str(i:int)->str:
-        return "Hello"+"."*i+"\n"+"   my Friend"
 
-    sp = StaticPrinter()    
-    for i in range(N):
-        s = _str(i)
-        sp.print(s)
-        time.sleep(sleep_time)
-
-    sp = StaticPrinter(in_place=True)    
-    for i in range(N):
-        s = _str(i)
-        sp.print(s)
-        time.sleep(sleep_time)
-    sp.clear()
-
-
-    pb1 = ProgressBar(expected_end=N, print_prefix="Testing... ")
-    for i in range(N):
-        pb1.next()
-
-        pb2 = ProgressBar(expected_end=2*N, print_prefix="    Inner Function:")
-        for j in range(2*N):
-            pb2.next()
-
-            time.sleep(sleep_time)
-        
-        pb2.clear()
-
-    pb1.clear()
-    print("Done")
+    x = 3.1415e-15
+    print(formatted(x, width=8))
 
 if __name__ == "__main__":
     _main_test()

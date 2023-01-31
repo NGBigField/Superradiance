@@ -338,6 +338,47 @@ class OptimizationParams:
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
 
+def _params_str(operation_params:List[float], param_width:int=20) -> str:
+    # Constants:
+    num_params_per_line : int = 5
+    extra_space = 4
+    
+    # Devide into in iterations::
+    s = "["
+    params = iter(operation_params)     
+    done = False
+    param_to_str = lambda x: strings.formatted(x, fill=' ', alignment='<', width=param_width, precision=param_width-extra_space, signed=True)
+    first_line = True
+        
+    while not done:
+        
+        for j in range(num_params_per_line):
+            try:
+                param = next(params)
+            except StopIteration:
+                done = True
+                break
+            else:
+                
+                if j==0 and not first_line:                
+                    s += f" {param_to_str(param)}, "                    
+                else:
+                    s += f"{param_to_str(param)}, "
+                    
+        if done:
+            s = s[:-2]  # remove last ,
+        else:
+            s += "\n"
+
+        first_line = False
+        
+    s += "]"       
+     
+    return s
+    
+        
+
+
 
 def add_noise_to_params(x:np.ndarray, std:float=1.0) -> np.ndarray:
     n = np.random.normal(scale=std, size=x.shape)
@@ -597,7 +638,7 @@ def learn_custom_operation(
     initial_guess : Optional[np.ndarray] = None,
     parameters_config : Optional[List[BaseParamType]|List[tuple]] = None,
     save_results : bool = True,
-    print_interval : int = 50
+    print_interval : int = 20
 ) -> LearnedResults:
 
     num_operation_params = sum([op.num_params for op in operations])
@@ -610,12 +651,12 @@ def learn_custom_operation(
 
 
     # Progress_bar
-    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ", print_length=80)    
+    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ", print_length=100)    
     @decorators.sparse_execution(skip_num=print_interval, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
         cost = _total_cost_function(xk)
         operation_params = param_config.optimization_theta_to_operations_params(xk)
-        extra_str = f"cost = {cost}"+"\n"+f"{operation_params}"
+        extra_str = f"cost = {cost}"+"\n"+f"{_params_str(operation_params)}"
         prog_bar.next(increment=print_interval, extra_str=extra_str)
         finish : bool = False
         return finish
