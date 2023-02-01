@@ -344,12 +344,12 @@ def _params_str(operation_params:List[float], param_width:int=20) -> str:
     extra_space = 4
     
     # Devide into in iterations::
-    s = "["
     params = iter(operation_params)     
     done = False
     param_to_str = lambda x: strings.formatted(x, fill=' ', alignment='<', width=param_width, precision=param_width-extra_space, signed=True)
     first_line = True
-        
+    s = ""
+
     while not done:
         
         for j in range(num_params_per_line):
@@ -359,11 +359,7 @@ def _params_str(operation_params:List[float], param_width:int=20) -> str:
                 done = True
                 break
             else:
-                
-                if j==0 and not first_line:                
-                    s += f" {param_to_str(param)}, "                    
-                else:
-                    s += f"{param_to_str(param)}, "
+                s += f"{param_to_str(param)}, "
                     
         if done:
             s = s[:-2]  # remove last ,
@@ -371,9 +367,7 @@ def _params_str(operation_params:List[float], param_width:int=20) -> str:
             s += "\n"
 
         first_line = False
-        
-    s += "]"       
-     
+             
     return s
     
         
