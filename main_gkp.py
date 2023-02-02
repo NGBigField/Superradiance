@@ -209,15 +209,7 @@ def _sx_sequence_params(
     return param_config, operations          
     
     
-def get_gkp_cost_function(num_moments:int)->Callable[[_DensityMatrixType], float]:
-    # Define target:
-    # target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
-    taget_state = goal_gkp_state(num_moments)
-    # visuals.plot_matter_state(target_4legged_cat_state, block_sphere_resolution=200)
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        return -1 * metrics.fidelity(final_state, taget_state)       
 
-    return cost_function
 
     
 def optimized_Sx2_pulses_by_partial_repetition(

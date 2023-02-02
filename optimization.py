@@ -630,7 +630,7 @@ def learn_custom_operation(
     max_iter : int=100, 
     tolerance : Optional[float] = None,
     initial_guess : Optional[np.ndarray] = None,
-    parameters_config : Optional[List[BaseParamType]|List[tuple]] = None,
+    parameters_config : Optional[List[BaseParamType]] = None,
     save_results : bool = True,
     print_interval : int = 20
 ) -> LearnedResults:

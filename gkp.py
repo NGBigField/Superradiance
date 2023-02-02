@@ -4,6 +4,8 @@ from numpy import pi
 import matplotlib.pyplot as plt
 from coherentcontrol import CoherentControl, Operation
 from fock import Fock
+import metrics
+from typing import Callable
 
 
 def initial_guess(num_moments:int):
@@ -71,6 +73,16 @@ def _test_plot_goal_gkp():
     plot_light_wigner(rho)
     
     print("Done.")
+
+def get_gkp_cost_function(num_moments:int)->Callable[[np.matrix], float]:
+    # Define target:
+    # target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
+    taget_state = goal_gkp_state(num_moments)
+    # visuals.plot_matter_state(target_4legged_cat_state, block_sphere_resolution=200)
+    def cost_function(final_state:np.matrix) -> float : 
+        return -1 * metrics.fidelity(final_state, taget_state)       
+
+    return cost_function
 
 if __name__ == '__main__':
     _test_plot_goal_gkp()
