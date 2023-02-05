@@ -64,7 +64,7 @@ import metrics
 # For operations:
 import coherentcontrol
 from fock import Fock, cat_state
-from gkp import goal_gkp_state
+from gkp import get_gkp_cost_function
 
 # For managing saved data:
 from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
@@ -215,16 +215,16 @@ def _sx_sequence_params(
 def optimized_Sx2_pulses_by_partial_repetition(
     num_moments:int=40, 
     num_attempts:int=2000, 
-    num_runs_per_attempt:int=int(3*1e3), 
-    num_free_params:int|None=20,
-    sigma:float=0.002
+    num_runs_per_attempt:int=int(5*1e3), 
+    num_free_params:int|None=None,
+    sigma:float=0.0002
 ) -> LearnedResults:
     
     # Constants:
     num_transition_frames:int=0
     
     # Similar to previous method:
-    cost_function = get_gkp_cost_function(num_moments)
+    cost_function = get_gkp_cost_function(num_moments, form="hex")
     initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
     
     # Define operations:
