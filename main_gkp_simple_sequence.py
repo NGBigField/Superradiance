@@ -231,14 +231,13 @@ def learning_by_genetics(
 ):
 
    # Similar to previous method:
-    gkp_simmilarity_func = get_gkp_cost_function(num_moments)
+    gkp_simmilarity_func = get_gkp_cost_function(num_moments, form="hex")
     initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
     
     # Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)    
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=0)
     operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
         standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
@@ -259,12 +258,17 @@ def learning_by_genetics(
     eps = 0.1  
     _bounds = lambda: (-pi-eps, pi+eps)
 
-    initial_values = [0.0, 0.0, 0.0, R, -phi, x2, z2, x2, z2, 0.0, 0.0, 0.0]
+    initial_values = [
+        R, -phi, 
+        x2, z2, 
+        x2, z2, 
+        0.0, 0.0, 0.0
+    ]
     num_params = len(initial_values)
 
     variable_boundaries = np.array([_bounds() for val in initial_values])
 
-    @decorators.sparse_execution(50, default_results=None)
+    @decorators.sparse_execution(20, default_results=None)
     def print_cost(cost):
         print(cost)
 
@@ -286,7 +290,7 @@ def learning_by_genetics(
     
     try:        
         print(model.report)
-        print(model.ouput_dict)
+        print(model.output_dict)
     except Exception as e:
         errors.print_traceback(e)
 
