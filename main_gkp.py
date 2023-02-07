@@ -215,9 +215,9 @@ def _sx_sequence_params(
 def optimized_Sx2_pulses_by_partial_repetition(
     num_moments:int=40, 
     num_attempts:int=2000, 
-    num_runs_per_attempt:int=int(5*1e3), 
+    num_runs_per_attempt:int=int(4*1e3), 
     num_free_params:int|None=None,
-    sigma:float=0.0002
+    sigma:float=0.000002
 ) -> LearnedResults:
     
     # Constants:

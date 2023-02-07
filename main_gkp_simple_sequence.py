@@ -145,7 +145,7 @@ def learning(
     num_moments:int=40,
     num_attempts:int=2000,
     max_iter=10*int(1e3),
-    sigma:float=0.000005
+    sigma:float=0.00005
 ):
 
     # Similar to previous method:
@@ -155,23 +155,30 @@ def learning(
     # Define operations:
     coherent_control = CoherentControl(num_moments=num_moments)    
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=0)
+    rot_op = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
+    x1_op = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])
+    x2_op = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0])
+    z1_op = standard_operations.power_pulse_on_specific_directions(power=1, indices=[2])
+    z2_op = standard_operations.power_pulse_on_specific_directions(power=2, indices=[2])
     operations = [
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[2]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[2]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
-        standard_operations.power_pulse_on_specific_directions(power=2, indices=[2]),
-        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
+        rot_op,
+        x2_op,
+        rot_op,
+        z1_op,
+        rot_op,
+        x2_op,
+        rot_op,
+        z1_op,
+        rot_op,
+        x1_op,
+        z2_op,
+        rot_op,
+        x1_op,
+        z2_op,
+        rot_op,
+        x1_op,
+        z2_op,
+        rot_op,
     ]
 
     ## Params:
@@ -208,14 +215,27 @@ def learning(
     #     1.05678020e+00,  3.24159265e+00,  1.56018753e+00,  1.02745115e-01,    
     # ]
     initial_values = [ 
-        +0.0226849134384629 , +0.4786281740461114 , +0.0729784739310401 , +0.1140694340969037 , +0.0341110364259584 ,
-        +2.0680971611351708 , +0.7002372868650459 , -2.6157394967856362 , +3.1884836600695667 , -0.2611978870511275 ,
-        +0.7972339052136699 , -0.2839138306588183 , +0.0283770793970706 , +0.3349324538704883 , +0.2466455989229878 ,
-        +0.3560598423687193 , +0.3684436540676541 , -0.6613483944452156 , +3.0103096677141616 , +0.7676036596645468 ,
-        -0.0355497247756740 , +0.3898080459281389 , +1.2273930001579925 , +0.2167926356756356 , +1.0505091477106965 ,
-        +3.2414602557490477 , +1.6329652666266483 , +0.1556180267577766
+        +0.0226951010145494 , +0.4785145273090699 , +0.0731690703517433 , 
+        +0.1140823088947117 , 
+        0.0, 0.0, 0.0,
+        +0.0341458684622853 ,
+        +2.0679787335467363 , +0.7004302618254471 , -2.6157574747532975 , 
+        +3.1884913500308025 , 
+        0.0, 0.0, 0.0,
+        -0.2612978043257493 ,
+        +0.7972971070145272 , -0.2839738479586658 , +0.0284382774633870 , +0.3349387526701504 , +0.2466462814056702 ,
+        +0.3560531087531225 , +0.3684811817470544 , -0.6614111469798650 , +3.0102702642929424 , +0.7676005868481414 ,
+        -0.0355707240115258 , +0.3898480956441166 , +1.2274842259734895 , +0.2168299177345324 , +1.0505099656456709 ,
+        +3.2414742353802661 , +1.6329449110245915 , +0.1556660536011137
     ]
 
+
+
+
+
+    # final_state = coherent_control.custom_sequence(initial_state, initial_values, operations)
+    # visuals.plot_matter_state(final_state)
+    # visuals.plot_light_wigner(final_state)
 
     best_result = SimpleNamespace(score=np.inf)
 
@@ -223,10 +243,10 @@ def learning(
     for i in range(num_attempts):
 
         param_config : List[FreeParam] = []
-        for i, initial_value in enumerate(theta):
+        for i, val in enumerate(theta):
             param = FreeParam(
                 index=i, 
-                initial_guess=initial_value+np.random.normal(1)*sigma, 
+                initial_guess=val+np.random.normal(1)*sigma, 
                 bounds=_bounds(), 
                 affiliation=None
             )   # type: ignore       
