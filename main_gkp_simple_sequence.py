@@ -143,13 +143,13 @@ def _alexeys_recipe(num_moments:int=100):
 
 def learning(
     num_moments:int=40,
-    num_attempts:int=100,
-    max_iter=int(1e4),
-    sigma:float=0.05
+    num_attempts:int=2000,
+    max_iter=10*int(1e3),
+    sigma:float=0.000005
 ):
 
-   # Similar to previous method:
-    cost_function = get_gkp_cost_function(num_moments)
+    # Similar to previous method:
+    gkp_simmilarity_func = get_gkp_cost_function(num_moments, form="hex")
     initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
     
     # Define operations:
@@ -159,8 +159,16 @@ def learning(
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
         standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+        standard_operations.power_pulse_on_specific_directions(power=2, indices=[0]),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[2]),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
         standard_operations.power_pulse_on_specific_directions(power=2, indices=[2]),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
+        standard_operations.power_pulse_on_specific_directions(power=2, indices=[2]),
+        standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2]),
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[0]),
         standard_operations.power_pulse_on_specific_directions(power=2, indices=[2]),
         standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
@@ -177,11 +185,37 @@ def learning(
     eps = 0.1  
     _bounds = lambda: (-pi-eps, pi+eps)
 
-
-    initial_values = [0.0, 0.0, 0.0, R, -phi, x2, z2, x2, z2, 0.0, 0.0, 0.0]
-
-
-
+    # initial_values = [ 
+    #     0.0, 0.0, 0.0, 
+    #     +3.1168508767970624 , -3.2415921418965654 , -0.3856085475202880 , +0.3213609612119441 , +0.1284533628387481 ,
+    #     +0.7505659619369756 , +3.0352185363411244 , +0.5774420665601613 , -0.1625743316906557
+    # ]
+    # initial_values = [ 
+    #     +0.0000302095022077 , -0.0003069286390748 , +0.0046979570856014 , +0.0002225095352105 , +0.0024031346776784 ,
+    #     +3.0560300466112977 , +0.6489147200565115 , +0.2786231808076512 , +3.2151420618345563 , -0.9813083530218557 ,
+    #     +0.2778068173244064 , -0.1980791328486351 , +0.0626205910879482 , +0.0782449795840803 , +0.2480254231074470 ,
+    #     +0.1978148747493451 , +0.3210525549398842 , -0.0020982940039804 , +3.2415926535897910 , +0.7893526251973880 ,
+    #     +0.1392306610724132 , +0.2878367900602354 , +0.9273613029542672 , +0.0447525198423511 , +1.0542571319609275 ,
+    #     +3.2415926535897910 , +1.5716700575967337 , +0.1062400685349179
+    # ]
+    # initial_values = [ 
+    #     2.59348887e-03,  1.53356588e-02,  1.15215870e-02,  2.20305594e-02,
+    #     1.22936408e-02,  2.52039509e+00,  1.41437091e+00,  4.16112649e-02,      
+    #     3.19188978e+00, -7.99415490e-01,  3.94945713e-01, -1.66471569e-01,      
+    #     8.06368209e-02,  7.81635147e-02,  2.48786435e-01,  2.07262144e-01,      
+    #     3.31289398e-01,  6.81665046e-03,  3.24135706e+00,  7.98047789e-01,      
+    #     1.20737441e-01,  2.84761554e-01,  6.21100816e-01,  5.05027259e-02,      
+    #     1.05678020e+00,  3.24159265e+00,  1.56018753e+00,  1.02745115e-01,    
+    # ]
+    initial_value = [ 
+        3.44224757e-02,  4.51338839e-02,  3.49990174e-02,  8.75705246e-02,
+        3.53951044e-02,  1.57833821e+00,  6.09955403e-01,  1.48585937e-02,
+        3.09291161e+00,  4.21733879e-01,  7.83744551e-01,  3.48348616e-01,
+       -3.72302596e-03,  2.32398501e-01,  3.23364291e-01,  3.86628003e-01,
+       -1.14482932e-01,  1.66391207e-03,  3.24159265e+00,  7.65383695e-01,
+        1.68493045e-01, -1.86465602e-02,  5.75421153e-02,  1.48950664e-01,
+        1.05860362e+00,  3.24159265e+00,  1.00980401e+00,  8.65128488e-02,
+    ]
 
 
     best_result = SimpleNamespace(score=np.inf)
@@ -203,7 +237,7 @@ def learning(
         result = learn_custom_operation(
             num_moments=num_moments, 
             initial_state=initial_state, 
-            cost_function=cost_function, 
+            cost_function=gkp_simmilarity_func, 
             operations=operations, 
             max_iter=max_iter, 
             parameters_config=param_config
@@ -213,9 +247,9 @@ def learning(
             print("Best result!")
             best_result = result
             theta = result.operation_params
-
-        print(result)
-        print(" ")
+            print(f"score={best_result.score}")
+            print(f"theta={theta}")
+            
 
     sounds.ascend()
     print(best_result)
@@ -224,10 +258,7 @@ def learning(
 
 
 def learning_by_genetics(
-    num_moments:int=40,
-    num_attempts:int=100,
-    max_iter=int(1e4),
-    sigma:float=0.05
+    num_moments:int=40
 ):
 
    # Similar to previous method:
@@ -258,12 +289,19 @@ def learning_by_genetics(
     eps = 0.1  
     _bounds = lambda: (-pi-eps, pi+eps)
 
-    initial_values = [
-        R, -phi, 
-        x2, z2, 
-        x2, z2, 
-        0.0, 0.0, 0.0
+    # initial_values = [
+    #     R, -phi, 
+    #     x2, z2, 
+    #     x2, z2, 
+    #     0.0, 0.0, 0.0
+    # ]
+    initial_values = [ 
+        3.13226423, -2.84102447, 
+        -0.37299926,  0.33655829,  
+        0.1239896 , 0.7734487 ,  
+        2.21233026,  2.25752907, -0.19431447
     ]
+
     num_params = len(initial_values)
 
     variable_boundaries = np.array([_bounds() for val in initial_values])
@@ -302,7 +340,7 @@ def learning_by_genetics(
 
 if __name__ == "__main__":
     # _example_gkp2()
-    # result = learning()
-    result = learning_by_genetics()
+    result = learning()
+    # result = learning_by_genetics()
     print("Finished main.")
 
