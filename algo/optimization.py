@@ -42,11 +42,8 @@ from utils import (
     types,
 )
 
-# For defining coherent states:
-from fock import Fock, cat_state
-
 # For coherent control
-from coherentcontrol import (
+from algo.coherentcontrol import (
     CoherentControl,
     _DensityMatrixType,
     Operation,
@@ -54,8 +51,8 @@ from coherentcontrol import (
 
 # for optimization:
 from scipy.optimize import minimize, OptimizeResult, show_options  # for optimization:   
-import metrics 
-import gkp 
+from algo import metrics 
+from physics import gkp 
         
 # For measuring time:
 import time
@@ -70,7 +67,7 @@ import qutip
 import matplotlib.pyplot as plt
 
 # for accessing old results:
-from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
+from utils.saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
@@ -103,6 +100,7 @@ class LearnedResults():
         s = ""
         s += f"score={self.score}"+newline
         s += f"theta={self.theta}"+newline
+        s += f"operation_params={self.operation_params}"+newline
         s += f"run-time={self.time}"+newline
         s += np_utils.mat_str_with_leading_text(self.initial_state, text="initial_state: ")+newline       
         s += np_utils.mat_str_with_leading_text(self.final_state  , text="final_state  : ")+newline  
@@ -746,6 +744,7 @@ def learn_custom_operation_by_partial_repetitions(
     initial_params:List[BaseParamType],
     num_attempts:int=2000, 
     max_iter_per_attempt:int = 10*int(1e3), 
+    max_error_per_attempt:Optional[float]=None,
     num_free_params:int|None=20,
     sigma:float = 0.002,
     print_best_results:bool=True
@@ -783,6 +782,7 @@ def learn_custom_operation_by_partial_repetitions(
                 cost_function=cost_function, 
                 operations=operations, 
                 max_iter=max_iter_per_attempt, 
+                tolerance=max_error_per_attempt,
                 parameters_config=params
             )
         except Exception as e:

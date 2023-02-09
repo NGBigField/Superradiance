@@ -1,11 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
-import scipy
+from physics.light_wigner.Operators import Operators
 
-try:
-    from light_wigner.Operators import Operators
-except ImportError:
-    from Operators import Operators
 
 OMEGA_0 = 1
 OMEGA_J = 0

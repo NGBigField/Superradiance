@@ -81,6 +81,8 @@ def mat_str(mat:np.matrix) -> str:
         return f"{m}"
 
 def mat_str_with_leading_text(mat:np.matrix, text:str) -> str:
+    if mat is None:
+        return text + "None"
     assert isinstance(text, str)
     text_width = strings.str_width(text, last_line_only=True)
     s = mat_str(mat)

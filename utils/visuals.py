@@ -29,19 +29,12 @@ from typing import (
 )
 
 # Import our tools and utils:
-try:
-    from utils import (
-        strings,
-        args,
-        saveload,
-        assertions,
-    )
-except ImportError:
-    import strings
-    import args
-    import saveload
-    import assertions
-    
+from utils import (
+    strings,
+    args,
+    saveload,
+    assertions,
+)    
 
 # For function version detection:
 from packaging.version import parse as parse_version
