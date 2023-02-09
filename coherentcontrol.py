@@ -930,7 +930,7 @@ class CoherentControl():
         # For sequence recording:
         movie_config.active = record_movie | movie_config.active
         sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
-        num2str = lambda x : strings.formatted(x, width=5, decimals=5)
+        num2str = lambda x : strings.formatted(x, width=5, precision=5)
         if sequence_recorder.is_active:
             num_intermediate_states = sequence_recorder.config.num_transition_frames
         else:
@@ -1074,18 +1074,79 @@ def _test_goal_gkp():
     visuals.plot_wigner_bloch_sphere(gkp, num_points=block_sphere_resolution)
     print("Done")
     
+def _show_analitical_gkp():
+    # Const:
+    num_moments:int=20
+    num_transition_frames=0 #20
+    active_movie_recorder:bool=False
+    fps=10
+
+    # Movie config:
+    movie_config=CoherentControl.MovieConfig(
+        active=active_movie_recorder,
+        show_now=False,
+        num_freeze_frames=fps,
+        fps=fps,
+        bloch_sphere_resolution=200,
+        # score_str_func=_score_str_func
+    )
+
+    ## Define operations:
+    coherent_control = CoherentControl(num_moments=num_moments)
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
+    initial_state = Fock.ground_state_density_matrix(num_moments)
+
+    if num_moments==100:
+        x1 = 0.02
+        x2 = 0.4
+        z1 = -1.1682941853606887
+    elif num_moments==40:
+        x1 = 0.042
+        x2 = 0.6
+        z1 = -1.1145407146104997
+    elif num_moments==20:
+        x1 = 0.07
+        x2 = 0.8
+        z1 = -1.0577828186946745
+    z2 = pi/2    
+
+    x_op  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0])
+    x2_op = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0])
+    z_op  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[2])
+    z2_op = standard_operations.power_pulse_on_specific_directions(power=2, indices=[2])
+    
+    operations = [x2_op, z_op, x_op, z2_op, x_op, z2_op ]
+    theta      = [x1,    z1,   x2,   z2,    x2,   z2    ]
+        
+    # Apply:
+    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
+    
+    # Plot
+    visuals.plot_light_wigner(final_state)
+    
+    plt = visuals.plot_wigner_bloch_sphere(final_state, num_points=150, view_elev=-50)
+    fig = plt.axes.figure
+    fig.suptitle("GKP State", fontsize=16)
+
+    visuals.draw_now()
+    print("Movie is ready in folder 'video' ")
+
+    # plot
+    '''
+    '''    
+
 def _test_custom_sequence():
     # Const:
     num_moments:int=40
-    num_transition_frames=20
+    num_transition_frames=0 #20
     active_movie_recorder:bool=False
     fps=10
     
     
     # define score function:
     from metrics import fidelity
-    from fock import cat_state
-    target_state = cat_state(num_moments, alpha=3, num_legs=4).to_density_matrix()
+    from gkp import goal_gkp_state
+    target_state = goal_gkp_state(num_moments)
     def _score_str_func(rho:np.matrix)->str:
         fidel = fidelity(rho, target_state)
         s = f"Fidelity: {fidel}"
@@ -1109,12 +1170,10 @@ def _test_custom_sequence():
     p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
     
     operations  = [
-        rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation
+        rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation, p2_pulse, rotation
     ]
-    theta = [
-        0.12323862822219994, 0.6183957249611867, -1.0165705742142345e-07, -0.02053378563041057, 0.1134885760352155, 2.2063184637632265, -1.2176993620340708, 1.581510552917055, -0.04368232302559942, 
-        -0.2995771342128086, -2.078251685103651, 2.3357218100968105, -1.693370885695495, -1.094530222114177, -0.22991592079495887, 0.19458565700134434, -2.7022122279835763, -1.1754316964883986, 0.03930662498182427, -0.10751764456215751, -0.0399440723377351, -0.20068318144572594, 0.22289552985902322, 0.3743526040761691, 0.11138786358535796, 1.7083721852489306, -0.4541474115505293, 0.1160298920050179, -0.01320059768117341, 0.07305394210779279, 0.2919964803548851, 0.34185647226471017, 0.5299098416846537, 0.012334272750180918, -0.03678861063388446, 0.24186863038556694, -0.06018242363818872, 0.5800694910999753, -0.045004969045353505, 0.012395824029279932, 0.19218916830360588, -0.18519043725667417, -0.39014428728685546
-    ]
+    # theta = [0.0218893457569274, 0.7191920866055401, 0.019605744261912264, -0.02502281879878626, 0.14155596176935248, 2.2574095995151096, -1.2234221117580204, 1.4235718671654225, -0.04390285036224292, -0.3038995764286472, -2.0617842805506736, 2.345861866241857, -1.7245106953252414, -1.0947524987426371, -0.23248387901706918, 0.18647738726463614, -2.716468091544212, -1.1825978962680104, 0.04014497727894065, -0.10770179093391521, -0.07347936638442679, -0.17164808412507915, 0.21480542585057338, 0.3913657903936454, 0.1223483093091638, 1.6329201058459644, 0.030497635410195803, -0.27498962101885116, -0.02596820370457454, 0.06360478749470103, 0.2661429997470429, -0.15255776739977395, 0.9595180922240361, 0.024823002842259752, -0.017447338819284106, 0.5066348438594075, -0.044245217700777745, 0.39741466989166474, -0.08627499537501082, 0.010043519067349654, 0.49566358349695794, -0.3491169621902839, -1.3388193210681276, 0.002415068734478643, 0.032566928109088, -0.09585930422102079, 0.30459584778998516, 0.5041789951746705]
+    theta =  [-0.030741472730597297, 0.3071516488251148, -0.062398334709757516, -0.008763496268578145, 0.1770100417690057, 2.3858689479304287, -1.1370180345681065, 1.5162143294447743, -0.048841473133156954, -0.29214875537711127, -2.248356702879505, 2.1920130623301466, -1.5660203614038402, -1.102994510287246, -0.2433963601799186, 0.08122734836650758, -2.6260203889907388, -1.0547297082374425, 0.02502159038814373, -0.11543877653068954, -0.2857000317709888, -0.20548121261611635, 0.05160142064331788, 0.40441722809028835, 0.16891986424004024, 1.7175625494465256, -0.39060407671438946, -0.2849325565868732, -0.008081106023038728, 0.1028284442086928, 0.5921692027360919, 0.3819685352986507, 0.4220410554833641, 0.04848406147380703, -0.061730597858222006, 0.04078226510660564, -0.2222880156406395, 0.08322513429833991, -0.08501783698730186, 0.04725538724929429, 0.18218389786563177, -0.4095916184838484, -0.3452510994847223, -0.31324606239067165, 0.9925069505592745, -2.2339860586851297e-05, -0.9484006793475788, 1.0913289302746985] 
     
     initial_state = Fock.ground_state_density_matrix(num_moments)
     
@@ -1126,7 +1185,7 @@ def _test_custom_sequence():
     # plot
     '''
         fig = visuals.plot_matter_state(final_state, block_sphere_resolution=150)
-        fig.suptitle(_score_str_func(final_state), fontsize=16)
+        fig.suptitle(f"{_score_str_func(final_state)}", fontsize=16)
         visuals.plot_light_wigner(final_state)
         visuals.draw_now()
     '''
@@ -1138,23 +1197,9 @@ if __name__ == "__main__":
     # _test_record_sequence()
     # _test_power_pulse()
     # _test_goal_gkp()
-    _test_custom_sequence()
+    # _test_custom_sequence()
+    _show_analitical_gkp()
 
     print("Done.")
 
     
-
-
-"""" #TODO:
-1.  create: x^2 * Sigma  pulse.
-2.  Make a video to show how it works.
-3.  Create a paramaterized sequence: P1, P2, Delay, P1, P2, Delay, P1, P2, Delay, ....
-4.  Study:
-    4.1. Midladder state
-    4.2. Low oddity Big Eventy or opposite.
-"""
-
-""" #NOTE:
-possible cost functions:
-* BSV light
-"""

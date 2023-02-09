@@ -1,81 +1,110 @@
 import qutip
 import numpy as np
 from numpy import pi
-import matplotlib.pyplot as plt
 from coherentcontrol import CoherentControl, Operation
-from fock import Fock
+from metrics import fidelity
+from typing import Callable
 
 
-def initial_guess(num_moments:int):
-    # Prepare coherent control
-    coherent_control = CoherentControl(num_moments=num_moments)
-    # Operations:
-    operations = [
-        Operation(
-            num_params=0, 
-            function=lambda rho: coherent_control.pulse_on_state(rho, x=pi/2), 
-            string="pi/2 Sx"
-        )
-    ]
-    # init params:
-    initial_state = Fock.ground_state_density_matrix(num_moments)
-    # Apply:
-    final_state = coherent_control.custom_sequence(state=initial_state, theta=None, operations=operations)
-    return final_state
+def get_gkp_cost_function(num_moments:int, form="square") -> Callable[[np.matrix], float]:
+    target = goal_gkp_state(num_moments, form)
 
-def goal_gkp_state(num_moments:int):
-    # Get un-rotated state:
-    psi = _goal_gkp_state_ket(num_moments)
+    def cost_func(rho:np.matrix)->float:
+        return -1*fidelity(rho, target)
+
+    return cost_func
+
+
+
+def goal_gkp_state(num_moments:int, form="square"):
+    # Get Ket Staet:
+    if form=="square":
+        psi = _goal_gkp_state_ket_square(num_moments)
+    elif form =="hex":
+        psi = _goal_gkp_state_ket_alternative(num_moments, form)
+    else:
+        raise ValueError(f"Not a possible option: form={form}")
+    # Transform to DM:
     rho = qutip.ket2dm(psi).full()
-    # Rotate the state:
-    coherent_control = CoherentControl(num_moments=num_moments)
-    gkp = coherent_control.pulse_on_state(rho, x=pi/2)
-    return gkp
+    return rho
     
-def _goal_gkp_state_ket(num_moments:int):
+
+def _goal_gkp_state_ket_alternative(
+    num_moments:int,
+    form:str,  # square\hex
+    d_b = 10.0
+):
+
+    # Derive sequence params:
+    if form=="square":
+        alpha1 = 1j * np.sqrt( pi/8 )
+        alpha2 = np.sqrt( pi/2 )
+        times1 = 4
+        times2 = 1
+    elif form=="hex":
+        alpha1 = np.sqrt( pi / (4*np.sqrt(3)) )
+        alpha2 = alpha1 * np.exp( 2*1j*pi/3 )
+        times1 = 2
+        times2 = 2
+    else:
+        raise ValueError(f"Not a possible option: form={form}")
+
     n = num_moments + 1 
-    alpha =  np.sqrt(2*pi)
+    r = np.log( np.sqrt( d_b ) )
+    m = round( (np.exp(r)**2) /pi )  # 3 when dB=10
+    D = lambda alpha: qutip.displace(n, alpha)
 
-    S = qutip.squeeze(n, 1)
+    # Perform sequence:
+    psi = qutip.basis(n, 0)
+    for _ in range(m*times1):
+        psi = ( D(alpha1)+D(-alpha1) ) * psi    
+    for _ in range(m*times2):
+        psi = ( D(alpha2)+D(-alpha2) ) * psi    
 
+    # Normalize:
+    psi = psi.unit()
+    return psi
+
+    
+def _goal_gkp_state_ket_square(
+    num_moments:int,
+    d_b = 10.0
+):
+    # Constants:
+    alpha =  np.sqrt(pi/2)
+    
+    # Derivedd from d_b:
+    r = np.log( np.sqrt( d_b ) )
+    m = round( (np.exp(r)**2) /pi )  # 3 when dB=10
+    
+    # Basic operators:
+    n = num_moments + 1 
+    S = qutip.squeeze(n, r)
     D_alpha = qutip.displace(n, alpha) + qutip.displace(n, -alpha)
-
+    
+    # Perform sequence:
     psi = qutip.basis(n, 0)
     psi = S * psi
-    psi = psi.unit()
+    for _ in range(m):
+        psi = D_alpha * psi    
 
-    psi = D_alpha * psi
-    psi = psi.unit()
-    psi = D_alpha * psi
-
+    # Normalize:
     psi = psi.unit()
 
     return psi
 
-def main():
+def _test_plot_goal_gkp():
+    from utils.visuals import plot_matter_state, plot_light_wigner
+
     num_moments = 40
-
-    psi = _goal_gkp_state_ket(num_moments)
-    rho = goal_gkp_state(num_moments)
-
-    qutip.plot_wigner(psi)
-    f = plt.figure(2)
-    ax = f.add_subplot(111)
-    print(rho)
-    ax.pcolormesh(np.real(rho), cmap='bwr')
-    ax.set_aspect('equal')
-    ax.set_ylabel('m')
-    ax.set_xlabel('n')
-    ax.set_title('real($\\rho$)')
-    np.save('goal_gkp',rho)
-    m = ax.collections[0]
-    m.set_clim(-np.max(np.abs(np.real(rho))), np.max(np.abs(np.real(rho))))
-    plt.colorbar(m)
-
-    plt.show()
-
+    for form in ["square", "hex"]:
+        rho = goal_gkp_state(num_moments, form)
+        plot_light_wigner(rho)
+    plot_matter_state(rho)
+    
+    print("Done.")
 
 if __name__ == '__main__':
-    main()
+    _test_plot_goal_gkp()
     print("Done.")
 

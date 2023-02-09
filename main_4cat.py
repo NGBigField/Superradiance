@@ -49,7 +49,7 @@ from enum import Enum, auto
 # Import optimization options and code:
 from optimization import (
     LearnedResults,
-    add_noise_to_params,
+    add_noise_to_vector,
     learn_custom_operation,
     ParamLock,
     BaseParamType,
@@ -349,7 +349,7 @@ def exhaustive_search(
     for i in range(num_tries):
         print("searching... "+strings.num_out_of_num(i+1, num_tries))
         try:
-            guess = add_noise_to_params(base_guess, std=std)
+            guess = add_noise_to_vector(base_guess, std=std)
             res = _exhaustive_try(num_moments=num_moments, initial_guess=guess, num_iter=num_iter_per_try)
         except:
             print(f"Skipping try {i} due to an error.")
@@ -407,7 +407,7 @@ def creating_4_leg_cat_algo(
 ) -> LearnedResults:
 
 
-    initial_guess = add_noise_to_params( 
+    initial_guess = add_noise_to_vector( 
         np.array(
             [ 2.68167102e+00,  1.61405534e+00, -1.03042969e+01,  5.98736807e-02,
             1.26242432e+00,  1.47234240e+00, -1.71681054e+00, -8.64374806e+01,

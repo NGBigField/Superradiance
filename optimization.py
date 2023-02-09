@@ -4,9 +4,11 @@
 # |                                   Imports                                        | #
 # ==================================================================================== #
 
-# Everyone needs numpy:
+# Everyone needs numpy and numeric stuff:
 import numpy as np
 from numpy import pi
+from scipy.linalg import expm  # matrix exponential
+
 
 # For typing hints:
 from typing import (
@@ -61,6 +63,7 @@ import time
 # For OOP:
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from copy import deepcopy
 
 # for plotting stuff wigner
 import qutip
@@ -128,6 +131,9 @@ class BaseParamType():
     def get_value(self)->float:
         raise AttributeError("Abstract super class without implementation")
 
+    def set_value(self, value:float)->None:
+        raise AttributeError("Abstract super class without implementation")
+
 @dataclass
 class FreeParam(BaseParamType): 
     affiliation : int | None
@@ -138,8 +144,11 @@ class FreeParam(BaseParamType):
     def lock(self)->ParamLock:
         return ParamLock.FREE
     
-    def get_value(self)->float:
+    def get_value(self)->float|None:
         return self.initial_guess
+
+    def set_value(self, value:float)->None:
+        self.initial_guess = value
     
     def fix(self)->'FixedParam':
         """fix Turn param into a fix param
@@ -164,6 +173,9 @@ class FixedParam(BaseParamType):
     
     def get_value(self)->float:
         return self.value    
+
+    def set_value(self, value:float)->None:
+        self.value = value
     
     def free(self)->FreeParam:
         """free Turn param into a free param
@@ -336,8 +348,56 @@ class OptimizationParams:
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
 
+def _initial_result(initial_state:_DensityMatrixType, initial_theta:List[float], operations:List[Operation], cost_function:Callable[[_DensityMatrixType], float])->LearnedResults:
+    num_moments = initial_state.shape[0]-1
+    coherent_control = CoherentControl(num_moments)
+    initial_best_final_state = coherent_control.custom_sequence(initial_state, theta=initial_theta, operations=operations)
+    initial_result = LearnedResults(operation_params=initial_theta, score=cost_function(initial_best_final_state))   
+    return initial_result
 
-def add_noise_to_params(x:np.ndarray, std:float=1.0) -> np.ndarray:
+def _params_str(operation_params:List[float], param_width:int=20) -> str:
+    # Constants:
+    num_params_per_line : int = 5
+    extra_space = 4
+    
+    # Devide into in iterations::
+    params = iter(operation_params)     
+    done = False
+    param_to_str = lambda x: strings.formatted(x, fill=' ', alignment='<', width=param_width, precision=param_width-extra_space, signed=True)
+    first_line = True
+    s = ""
+
+    while not done:
+        
+        for j in range(num_params_per_line):
+            try:
+                param = next(params)
+            except StopIteration:
+                done = True
+                break
+            else:
+                s += f"{param_to_str(param)}, "
+                    
+        if done:
+            s = s[:-2]  # remove last ,
+        else:
+            s += "\n"
+
+        first_line = False
+             
+    return s
+    
+        
+
+def add_noise_to_free_params(params:List[BaseParamType], sigma:float)->List[BaseParamType]:
+    for i, param in enumerate(params):
+        if isinstance(param, FreeParam):
+            assert param.initial_guess is not None
+            param.initial_guess = param.initial_guess + np.random.normal(1)*sigma
+            params[i] = param
+    return params
+
+def add_noise_to_vector(x:np.ndarray, std:float=1.0) -> np.ndarray:
     n = np.random.normal(scale=std, size=x.shape)
     y = x + n
     return y
@@ -516,6 +576,10 @@ def _score_str_func(state:_DensityMatrixType) -> str:
 class CostFunctions():
 
     @staticmethod
+    def fidelity_to_gkp(num_moments:int, gkp_form:str="square")->Callable[[_DensityMatrixType], float] :
+        return gkp.get_gkp_cost_function(num_moments=num_moments, form=gkp_form)
+
+    @staticmethod
     def fidelity_to_noon(initial_state:_DensityMatrixType) -> Callable[[_DensityMatrixType], float] :
         # Define cost function
         matrix_size = initial_state.shape[0]
@@ -552,39 +616,59 @@ class CostFunctions():
 # |                               Declared Functions                                 | #
 # ==================================================================================== #
 
-def fix_random_params(params:List[BaseParamType], num:int)->List[BaseParamType]:
-    n = len(params)
-    indices = np.random.choice(n, num, replace=False) 
+
+def learn_single_op(
+    initial_state:_DensityMatrixType, op:np.matrix, op_proj_to_minimize:np.matrix
+) -> Tuple[
+    _DensityMatrixType,
+    float
+]:
+
+    def pulse_on_state(var:float)->_DensityMatrixType:
+        p = np.matrix( expm(1j*op*var) )
+        return np.matrix( p @ initial_state @ p.getH() )
+
+    def cost_func(theta:np.ndarray)->float:
+        var = theta[0]        
+        final_state = pulse_on_state(var)
+        x2_proj = np.trace(final_state@op_proj_to_minimize)
+        return x2_proj
+
+    result = minimize(cost_func, [0])
+    
+    var = result.x[0]
+    final_state = pulse_on_state(var)
+    return final_state, var  # type: ignore
+
+def fix_random_params(params:List[BaseParamType], amount:int)->List[BaseParamType]:
+    # copy:
+    params = deepcopy(params)
+    # Choose in random:
+    free_params_indices = [i for i, param in enumerate(params) if isinstance(param, FreeParam)]
+    indices_to_fix = np.random.choice(free_params_indices, amount, replace=False) 
+    # Apply to copy
     for i, param in enumerate(params):
-        assert isinstance(param, FreeParam)
-        if i in indices:
+        if i in indices_to_fix:
+            assert isinstance(param, FreeParam)
             params[i] = param.fix()
     return params
 
 
 def learn_custom_operation(    
-    num_moments : int,
     initial_state : _DensityMatrixType,
     operations : List[Operation],
     cost_function : Callable[[_DensityMatrixType], float],
     max_iter : int=100, 
     tolerance : Optional[float] = None,
     initial_guess : Optional[np.ndarray] = None,
-    parameters_config : Optional[List[BaseParamType]|List[tuple]] = None,
+    parameters_config : Optional[List[BaseParamType]] = None,
     save_results : bool = True,
+    print_interval : int = 20
 ) -> LearnedResults:
 
-    # Progress_bar
-    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ")
-    
-    skip_num = 10
-    @decorators.sparse_execution(skip_num=skip_num, default_results=False)
-    def _after_each(xk:np.ndarray) -> bool:
-        cost = _total_cost_function(xk)
-        prog_bar.next(increment=skip_num, extra_str=f"cost = {cost}")
-        finish : bool = False
-        return finish
-    
+    ## Basic data:
+    assert initial_state.shape[0]==initial_state.shape[1]
+    num_moments : int = initial_state.shape[0]-1
 
     num_operation_params = sum([op.num_params for op in operations])
     positive_indices = _positive_indices_from_operations(operations)
@@ -594,6 +678,17 @@ def learn_custom_operation(
     else:
         assert len(initial_guess)==param_config.num_variables
 
+
+    # Progress_bar
+    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ", print_length=100)    
+    @decorators.sparse_execution(skip_num=print_interval, default_results=False)
+    def _after_each(xk:np.ndarray) -> bool:
+        cost = _total_cost_function(xk)
+        operation_params = param_config.optimization_theta_to_operations_params(xk)
+        extra_str = f"cost = {cost}"+"\n"+f"{_params_str(operation_params)}"
+        prog_bar.next(increment=print_interval, extra_str=extra_str)
+        finish : bool = False
+        return finish
 
     ## Optimization Config:
     # Define operations:
@@ -639,20 +734,83 @@ def learn_custom_operation(
     if save_results:
         saveload.save(learned_results, "learned_results "+strings.time_stamp())
 
-
     return learned_results    
     
 
+
+
+def learn_custom_operation_by_partial_repetitions(
+    initial_state:_DensityMatrixType,
+    cost_function:Callable[[_DensityMatrixType], float],
+    operations:List[Operation], 
+    initial_params:List[BaseParamType],
+    num_attempts:int=2000, 
+    max_iter_per_attempt:int = 10*int(1e3), 
+    num_free_params:int|None=20,
+    sigma:float = 0.002,
+    print_best_results:bool=True
+)-> LearnedResults:
+
+    ## Check inputs:
+    num_operation_params = sum([op.num_params for op in operations])    
+    assert len(initial_params)==num_operation_params
+
+    ## Initital theta
+    initial_theta = [param.get_value() for param in initial_params]
+
+    ## Set 0'th iteration:
+    best_result = _initial_result(initial_state, initial_theta, operations, cost_function)
+
+    ## Iterate:
+    for attempt_ind in range(num_attempts):
+        print(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)}")
+        
+        ## Lock random params and add noise to free params::
+        num_fix_params = 0 if num_free_params is None else num_operation_params-num_free_params
+        params = fix_random_params(initial_params, num_fix_params)
+
+        ## Start with param-values from thr best result and add noise to free params:
+        theta = best_result.operation_params
+        for i, (param, value) in enumerate( zip(params, theta, strict=True) ):
+            param.set_value(value)
+            params[i] = param
+        params = add_noise_to_free_params(params, sigma)
+        
+        ## Learn the best theta with these locked params:
+        try:            
+            results = learn_custom_operation(
+                initial_state=initial_state, 
+                cost_function=cost_function, 
+                operations=operations, 
+                max_iter=max_iter_per_attempt, 
+                parameters_config=params
+            )
+        except Exception as e:
+            errors.print_traceback(e)
+            continue
+
+        ## Keep the best result:
+        if results.score < best_result.score:
+            best_result = deepcopy( results )
+
+            if print_best_results:
+                print("    *** Best Results: *** ")
+                print(f"score: {results.score}")
+                print(f"theta: \n{_params_str(results.operation_params)}")
+                print("\n")
+        
+
+    return best_result
 
 # ==================================================================================== #
 # |                                  main tests                                      | #
 # ==================================================================================== #
 
 
-def main():
-    print("no main")
+def _test():
+    from main_gkp import optimized_Sx2_pulses_by_partial_repetition
+    results = optimized_Sx2_pulses_by_partial_repetition()
 
 if __name__ == "__main__":
-    main()
-    # _test_learn_pi_pulse(num_moments=4)    
+    _test()
     print("Done.")
