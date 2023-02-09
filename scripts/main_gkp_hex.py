@@ -199,7 +199,7 @@ def _alexeys_recipe(num_moments:int=100):
     print("Done.")
     
 
-def learning(
+def learn_sx2_pulses(
     num_moments:int=40, 
     num_total_attempts:int=2000,
     max_iter_per_attempt=3*int(1e3),
@@ -237,7 +237,7 @@ def learning(
 
 if __name__ == "__main__":
     # _example_gkp2()
-    result = learning()
+    result = learn_sx2_pulses()
     # result = learning_by_genetics()
     print("Finished main.")
 

@@ -174,7 +174,7 @@ def _sx_sequence_params(
 
 
     
-def optimized_Sx2_pulses_by_partial_repetition(
+def learn_sx2_pulses(
     num_moments:int=40, 
     max_iter_per_attempt=3*int(1e3),
     max_error_per_attempt=1e-9,
@@ -215,5 +215,5 @@ def optimized_Sx2_pulses_by_partial_repetition(
 if __name__ == "__main__":
     # _study()
     # results = optimized_Sx2_pulses()
-    results = optimized_Sx2_pulses_by_partial_repetition()
+    results = learn_sx2_pulses()
     print("Done.")
