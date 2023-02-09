@@ -746,6 +746,7 @@ def learn_custom_operation_by_partial_repetitions(
     initial_params:List[BaseParamType],
     num_attempts:int=2000, 
     max_iter_per_attempt:int = 10*int(1e3), 
+    max_error_per_attempt:Optional[float]=None,
     num_free_params:int|None=20,
     sigma:float = 0.002,
     print_best_results:bool=True
@@ -783,6 +784,7 @@ def learn_custom_operation_by_partial_repetitions(
                 cost_function=cost_function, 
                 operations=operations, 
                 max_iter=max_iter_per_attempt, 
+                tolerance=max_error_per_attempt,
                 parameters_config=params
             )
         except Exception as e:
