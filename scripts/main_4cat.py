@@ -1,7 +1,10 @@
 # ==================================================================================== #
-        
 # |                                   Imports                                        | #
 # ==================================================================================== #
+
+if __name__ == "__main__":
+    import pathlib, sys
+    sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 # Everyone needs numpy:
 import numpy as np
@@ -36,21 +39,18 @@ from utils import (
 )
 
 # For coherent control
-from coherentcontrol import (
+from algo.coherentcontrol import (
     CoherentControl,
     _DensityMatrixType,
     Operation,
 )
-        
-# For OOP:
-from dataclasses import dataclass, field
-from enum import Enum, auto
 
 # Import optimization options and code:
-from optimization import (
+from algo.optimization import (
     LearnedResults,
     add_noise_to_vector,
     learn_custom_operation,
+    learn_custom_operation_by_partial_repetitions,
     ParamLock,
     BaseParamType,
     FreeParam,
@@ -59,19 +59,16 @@ from optimization import (
     _initial_guess,
     fix_random_params,
 )
-import metrics
 
-# For operations:
-import coherentcontrol
-from fock import Fock, cat_state
+# For operations and cost functions:
+from physics.fock import Fock, cat_state
+from algo import metrics
 
 # For managing saved data:
-from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
+from utils.saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
 
-from optimization_and_operations import pair_custom_operations_and_opt_params_to_op_params, free_all_params
+from algo.optimization_and_operations import pair_custom_operations_and_opt_params_to_op_params, free_all_params
 
-# For timing and random seeds:
-import time
 
 
 # ==================================================================================== #
@@ -118,7 +115,6 @@ def _load_or_find_noon(num_moments:int, print_on:bool=True) -> NOON_DATA:
         # Define cost function
         cost_function = CostFunctions.fidelity_to_noon(initial_state)            
         noon_results = learn_custom_operation(
-            num_moments=num_moments, 
             initial_state=initial_state, 
             cost_function=cost_function, 
             operations=noon_creation_operations, 
@@ -754,10 +750,11 @@ def optimized_Sx2_pulses(num_attempts:int=1, num_runs_per_attempt:int=int(1e5), 
     
 def optimized_Sx2_pulses_by_partial_repetition(
     num_moments:int=40, 
-    num_attempts:int=1000, 
-    num_runs_per_attempt:int=int(20 *1e3), 
-    num_free_params:int|None=None,
-    sigma:float=0.0000005
+    num_total_attempts:int=1000, 
+    num_runs_per_attempt:int=int(3 *1e3), 
+    max_error_per_attempt:Optional[float]=None,
+    num_free_params:int|None=15,
+    sigma:float=0.0
 ) -> LearnedResults:
     
     # Constants:
@@ -771,50 +768,27 @@ def optimized_Sx2_pulses_by_partial_repetition(
     coherent_control = CoherentControl(num_moments=num_moments)    
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
     
-    # Params and operations:
-    
+    # Params and operations:    
     param_config, operations = _sx_sequence_params(standard_operations)
-    base_theta = [param.get_value() for param in param_config]
-    results = None
-    score:float=np.inf
-   
-    for attempt_ind in range(num_attempts):
-    
-        if results is None:
-            _final_state = coherent_control.custom_sequence(initial_state, theta=base_theta, operations=operations)
-            score = cost_function(_final_state)
-            theta = base_theta
 
-        elif results.score < score:
-            score = results.score
-            theta = results.operation_params
-            print(f"score: {results.score}")
-            print(f"theta: {list(theta)}")
-        
-        else: 
-            pass
-            # score stays the best score
-            # theta stays the best theta
-            
-        param_config, operations = _sx_sequence_params(standard_operations, sigma=sigma, theta=theta, num_free_params=num_free_params)            
-        print(strings.num_out_of_num(attempt_ind+1, num_attempts))
-        
-        try:            
-            results = learn_custom_operation(
-                num_moments=num_moments, 
-                initial_state=initial_state, 
-                cost_function=cost_function, 
-                operations=operations, 
-                max_iter=num_runs_per_attempt, 
-                parameters_config=param_config
-            )
-        
-        except Exception as e:
-            errors.print_traceback(e)
-        
+    best_result = learn_custom_operation_by_partial_repetitions(
+        # Mandatory Inputs:
+        initial_state=initial_state,
+        cost_function=cost_function,
+        operations=operations,
+        initial_params=param_config,
+        # Huristic Params:
+        max_iter_per_attempt=num_runs_per_attempt,
+        max_error_per_attempt=max_error_per_attempt,
+        num_free_params=num_free_params,
+        sigma=sigma,
+        num_attempts=num_total_attempts
+    )
 
-    assert results is not None
-    return results
+    ## Finish:
+    sounds.ascend()
+    print(best_result)
+    return best_result
 
 if __name__ == "__main__":
     # _study()

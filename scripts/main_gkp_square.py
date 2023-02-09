@@ -1,6 +1,9 @@
 # ==================================================================================== #
 # |                                   Imports                                        | #
 # ==================================================================================== #
+if __name__ == "__main__":
+    import pathlib, sys
+    sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 # Everyone needs numpy:
 import numpy as np
@@ -21,57 +24,26 @@ from typing import (
     NamedTuple,
 )
 
-# import our helper modules
-from utils import (
-    visuals,
-    saveload,
-    types,
-    decorators,
-    strings,
-    assertions,
-    sounds,
-    lists,
-    errors,
-)
-
 # For coherent control
-from coherentcontrol import (
+from algo.coherentcontrol import (
     CoherentControl,
     _DensityMatrixType,
     Operation,
 )
         
-# For OOP:
-from dataclasses import dataclass, field
-from enum import Enum, auto
-
 # Import optimization options and code:
-from optimization import (
+from algo.optimization import (
     LearnedResults,
-    add_noise_to_vector,
     learn_custom_operation,
     learn_custom_operation_by_partial_repetitions,
-    ParamLock,
     BaseParamType,
     FreeParam,
     FixedParam,
-    CostFunctions,
-    _initial_guess,
-    fix_random_params,
 )
-import metrics
 
-# For operations:
-import coherentcontrol
-from fock import Fock, cat_state
-from gkp import get_gkp_cost_function
-
-# For managing saved data:
-from saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
-
-from optimization_and_operations import pair_custom_operations_and_opt_params_to_op_params, free_all_params
-
-
+# For physical states:
+from physics.gkp import get_gkp_cost_function
+from physics.fock import Fock
 
 
 # ==================================================================================== #

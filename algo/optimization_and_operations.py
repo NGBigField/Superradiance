@@ -22,18 +22,18 @@ from typing import (
 )
 
 # metrics:
-from metrics import fidelity
+from algo.metrics import fidelity
 
 # Operations
-from coherentcontrol import Operation, _deal_costum_params, CoherentControl, _DensityMatrixType
+from algo.coherentcontrol import Operation, _deal_costum_params, CoherentControl, _DensityMatrixType
 
 # Optimization
-from optimization import OptimizationParams, BaseParamType, _deal_params_config, _positive_indices_from_operations
+from algo.optimization import OptimizationParams, BaseParamType, _deal_params_config, _positive_indices_from_operations
 # Parameters types:
-from optimization import BaseParamType, FreeParam, FixedParam
+from algo.optimization import BaseParamType, FreeParam, FixedParam
 
 # Fock:
-from fock import Fock, coherent_state, cat_state
+from physics.fock import Fock, coherent_state, cat_state
 
 
 # ==================================================================================== #

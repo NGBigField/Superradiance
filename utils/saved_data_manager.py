@@ -21,7 +21,7 @@ from typing import(
     Any,    
     List,
 )
-from coherentcontrol import Operation
+from algo.coherentcontrol import Operation
 import numpy as np
 
         

@@ -50,20 +50,20 @@ from matplotlib.axes import Axes  # for type hinting:
 from dataclasses import dataclass, field
 
 # For simulating state decay:
-from light_wigner.main import decay
-from evolution import (
+from physics.light_wigner.main import decay
+from physics.evolution import (
     evolve,
     Params as evolution_params,
 )
 
 # For printing progress:
-from metrics import purity
+from algo.metrics import purity
 
 # for copying input:
 from copy import deepcopy
 
 # For checking on real fock states:
-from fock import Fock
+from physics.fock import Fock
 
 # ==================================================================================== #
 # |                                  Constants                                       | #

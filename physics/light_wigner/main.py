@@ -6,20 +6,13 @@ import matplotlib.pyplot as plt
 import scipy.linalg
 import os
 
-try:
-    import light_wigner.superradiance_no_cavity
-    from light_wigner.superradiance_no_cavity import Superradiance_no_cavity
-    from light_wigner.Operators import make_3d_exp
-    from light_wigner.Operators import Operators
-    from light_wigner.distribution_functions import Wigner
-    from light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
-except ImportError:
-    import superradiance_no_cavity
-    from   superradiance_no_cavity import Superradiance_no_cavity
-    from   Operators import make_3d_exp
-    from   Operators import Operators
-    from   distribution_functions import Wigner
-    from   distribution_functions import Atomic_state_on_bloch_sphere
+
+from physics.light_wigner.superradiance_no_cavity import Superradiance_no_cavity
+from physics.light_wigner.Operators import make_3d_exp
+from physics.light_wigner.Operators import Operators
+from physics.light_wigner.distribution_functions import Wigner
+from physics.light_wigner.distribution_functions import Atomic_state_on_bloch_sphere
+
 
 
 import matplotlib.animation as animation

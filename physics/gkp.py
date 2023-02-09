@@ -1,8 +1,8 @@
 import qutip
 import numpy as np
 from numpy import pi
-from coherentcontrol import CoherentControl, Operation
-from metrics import fidelity
+from algo.coherentcontrol import CoherentControl, Operation
+from algo.metrics import fidelity
 from typing import Callable
 
 
