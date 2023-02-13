@@ -223,6 +223,8 @@ def plot_wigner_bloch_sphere(
     # Set title:
     if title is not None:
         ax.set_title(title, y=1.10)
+    else:
+        ax.set_title('$W(\\theta,\phi)$', fontsize=16, y=0.95)
         
     # Set "sphere orientation":
     ax.view_init(elev=view_elev, azim=view_azim, roll=view_roll)
@@ -246,7 +248,6 @@ def plot_wigner_bloch_sphere(
             ax.text(*xyz, str_, font=dict(size=18))
     
 
-    ax.set_title('$W(\\theta,\phi)$', fontsize=16)
     # Turn off the axis planes
     ax.set_axis_off()
     return surface_plot
@@ -307,8 +308,10 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
 
     # Labels:
     M = mat.shape[0]//2
-    m_range = range(-M,M+1)
-    pos_range = range(mat.shape[0]) 
+    step_size = M//5
+    if step_size==0: step_size=1
+    m_range = range(-M, M+1, step_size)
+    pos_range = range(0, mat.shape[0], step_size) 
     plt.sca(ax)
     plt.xticks( pos_range, [ f"|{m}>" for m in m_range] )
     plt.yticks( pos_range, [ f"<{m}|" for m in m_range] )
@@ -388,7 +391,7 @@ class MatterStatePlot():
         plot_city(state, ax=self.axis_block_city)
         plot_wigner_bloch_sphere(
             state, ax=self.axis_bloch_sphere, num_points=self.block_sphere_resolution, colorbar_ax=self.axis_bloch_sphere_colorbar,
-            view_azim=self.viewing_angles.azim, view_elev=self.viewing_angles.elev, view_roll=self.viewing_angles.roll
+            view_azim=self.viewing_angles.azim, view_elev=self.viewing_angles.elev, view_roll=self.viewing_angles.roll, title=""
         )
         if title is not None:
             self.figure.suptitle(title, fontsize=fontsize)

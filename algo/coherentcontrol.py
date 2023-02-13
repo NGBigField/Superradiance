@@ -1140,8 +1140,8 @@ def _show_analitical_gkp():
 def _test_custom_sequence():
     # Const:
     num_moments:int=40
-    num_transition_frames=0 #20
-    active_movie_recorder:bool=False
+    num_transition_frames=20
+    active_movie_recorder:bool=True
     fps=10
     
     
@@ -1161,7 +1161,8 @@ def _test_custom_sequence():
         num_freeze_frames=fps,
         fps=fps,
         bloch_sphere_resolution=200,
-        score_str_func=_score_str_func
+        score_str_func=_score_str_func,
+        viewing_angles=visuals.ViewingAngles(elev=-40)
     )
 
     ## Define operations:
@@ -1199,8 +1200,9 @@ def _test_custom_sequence():
     print("Movie is ready in folder 'video' ")
     # plot
     '''
+        score_str = _score_str_func(final_state)
         fig = visuals.plot_matter_state(final_state, block_sphere_resolution=150)
-        fig.suptitle(f"{_score_str_func(final_state)}", fontsize=16)
+        fig.suptitle(f"{score_str}", fontsize=16)
         visuals.plot_light_wigner(final_state)
         visuals.draw_now()
     '''
