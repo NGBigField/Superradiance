@@ -120,7 +120,7 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     if file_name is None:
         file_name = strings.time_stamp()
     # Figures folder:
-    folder = fullpath = Path().cwd().joinpath('figures')
+    folder = Path().cwd().joinpath('images')
     if not folder.is_dir():
         os.mkdir(str(folder.resolve()))
     # Full path:
@@ -146,7 +146,7 @@ def plot_wigner_bloch_sphere(
     warn_imaginary_part:bool=False, 
     title:str=None, 
     with_axes_arrows:bool=True,
-    lowest_alpha:float=0.2,
+    alpha_min:float=0.2,
     view_elev:float=DEFAULT_ELEV,
     view_azim:float=DEFAULT_AZIM,
     view_roll:float=DEFAULT_ROLL    
@@ -209,7 +209,7 @@ def plot_wigner_bloch_sphere(
     normalized_face_values = W / np.max(np.abs(W))
     face_colors = cm.bwr(normalized_face_values / 2 + 0.5)
     ## Adjust opacity values:
-    alpha_func = lambda normalized_face_value : _face_value_function(normalized_face_value, lowest_alpha)
+    alpha_func = lambda normalized_face_value : _face_value_function(normalized_face_value, alpha_min)
     for i, j in np.ndindex(normalized_face_values.shape):
         face_colors[i,j,3] = alpha_func(normalized_face_values[i,j])
 
