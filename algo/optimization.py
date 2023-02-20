@@ -69,6 +69,9 @@ import matplotlib.pyplot as plt
 # for accessing old results:
 from utils.saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
 
+# for saving result as log:
+import logging
+
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
@@ -733,7 +736,6 @@ def learn_custom_operation(
         saveload.save(learned_results, "learned_results "+strings.time_stamp())
 
     return learned_results    
-    
 
 
 
@@ -747,8 +749,18 @@ def learn_custom_operation_by_partial_repetitions(
     max_error_per_attempt:Optional[float]=None,
     num_free_params:int|None=20,
     sigma:float = 0.002,
-    print_best_results:bool=True
+    log_name:str=strings.time_stamp()
 )-> LearnedResults:
+    
+    ## Set logging:
+    file_name = "logs\\"+log_name+".log"
+    saveload.make_sure_folder_exists("logs")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        filename=file_name,
+    )
 
     ## Check inputs:
     num_operation_params = sum([op.num_params for op in operations])    
@@ -762,7 +774,7 @@ def learn_custom_operation_by_partial_repetitions(
 
     ## Iterate:
     for attempt_ind in range(num_attempts):
-        print(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)}")
+        logging.info(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)}")
         
         ## Lock random params and add noise to free params::
         num_fix_params = 0 if num_free_params is None else num_operation_params-num_free_params
@@ -786,18 +798,18 @@ def learn_custom_operation_by_partial_repetitions(
                 parameters_config=params
             )
         except Exception as e:
-            errors.print_traceback(e)
+            s = errors.get_traceback(e)
+            logging.warning(s)
             continue
 
         ## Keep the best result:
         if results.score < best_result.score:
             best_result = deepcopy( results )
-
-            if print_best_results:
-                print("    *** Best Results: *** ")
-                print(f"score: {results.score}")
-                print(f"theta: \n{_params_str(results.operation_params)}")
-                print("\n")
+            
+            logging.info("    *** Best Results: *** ")
+            logging.info(f"score: {results.score}")
+            logging.info(f"theta: \n{_params_str(results.operation_params)}")
+            logging.info("\n")
         
 
     return best_result

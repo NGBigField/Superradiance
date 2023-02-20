@@ -1139,9 +1139,11 @@ def _show_analitical_gkp():
 
 def _test_custom_sequence():
     # Const:
-    num_moments:int=100
+    num_moments:int=40
     active_movie_recorder:bool=False
     fps=10
+    
+    
     num_transition_frames=20 if active_movie_recorder else 0
     
     
@@ -1169,25 +1171,29 @@ def _test_custom_sequence():
     coherent_control = CoherentControl(num_moments=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
+    rotation_op = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
     rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
     p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
     
     theta = [
-        -0.0001823358674267 , +0.1266833584275955 , -0.4010549082320792 , +0.0253194570263609 , +0.2255183665438767 ,
-        -0.0706928281551521 , +0.3484001556857861 , -1.0611567864420417 , +0.0031670829443912 , +0.2005406364912596 ,
-        +0.0417087405876061 , +0.0061853582448365 , -0.0122952893518430 , -0.0042039471218369 , -0.0507418640173887 ,
-        +2.4024094874077297 , -1.1159384606008742 , +1.4437630743682348 , -0.0485578563320231 , -0.2912453224883770 ,
-        -2.2333082366412764 , +2.2038217514124723 , -1.5501289336740141 , -1.1049882633197230 , -0.2459219060937174 ,
-        +0.0602037249477397 , -2.5952207913014309 , -1.0732311104708820 , +0.0287402460385741 , -0.1140324234223121 ,
-        -0.2667159512282465 , -0.2226361433247586 , +0.0585421220441766 , +0.4034231167233723 , +0.1676327653468345 ,
-        +1.6555193155844261 , -0.2593345652665240 , -0.3878751272884839 , -0.0082756239978552 , +0.1028281877770117 ,
-        +0.6492867560786761 , +0.2045682590868119 , +0.3675682360612291 , +0.0447975881180885 , -0.0657831564455174 ,
-        +0.0593526546876871 , -0.2355917985309403 , +0.0775879079368414 , -0.0815213477026114 , +0.0494442097936244 ,
-        +0.1667477197416150 , -0.3437066523581289 , -0.3350478013034669 , -0.3090212073631540 , +0.9924035356270331 ,
-        -0.0105222036300294 , -0.9689076492945492 , +1.0874077424974642
+        -0.0005220242430289 , +0.1214854878121696 , -0.3503382136478652 , +0.0249467996324166 , +0.2268814500064196 , 
+        -0.0193968256968388 , +0.2519820229625508 , -1.0606927877255754 , +0.0024581418239480 , +0.2153721559181195 , 
+        +0.0321185421898414 , +0.1529898586244914 , -0.0064135162095041 , -0.0039080523787257 , -0.0660546199676986 , 
+        +2.4479021917891095 , -1.1173897335549225 , +1.4100021342608935 , -0.0483775581651196 , -0.2901330051698872 , 
+        -2.2320845648230905 , +2.2071336237395207 , -1.5501063082693158 , -1.1049689855154776 , -0.2459043981170417 , 
+        +0.0586184142142499 , -2.5989519864652655 , -1.0735239017020244 , +0.0287628506285407 , -0.1139472738214305 , 
+        -0.2676402390664875 , -0.2192863054735023 , +0.0562764996156372 , +0.4029315953634696 , +0.1678269369508926 , 
+        +1.6507252256843938 , -0.2433358605879460 , -0.4109160437178895 , -0.0077238107589316 , +0.1030779049811571 , 
+        +0.6580218847840631 , +0.1737022815366773 , +0.3615269622275386 , +0.0449993627605910 , -0.0653603295524819 , 
+        +0.0561416491965956 , -0.2384603860353423 , +0.0761315335076899 , -0.0819355517867351 , +0.0493571995862350 , 
+        +0.1630899016912762 , -0.3402727893857073 , -0.3380625489369050 , -0.3092182212419290 , +0.9926118928574805 , 
+        -0.0108749414709896 , -0.9716827701536934 , +1.0845501665990769 
     ]
+    
+    x_op = lambda p: standard_operations.power_pulse_on_specific_directions(power=p, indices=[0])
+    z_op = lambda p: standard_operations.power_pulse_on_specific_directions(power=p, indices=[2])
 
-    operations  = [
+    operations = [
         rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation, p2_pulse, rotation
     ]
     
@@ -1195,7 +1201,8 @@ def _test_custom_sequence():
     
     # Apply:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
-    visuals.plot_wigner_bloch_sphere(final_state, num_points=200, view_elev=-90, alpha_min=1)
+    visuals.plot_wigner_bloch_sphere(final_state, num_points=200, view_elev=-55, alpha_min=1)
+    visuals.draw_now()
     visuals.save_figure()
     
     print("Movie is ready in folder 'video' ")

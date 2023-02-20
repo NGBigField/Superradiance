@@ -14,7 +14,7 @@ from numpy import pi
 from typing import Optional, Tuple, List
 
 # import our helper modules
-from utils import sounds, lists
+from utils import sounds, strings
 
 # For coherent control
 from algo.coherentcontrol import (
@@ -78,12 +78,19 @@ def _sx_sequence_params(
     # theta = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0218893457569274, 0.7191920866055401, 0.019605744261912264, -0.02502281879878626, 0.14155596176935248, 2.2574095995151096, -1.2234221117580204, 1.4235718671654225, -0.04390285036224292, -0.3038995764286472, -2.0617842805506736, 2.345861866241857, -1.7245106953252414, -1.0947524987426371, -0.23248387901706918, 0.18647738726463614, -2.716468091544212, -1.1825978962680104, 0.04014497727894065, -0.10770179093391521, -0.07347936638442679, -0.17164808412507915, 0.21480542585057338, 0.3913657903936454, 0.1223483093091638, 1.6329201058459644, 0.030497635410195803, -0.27498962101885116, -0.02596820370457454, 0.06360478749470103, 0.2661429997470429, -0.15255776739977395, 0.9595180922240361, 0.024823002842259752, -0.017447338819284106, 0.5066348438594075, -0.044245217700777745, 0.39741466989166474, -0.08627499537501082, 0.010043519067349654, 0.49566358349695794, -0.3491169621902839, -1.3388193210681276, 0.002415068734478643, 0.032566928109088, -0.09585930422102079, 0.30459584778998516, 0.5041789951746705]
     # operations  = [
     #     rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation, p2_pulse, rotation
+    # ]    
+    # theta = [
+    #     0.0, 0.0, 0.0, 
+    #     0.0, 0.0, 
+    #     0.0, 0.0, 0.0 
     # ]
-    
+    # theta = [
+    #     +0.6374879230672365 , +0.0504661313568482 , -0.8879532179138008 , -0.1820134605916127 , +0.1029551807445356 , 
+    #     -0.7817389957288317 , -1.7758690191539936 , +1.0289063785742170 
+    # ]
     theta = [
-        0.0, 0.0, 0.0, 
-        0.0, 0.0, 
-        0.0, 0.0, 0.0 
+        +1.6911753538276657 , +0.4165367678990034 , +1.1596610642766465 , +0.4970010986390708 , +1.1626455201688501 , 
+        -0.8365536257598889 , -1.0001921078914235 , +1.3845575396713630 
     ]
     
     operations  = [
@@ -135,7 +142,7 @@ def optimized_Sx2_pulses_by_partial_repetition(
     num_runs_per_attempt:int=4*int(1e3), 
     max_error_per_attempt:Optional[float]=1e-9,
     num_free_params:int|None=None,
-    sigma:float=0.02
+    sigma:float=0.002
 ) -> LearnedResults:
     
     # Define target:
@@ -158,7 +165,8 @@ def optimized_Sx2_pulses_by_partial_repetition(
         max_error_per_attempt=max_error_per_attempt,
         num_free_params=num_free_params,
         sigma=sigma,
-        num_attempts=num_total_attempts
+        num_attempts=num_total_attempts,
+        log_name="4-Cat-thin "+strings.time_stamp()
     )
 
     ## Finish:

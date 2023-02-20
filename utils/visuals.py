@@ -12,6 +12,7 @@ from qutip.matplotlib_utilities import complex_phase_cmap
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.axes import Axes
 from matplotlib.transforms import Bbox
+from matplotlib.colors import LightSource
 
 # Everyone needs numpy in their life and other math stuff:
 import numpy as np
@@ -228,6 +229,9 @@ def plot_wigner_bloch_sphere(
         
     # Set "sphere orientation":
     ax.view_init(elev=view_elev, azim=view_azim, roll=view_roll)
+    
+    # Light source:
+    ls = LightSource(azdeg=-90, altdeg=0)
 
     # Color bar:
     if colorbar_ax is None:
