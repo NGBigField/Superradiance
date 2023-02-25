@@ -59,7 +59,7 @@ class Mode():
 def _fullpath(name:str) -> str:
     name = _common_name(name)
     folder = DATA_FOLDER
-    make_sure_folder_exists(folder)
+    force_folder_exists(folder)
     fullpath = folder+name
     return fullpath
     
@@ -120,7 +120,7 @@ def save_table(table:List[List[str]], filename:Optional[str]=None) -> None :
     finally:
         save(table, name=filename)
 
-def make_sure_folder_exists(foldepath:str) -> None:
+def force_folder_exists(foldepath:str) -> None:
     if not os.path.exists(foldepath):
         os.makedirs(foldepath)
 

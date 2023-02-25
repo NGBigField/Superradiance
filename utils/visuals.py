@@ -464,7 +464,7 @@ class VideoRecorder():
         # Complete missing inputs:
         name = args.default_value(name, default_factory=strings.time_stamp )        
         # Prepare folder for video:
-        saveload.make_sure_folder_exists(VIDEOS_FOLDER)
+        saveload.force_folder_exists(VIDEOS_FOLDER)
         clips_gen = self.image_clips()
         video_slides = concatenate_videoclips( list(clips_gen), method='chain' )
         # Write video file:
@@ -490,7 +490,7 @@ class VideoRecorder():
     @staticmethod
     def _reset_temp_folders_dir()->str:
         frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep
-        saveload.make_sure_folder_exists(frames_dir)
+        saveload.force_folder_exists(frames_dir)
         return frames_dir
 
 

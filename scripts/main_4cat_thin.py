@@ -139,10 +139,10 @@ def _sx_sequence_params(
 def optimized_Sx2_pulses_by_partial_repetition(
     num_moments:int=40, 
     num_total_attempts:int=2000, 
-    num_runs_per_attempt:int=4*int(1e3), 
+    num_runs_per_attempt:int=3*int(1e3), 
     max_error_per_attempt:Optional[float]=1e-9,
-    num_free_params:int|None=None,
-    sigma:float=0.002
+    num_free_params:int|None=5,
+    sigma:float=1.0
 ) -> LearnedResults:
     
     # Define target:
