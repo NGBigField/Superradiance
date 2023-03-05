@@ -12,6 +12,7 @@ from qutip.matplotlib_utilities import complex_phase_cmap
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.axes import Axes
 from matplotlib.transforms import Bbox
+from matplotlib.colors import LightSource
 
 # Everyone needs numpy in their life and other math stuff:
 import numpy as np
@@ -120,7 +121,7 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
     if file_name is None:
         file_name = strings.time_stamp()
     # Figures folder:
-    folder = fullpath = Path().cwd().joinpath('figures')
+    folder = Path().cwd().joinpath('images')
     if not folder.is_dir():
         os.mkdir(str(folder.resolve()))
     # Full path:
@@ -146,7 +147,7 @@ def plot_wigner_bloch_sphere(
     warn_imaginary_part:bool=False, 
     title:str=None, 
     with_axes_arrows:bool=True,
-    lowest_alpha:float=0.2,
+    alpha_min:float=0.2,
     view_elev:float=DEFAULT_ELEV,
     view_azim:float=DEFAULT_AZIM,
     view_roll:float=DEFAULT_ROLL    
@@ -209,7 +210,7 @@ def plot_wigner_bloch_sphere(
     normalized_face_values = W / np.max(np.abs(W))
     face_colors = cm.bwr(normalized_face_values / 2 + 0.5)
     ## Adjust opacity values:
-    alpha_func = lambda normalized_face_value : _face_value_function(normalized_face_value, lowest_alpha)
+    alpha_func = lambda normalized_face_value : _face_value_function(normalized_face_value, alpha_min)
     for i, j in np.ndindex(normalized_face_values.shape):
         face_colors[i,j,3] = alpha_func(normalized_face_values[i,j])
 
@@ -223,9 +224,14 @@ def plot_wigner_bloch_sphere(
     # Set title:
     if title is not None:
         ax.set_title(title, y=1.10)
+    else:
+        ax.set_title('$W(\\theta,\phi)$', fontsize=16, y=0.95)
         
     # Set "sphere orientation":
     ax.view_init(elev=view_elev, azim=view_azim, roll=view_roll)
+    
+    # Light source:
+    ls = LightSource(azdeg=-90, altdeg=0)
 
     # Color bar:
     if colorbar_ax is None:
@@ -246,7 +252,6 @@ def plot_wigner_bloch_sphere(
             ax.text(*xyz, str_, font=dict(size=18))
     
 
-    ax.set_title('$W(\\theta,\phi)$', fontsize=16)
     # Turn off the axis planes
     ax.set_axis_off()
     return surface_plot
@@ -307,8 +312,10 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
 
     # Labels:
     M = mat.shape[0]//2
-    m_range = range(-M,M+1)
-    pos_range = range(mat.shape[0]) 
+    step_size = M//5
+    if step_size==0: step_size=1
+    m_range = range(-M, M+1, step_size)
+    pos_range = range(0, mat.shape[0], step_size) 
     plt.sca(ax)
     plt.xticks( pos_range, [ f"|{m}>" for m in m_range] )
     plt.yticks( pos_range, [ f"<{m}|" for m in m_range] )
@@ -388,7 +395,7 @@ class MatterStatePlot():
         plot_city(state, ax=self.axis_block_city)
         plot_wigner_bloch_sphere(
             state, ax=self.axis_bloch_sphere, num_points=self.block_sphere_resolution, colorbar_ax=self.axis_bloch_sphere_colorbar,
-            view_azim=self.viewing_angles.azim, view_elev=self.viewing_angles.elev, view_roll=self.viewing_angles.roll
+            view_azim=self.viewing_angles.azim, view_elev=self.viewing_angles.elev, view_roll=self.viewing_angles.roll, title=""
         )
         if title is not None:
             self.figure.suptitle(title, fontsize=fontsize)
@@ -457,7 +464,7 @@ class VideoRecorder():
         # Complete missing inputs:
         name = args.default_value(name, default_factory=strings.time_stamp )        
         # Prepare folder for video:
-        saveload.make_sure_folder_exists(VIDEOS_FOLDER)
+        saveload.force_folder_exists(VIDEOS_FOLDER)
         clips_gen = self.image_clips()
         video_slides = concatenate_videoclips( list(clips_gen), method='chain' )
         # Write video file:
@@ -483,7 +490,7 @@ class VideoRecorder():
     @staticmethod
     def _reset_temp_folders_dir()->str:
         frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep
-        saveload.make_sure_folder_exists(frames_dir)
+        saveload.force_folder_exists(frames_dir)
         return frames_dir
 
 

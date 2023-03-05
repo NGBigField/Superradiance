@@ -40,6 +40,7 @@ from utils import (
     decorators,
     lists,
     types,
+    logs,
 )
 
 # For coherent control
@@ -50,7 +51,7 @@ from algo.coherentcontrol import (
 )
 
 # for optimization:
-from scipy.optimize import minimize, OptimizeResult, show_options  # for optimization:   
+from scipy.optimize import minimize, OptimizeResult
 from algo import metrics 
 from physics import gkp 
         
@@ -63,11 +64,8 @@ from enum import Enum, auto
 from copy import deepcopy
 
 # for plotting stuff wigner
-import qutip
 import matplotlib.pyplot as plt
 
-# for accessing old results:
-from utils.saved_data_manager import NOON_DATA, exist_saved_noon, get_saved_noon, save_noon
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
@@ -108,10 +106,6 @@ class LearnedResults():
         s += f"operations: {self.operations}"+newline
         return s
     
-class Metric(Enum):
-    NEGATIVITY  = auto()
-    PURITY      = auto()
-
 
 class ParamLock(Enum):
     FREE  = auto()
@@ -484,10 +478,7 @@ def _positive_indices_from_operations(operations:List[Operation]) -> np.ndarray:
         low = high
     return positive_indices
 
-def _deal_initial_guess_old(num_params:int, initial_guess:Optional[np.array]) -> np.ndarray :
-    positive_indices = np.arange(NUM_PULSE_PARAMS-1, num_params, NUM_PULSE_PARAMS)
-    return _deal_initial_guess(num_free_params=num_params, initial_guess=initial_guess, positive_indices=positive_indices)
-    
+
 def _deal_initial_guess(num_free_params:int, initial_guess:Optional[np.ndarray|list], positive_indices:np.ndarray) -> np.ndarray:
     if initial_guess is not None:  # If guess is given:
         assert len(initial_guess) == num_free_params, f"Needed number of parameters for the initial guess is {num_free_params} while {len(initial_guess)} were given"
@@ -733,7 +724,6 @@ def learn_custom_operation(
         saveload.save(learned_results, "learned_results "+strings.time_stamp())
 
     return learned_results    
-    
 
 
 
@@ -747,8 +737,11 @@ def learn_custom_operation_by_partial_repetitions(
     max_error_per_attempt:Optional[float]=None,
     num_free_params:int|None=20,
     sigma:float = 0.002,
-    print_best_results:bool=True
+    log_name:str=strings.time_stamp()
 )-> LearnedResults:
+    
+    ## Set logging:
+    logger = logs.get_logger(filename=log_name)
 
     ## Check inputs:
     num_operation_params = sum([op.num_params for op in operations])    
@@ -762,7 +755,7 @@ def learn_custom_operation_by_partial_repetitions(
 
     ## Iterate:
     for attempt_ind in range(num_attempts):
-        print(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)}")
+        logger.info(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)}")
         
         ## Lock random params and add noise to free params::
         num_fix_params = 0 if num_free_params is None else num_operation_params-num_free_params
@@ -786,18 +779,18 @@ def learn_custom_operation_by_partial_repetitions(
                 parameters_config=params
             )
         except Exception as e:
-            errors.print_traceback(e)
+            s = errors.get_traceback(e)
+            logger.warning(s)
             continue
 
         ## Keep the best result:
         if results.score < best_result.score:
             best_result = deepcopy( results )
-
-            if print_best_results:
-                print("    *** Best Results: *** ")
-                print(f"score: {results.score}")
-                print(f"theta: \n{_params_str(results.operation_params)}")
-                print("\n")
+            
+            logger.info("    *** Best Results: *** ")
+            logger.info(f"score: {results.score}")
+            logger.info(f"theta: \n{_params_str(results.operation_params)}")
+            logger.info("\n")
         
 
     return best_result
