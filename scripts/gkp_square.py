@@ -268,6 +268,8 @@ def learn_sx2_pulses(
     param_config, operations = _sx_sequence_params(standard_operations)
 
     best_result = learn_custom_operation_by_partial_repetitions(
+        # Amount:
+        num_attempts=2,
         # Mandatory Inputs:
         initial_state=initial_state,
         cost_function=cost_function,
