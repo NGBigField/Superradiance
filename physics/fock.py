@@ -117,31 +117,31 @@ class Fock():
         return Fock(0).to_density_matrix(num_moments=num_atoms)
         
     @staticmethod
-    def excited_state_density_matrix(num_moments:int) -> np.matrix:
-        state = Fock(0).to_density_matrix(num_moments=num_moments)
+    def excited_state_density_matrix(num_atoms:int) -> np.matrix:
+        state = Fock(0).to_density_matrix(num_moments=num_atoms)
         state[0,0] = 0
         state[-1,-1] = 1
         return state
 
     @overload
     @staticmethod
-    def create_coherent_state(num_moments:int, alpha:float, output:Literal['density_matrix'], type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->np.matrix: ...
+    def create_coherent_state(num_atoms:int, alpha:float, output:Literal['density_matrix'], type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->np.matrix: ...
     @overload
     @staticmethod
-    def create_coherent_state(num_moments:int, alpha:float, output:Literal['ket'], type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum: ...
+    def create_coherent_state(num_atoms:int, alpha:float, output:Literal['ket'], type_:Literal['normal', 'even_cat', 'odd_cat']='normal')->FockSum: ...
 
     @staticmethod
     def create_coherent_state(
-        num_moments:int, 
+        num_atoms:int, 
         alpha:float, 
         output:Literal['ket', 'density_matrix']='ket',
         type_:Literal['normal', 'even_cat', 'odd_cat']='normal',
     )->Union[FockSum, np.matrix] :  
-        ket = coherent_state(num_moments=num_moments, alpha=alpha, type_=type_)
+        ket = coherent_state(num_moments=num_atoms, alpha=alpha, type_=type_)
         if output == 'ket':
             return ket
         elif output == 'density_matrix':
-            return ket.to_density_matrix(num_moments=num_moments)
+            return ket.to_density_matrix(num_moments=num_atoms)
         else:
             raise ValueError("Not an option.")
 
@@ -372,16 +372,16 @@ class FockSum():
 # |                             Declared Functions                                   | #
 # ==================================================================================== #
 
-def cat_state(num_moments:int, alpha:float, num_legs:int, odd:bool=False)->FockSum:
+def cat_state(num_atoms:int, alpha:float, num_legs:int, odd:bool=False)->FockSum:
     # check inputs:
-    num_moments = assertions.integer(num_moments)
+    num_atoms = assertions.integer(num_atoms)
     num_legs = assertions.integer(num_legs)
 
     # fock space object:
     fock = FockSum()
 
     # on moments
-    for moment in range(0, num_moments+1):
+    for moment in range(0, num_atoms+1):
         
         total_coefficient = 0.0
         for leg in range(num_legs):
@@ -463,7 +463,7 @@ def _test_coherent_state(max_fock_num:int=4):
     print("Plotted.")
 
 def _test_simple_fock_density_matrix():
-    rho = Fock.create_coherent_state(num_moments=2, alpha=0, output='density_matrix')
+    rho = Fock.create_coherent_state(num_atoms=2, alpha=0, output='density_matrix')
     print(rho)
 
 def _test_cat_state(
@@ -471,7 +471,7 @@ def _test_cat_state(
     alpha:float = 3,
     num_legs:int = 4
 ):
-    fock_sum = cat_state(num_moments=num_moments, alpha=alpha, num_legs=num_legs)
+    fock_sum = cat_state(num_atoms=num_moments, alpha=alpha, num_legs=num_legs)
     print(fock_sum)
     rho = fock_sum.to_density_matrix(num_moments=num_moments)
     visuals.plot_matter_state(rho)

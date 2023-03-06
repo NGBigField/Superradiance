@@ -7,7 +7,7 @@ from typing import Callable
 
 
 def get_gkp_cost_function(num_moments:int, form="square") -> Callable[[np.matrix], float]:
-    target = goal_gkp_state(num_moments, form)
+    target = gkp_state(num_moments, form)
 
     def cost_func(rho:np.matrix)->float:
         return -1*fidelity(rho, target)
@@ -16,7 +16,16 @@ def get_gkp_cost_function(num_moments:int, form="square") -> Callable[[np.matrix
 
 
 
-def goal_gkp_state(num_moments:int, form="square"):
+def gkp_state(num_moments:int, form="square")->np.matrix:
+    """gkp_state Create a GKP state density matrix.
+
+    Args:
+        num_moments (int)
+        form (str): "square"/"hex"
+
+    Returns:
+        rho: Density-Matrix
+    """
     # Get Ket Staet:
     if form=="square":
         psi = _goal_gkp_state_ket_square(num_moments)
@@ -98,7 +107,7 @@ def _test_plot_goal_gkp():
 
     num_moments = 40
     for form in ["square", "hex"]:
-        rho = goal_gkp_state(num_moments, form)
+        rho = gkp_state(num_moments, form)
         plot_light_wigner(rho)
     plot_matter_state(rho)
     

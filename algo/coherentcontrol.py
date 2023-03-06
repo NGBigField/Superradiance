@@ -1149,8 +1149,8 @@ def _test_custom_sequence():
     
     # define score function:
     from metrics import fidelity  
-    from physics.gkp import goal_gkp_state  
-    target_state = goal_gkp_state(num_moments, form="square")
+    from physics.gkp import gkp_state  
+    target_state = gkp_state(num_moments, form="square")
     def _score_str_func(rho:np.matrix)->str:
         fidel = fidelity(rho, target_state)
         s = f"Fidelity: {fidel}"

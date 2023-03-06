@@ -164,7 +164,7 @@ def _common_4_legged_search_inputs(num_moments:int, num_transition_frames:int=0)
     noon_data = _load_or_find_noon(num_moments)
 
     # Define target:
-    target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
+    target_4legged_cat_state = cat_state(num_atoms=num_moments, alpha=3, num_legs=4).to_density_matrix()
     # visuals.plot_matter_state(target_4legged_cat_state, block_sphere_resolution=200)
     def cost_function(final_state:_DensityMatrixType) -> float : 
         return -1 * metrics.fidelity(final_state, target_4legged_cat_state)   
@@ -550,7 +550,7 @@ def _study():
             theta.extend(oper_params)
             operations.append(operation)
             
-        target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
+        target_4legged_cat_state = cat_state(num_atoms=num_moments, alpha=3, num_legs=4).to_density_matrix()
         def _score_str_func(rho:_DensityMatrixType)->str:
             fidel = metrics.fidelity(rho, target_4legged_cat_state)
             return f"fidelity={fidel}"
@@ -756,7 +756,7 @@ def optimized_Sx2_pulses_by_partial_repetition(
     num_transition_frames:int=0
     
     # Define target:
-    target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
+    target_4legged_cat_state = cat_state(num_atoms=num_moments, alpha=3, num_legs=4).to_density_matrix()
     initial_state = Fock.ground_state_density_matrix(num_atoms=num_moments)
     def cost_function(final_state:_DensityMatrixType) -> float : 
         return -1 * metrics.fidelity(final_state, target_4legged_cat_state)  
