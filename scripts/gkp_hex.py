@@ -241,9 +241,9 @@ def _alexeys_recipe(num_moments:int=100):
 
 def learn_sx2_pulses(
     num_moments:int=40, 
-    num_total_attempts:int=2,
-    max_iter_per_attempt=3*int(1e3),
-    max_error_per_attempt=1e-9,
+    num_total_attempts:int=2000,
+    max_iter_per_attempt=5*int(1e3),
+    max_error_per_attempt=1e-12,
     num_free_params=20,
     sigma=0.00002
 ):
