@@ -113,8 +113,8 @@ class Fock():
         self.validate()
     
     @staticmethod
-    def ground_state_density_matrix(num_moments:int) -> np.matrix:
-        return Fock(0).to_density_matrix(num_moments=num_moments)
+    def ground_state_density_matrix(num_atoms:int) -> np.matrix:
+        return Fock(0).to_density_matrix(num_moments=num_atoms)
         
     @staticmethod
     def excited_state_density_matrix(num_moments:int) -> np.matrix:

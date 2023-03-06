@@ -54,7 +54,7 @@ def _sx_sequence_params(
     List[Operation]
 ]:
     
-    coherent_control = CoherentControl(num_moments=num_moments)    
+    coherent_control = CoherentControl(num_atoms=num_moments)    
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=0)
     
     rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
@@ -147,7 +147,7 @@ def optimized_Sx2_pulses_by_partial_repetition(
     
     # Define target:
     target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
-    initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
+    initial_state = Fock.ground_state_density_matrix(num_atoms=num_moments)
     def cost_function(final_state:_DensityMatrixType) -> float : 
         return -1 * metrics.fidelity(final_state, target_4legged_cat_state)  
     

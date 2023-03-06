@@ -83,7 +83,7 @@ def _best_operations_and_values_so_far(
 ]:
 
     # Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)    
+    coherent_control = CoherentControl(num_atoms=num_moments)    
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=0)
     rotation_op = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
     x_op = lambda p: standard_operations.power_pulse_on_specific_directions(power=p, indices=[0])
@@ -181,8 +181,8 @@ def _example_gkp2(
 ):
 
     # Define the basics:
-    ground_state = Fock.ground_state_density_matrix(num_moments=num_moments)    
-    coherent_control = CoherentControl(num_moments=num_moments)
+    ground_state = Fock.ground_state_density_matrix(num_atoms=num_moments)    
+    coherent_control = CoherentControl(num_atoms=num_moments)
     final_state = lambda x1, x2 : _get_final_state(ground_state, coherent_control, x1, x2)
 
     # Derive size-specific variables:
@@ -207,8 +207,8 @@ def _example_gkp2(
 
 def _alexeys_recipe(num_moments:int=100):
     # Define the basics:
-    ground_state = Fock.ground_state_density_matrix(num_moments=num_moments)    
-    coherent_control = CoherentControl(num_moments=num_moments)
+    ground_state = Fock.ground_state_density_matrix(num_atoms=num_moments)    
+    coherent_control = CoherentControl(num_atoms=num_moments)
 
     # Learned parameters:
     
@@ -250,7 +250,7 @@ def learn_sx2_pulses(
 
     ## Define operations and cost-function:
     gkp_simmilarity_func = get_gkp_cost_function(num_moments, form="hex")
-    initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
+    initial_state = Fock.ground_state_density_matrix(num_atoms=num_moments)
     operations, params = _best_operations_and_values_so_far(num_moments)
 
     ## Learn:

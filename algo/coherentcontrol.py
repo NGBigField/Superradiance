@@ -471,14 +471,14 @@ class CoherentControl():
 
     def __init__(
         self, 
-        num_moments:int,
+        num_atoms:int,
         gamma:float=1.0,
     ) -> None:
         # Keep basic properties:        
-        self._num_moments = num_moments
+        self._num_moments = num_atoms
         self.gamma = gamma
         # define basic pulses:
-        self.s_pulses = SPulses(num_moments)
+        self.s_pulses = SPulses(num_atoms)
 
     # ==================================================== #
     #|                  static methods                    |#
@@ -996,7 +996,7 @@ def _test_record_sequence():
     theta = np.random.random((num_params))
     initial_state = Fock.ground_state_density_matrix(num_moments)
     # Apply:
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_movie=True, movie_config=movie_config )
     print("Movie is ready in folder 'video' ")
 
@@ -1008,7 +1008,7 @@ def _test_pulse_in_steps():
     fps:int=5
     # Init state:
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     # Apply pulse:
     all_pulse_states = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps, x=np.pi )
     # Apply decay time:
@@ -1039,7 +1039,7 @@ def _test_power_pulse():
     block_sphere_resolution:int=100
     # Init state:
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     # Apply pulse:
     pi_half_transition = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps1, x=np.pi/2, power=1 )
     sz2_transition     = coherent_control.pulse_on_state_with_intermediate_states(state=pi_half_transition[-1], num_intermediate_states=num_steps2, z=np.pi/8, power=2 )
@@ -1068,7 +1068,7 @@ def _test_goal_gkp():
     num_moments:int=40
     block_sphere_resolution:int=200
     # Init state:
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     gkp = goal_gkp_state(num_moments=num_moments)
     # Plot:
     visuals.plot_city(gkp)
@@ -1094,7 +1094,7 @@ def _show_analitical_gkp():
     )
 
     ## Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
     initial_state = Fock.ground_state_density_matrix(num_moments)
 
@@ -1168,7 +1168,7 @@ def _test_custom_sequence():
     )
 
     ## Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
     rotation_op = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])

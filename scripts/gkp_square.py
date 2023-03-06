@@ -246,9 +246,9 @@ def _sx_sequence_params(
 
     
 def learn_sx2_pulses(
-    num_moments:int=40, 
-    max_iter_per_attempt=3*int(1e3),
-    max_error_per_attempt=1e-11,
+    num_atoms:int=40, 
+    max_iter_per_attempt=30*int(1e3),
+    max_error_per_attempt=1e-13,
     num_free_params=None,
     sigma=0.0000002
 ) -> LearnedResults:
@@ -257,19 +257,19 @@ def learn_sx2_pulses(
     num_transition_frames:int=0
     
     # Similar to previous method:
-    cost_function = get_gkp_cost_function(num_moments, form="square")
-    initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
+    cost_function = get_gkp_cost_function(num_atoms, form="square")
+    initial_state = Fock.ground_state_density_matrix(num_atoms=num_atoms)
     
     # Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)    
-    standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
+    coherent_control = CoherentControl(num_atoms=num_atoms)    
+    standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
     
     # Params and operations:
     param_config, operations = _sx_sequence_params(standard_operations)
 
     best_result = learn_custom_operation_by_partial_repetitions(
         # Amount:
-        num_attempts=2,
+        num_attempts=2000,
         # Mandatory Inputs:
         initial_state=initial_state,
         cost_function=cost_function,

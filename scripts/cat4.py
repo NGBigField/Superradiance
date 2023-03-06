@@ -96,7 +96,7 @@ def _load_or_find_noon(num_moments:int, print_on:bool=True) -> NOON_DATA:
     else:
         
         ## Define operations:
-        coherent_control = CoherentControl(num_moments=num_moments)
+        coherent_control = CoherentControl(num_atoms=num_moments)
         standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)
 
         ## Define initial state and guess:
@@ -146,7 +146,7 @@ def _common_4_legged_search_inputs(num_moments:int, num_transition_frames:int=0)
     
     ## Define operations:
     initial_state = Fock.excited_state_density_matrix(num_moments)
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
     Sp = coherent_control.s_pulses.Sp
     Sx = coherent_control.s_pulses.Sx
@@ -556,7 +556,7 @@ def _study():
             return f"fidelity={fidel}"
         
             
-        coherent_control = CoherentControl(num_moments=num_moments)
+        coherent_control = CoherentControl(num_atoms=num_moments)
         movie_config = CoherentControl.MovieConfig(
             active=True,
             show_now=False,
@@ -706,10 +706,10 @@ def _sx_sequence_params(
 def optimized_Sx2_pulses(num_attempts:int=1, num_runs_per_attempt:int=int(1e5), num_moments:int=40, num_transition_frames:int=0) -> LearnedResults:
     # Similar to previous method:
     _, cost_function, _, _ = _common_4_legged_search_inputs(num_moments, num_transition_frames=0)
-    initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
+    initial_state = Fock.ground_state_density_matrix(num_atoms=num_moments)
     
     # Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)    
+    coherent_control = CoherentControl(num_atoms=num_moments)    
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
     best_result : LearnedResults = None
@@ -757,12 +757,12 @@ def optimized_Sx2_pulses_by_partial_repetition(
     
     # Define target:
     target_4legged_cat_state = cat_state(num_moments=num_moments, alpha=3, num_legs=4).to_density_matrix()
-    initial_state = Fock.ground_state_density_matrix(num_moments=num_moments)
+    initial_state = Fock.ground_state_density_matrix(num_atoms=num_moments)
     def cost_function(final_state:_DensityMatrixType) -> float : 
         return -1 * metrics.fidelity(final_state, target_4legged_cat_state)  
     
     # Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)    
+    coherent_control = CoherentControl(num_atoms=num_moments)    
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
     param_config, operations = _sx_sequence_params(standard_operations)
 
