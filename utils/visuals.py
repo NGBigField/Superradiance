@@ -134,10 +134,15 @@ def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> Non
 
 
 def plot_light_wigner(state:np.matrix, title:Optional[str]=None)->None:
-    # ןInversed color-map:
-    cmap = cm.get_cmap('BuRd')
+    # Inversed color-map:
+    cmap = cm.get_cmap('RdBu')
+    cmap = cmap.reversed()
+    
+    # plot:
     fig, ax = qutip.plot_wigner( qutip.Qobj(state), cmap=cmap )
     plt.grid(True)
+    
+    # Add title:
     if title is not None:
         ax.set_title(title)
 

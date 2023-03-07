@@ -98,6 +98,9 @@ def main(
     # plot
     plot_light_wigner(final_state)
     
+    # Done:
+    print("Done.")
+    
 
 if __name__ == "__main__":
     main()
