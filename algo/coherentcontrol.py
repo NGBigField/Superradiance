@@ -52,7 +52,7 @@ from matplotlib.axes import Axes  # for type hinting:
 from dataclasses import dataclass, field
 
 # For simulating state decay:
-from physics.light_wigner.main import decay
+from physics.emitted_light.main import decay
 from physics.evolution import (
     evolve,
     Params as evolution_params,

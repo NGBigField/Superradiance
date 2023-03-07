@@ -89,7 +89,7 @@ def _get_best_final_result(type_:Res, num_atoms:int) -> np.matrix:
 
 ## Main:
 def main(
-    type_:Res = Res.SquareGKP,
+    type_:Res = Res.HexGKP,
     num_atoms:int = 40
 ):
     # get

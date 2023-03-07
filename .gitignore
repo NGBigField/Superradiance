@@ -157,3 +157,4 @@ cython_debug/
 *.asv
 *.dat
 *.mp4
+*.npy
