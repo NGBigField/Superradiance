@@ -6,7 +6,7 @@ if __name__ == "__main__":
 import CondorJobSender
 
 
-def main(num_runs:int=10, num_variations:int=4):
+def main(num_runs:int=1, num_variations:int=4):
 
     ## Define paths and names:
     sep = os.sep
