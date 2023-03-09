@@ -7,7 +7,7 @@ from sys import argv
 # Import DictWriter class from CSV module
 from csv import DictWriter
 
-from job import main as func
+from scripts.condor.job import main as func
 
 
 # A main function to parse inputs:

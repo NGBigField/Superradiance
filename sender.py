@@ -6,8 +6,7 @@ if __name__ == "__main__":
 import CondorJobSender
 
 
-
-def main(num_runs:int=10):
+def main(num_runs:int=10, num_variations:int=4):
 
     ## Define paths and names:
     sep = os.sep
@@ -26,7 +25,7 @@ def main(num_runs:int=10):
     for seed in range(num_runs):
         seed = f"{seed}"
 
-        for variation in range(2):
+        for variation in range(num_variations):
             variation = f"{variation}"
 
             job_params.append( dict(

@@ -21,8 +21,7 @@ from typing import (
     Optional,
     Callable,
     Generator,
-    TypeAlias,
-    NamedTuple,
+    NamedTuple
 )
 
 # import our helper modules

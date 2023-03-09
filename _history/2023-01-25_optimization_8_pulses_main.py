@@ -18,7 +18,6 @@ from typing import (
     Optional,
     Callable,
     Generator,
-    TypeAlias,
     NamedTuple,
 )
 

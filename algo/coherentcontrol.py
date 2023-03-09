@@ -26,8 +26,7 @@ from typing import (
     Union,
     Generator,
     overload,
-    TypeVar,
-    TypeAlias,
+    TypeVar
 )
 
 # import our helper modules
@@ -81,8 +80,7 @@ class _PulseSequenceParams():
     xyz : Tuple[float]
     pause : float
 
-
-_DensityMatrixType : TypeAlias = np.matrix
+_DensityMatrixType = np.matrix   # type alias
 
 @dataclass
 class Operation():

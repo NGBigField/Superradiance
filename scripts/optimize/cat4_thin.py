@@ -74,11 +74,12 @@ def best_sequence_params(
 
     theta = [
         +1.6911753538276657 , +0.4165367678990034 , +1.1596610642766465 , +0.4970010986390708 , +1.1626455201688501 , 
+        +0, +0 , +0 , +0 , +0 , 
         -0.8365536257598889 , -1.0001921078914235 , +1.3845575396713630 
     ]
     
     operations  = [
-        rotation, p2_pulse, rotation
+        rotation, p2_pulse, rotation, p2_pulse, rotation
     ]
 
     num_operation_params : int = sum([op.num_params for op in operations])
@@ -125,8 +126,8 @@ def main(
     num_total_attempts:int=2000, 
     num_runs_per_attempt:int=3*int(1e3), 
     max_error_per_attempt:Optional[float]=1e-12,
-    num_free_params:int|None=5,
-    sigma:float=0.4
+    num_free_params:int|None=7,
+    sigma:float=0.004
 ) -> LearnedResults:
     
     # Define target:
