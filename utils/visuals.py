@@ -65,10 +65,28 @@ import qutip
 VIDEOS_FOLDER = os.getcwd()+os.sep+"videos"+os.sep
 
 # Plot bloch default params:
-DEFAULT_ELEV : Final[float] = 10
+DEFAULT_ELEV : Final[float] = -40
 DEFAULT_AZIM : Final[float] = 45
 DEFAULT_ROLL : Final[float] =  0
 
+
+
+
+
+# ==================================================================================== #
+#|                               Helper Types                                         |#
+# ==================================================================================== #
+@dataclass
+class ViewingAngles():
+     elev : float = DEFAULT_ELEV
+     azim : float = DEFAULT_AZIM
+     roll : float = DEFAULT_ROLL
+
+@dataclass
+class BlochSphereConfig():
+    viewing_angles : ViewingAngles = field( default_factory=ViewingAngles )
+    alpha_min : float = 1.0
+    resolution : int = 200
 
 # ==================================================================================== #
 #|                              Inner Functions                                       |#
@@ -221,6 +239,10 @@ def plot_wigner_bloch_sphere(
     for i, j in np.ndindex(normalized_face_values.shape):
         face_colors[i,j,3] = alpha_func(normalized_face_values[i,j])
 
+    # Light source:
+    # light = LightSource(azdeg=180, altdeg=315)
+    # face_colors = light.blend_hsv(face_colors[:,:,:3], Z)
+        
 
     # Set the aspect ratio to 1 so our sphere looks spherical
     surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=face_colors)
@@ -237,8 +259,6 @@ def plot_wigner_bloch_sphere(
     # Set "sphere orientation":
     ax.view_init(elev=view_elev, azim=view_azim, roll=view_roll)
     
-    # Light source:
-    ls = LightSource(azdeg=-90, altdeg=0)
 
     # Color bar:
     if colorbar_ax is None:
@@ -354,38 +374,31 @@ def plot_superradiance_evolution(times, energies, intensities):
     save_figure()
     plt.show()
 
-def plot_matter_state(state:np.matrix, block_sphere_resolution:int=100):
-    matter_state_obj = MatterStatePlot(initial_state=state, block_sphere_resolution=block_sphere_resolution, show_now=True)
+def plot_matter_state(state:np.matrix, config:BlochSphereConfig=BlochSphereConfig()):
+    matter_state_obj = MatterStatePlot(initial_state=state, bloch_sphere_config=config, show_now=True)
     return matter_state_obj.figure
 
 # ==================================================================================== #
 #|                                     Classes                                        |#
 # ==================================================================================== #
 
-@dataclass
-class ViewingAngles():
-     elev : float = DEFAULT_ELEV
-     azim : float = DEFAULT_AZIM
-     roll : float = DEFAULT_ROLL
-
+    
 class MatterStatePlot():
 
     _separate_colorbar_axis : ClassVar[bool] = True
 
     def __init__(
         self, 
-        block_sphere_resolution:int=100, 
+        bloch_sphere_config:BlochSphereConfig=BlochSphereConfig(), 
         initial_state:Optional[np.matrix]=None, 
         show_now:bool=False, 
-        viewing_angles : Optional[ViewingAngles]=None
     ) -> None:
-        self.block_sphere_resolution = block_sphere_resolution
         fig, ax1, ax2, ax3 = MatterStatePlot._init_figure()
         self.axis_bloch_sphere : Axes3D = ax1
         self.axis_bloch_sphere_colorbar : Axes = ax2
         self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
-        self.viewing_angles : ViewingAngles = args.default_value(viewing_angles, default_factory=ViewingAngles)
+        self.bloch_sphere_config : BlochSphereConfig = bloch_sphere_config
         if initial_state is not None:
             self.update(initial_state, title="Initial-State", show_now=show_now)
     
@@ -401,8 +414,14 @@ class MatterStatePlot():
         self.refresh_figure()
         plot_city(state, ax=self.axis_block_city)
         plot_wigner_bloch_sphere(
-            state, ax=self.axis_bloch_sphere, num_points=self.block_sphere_resolution, colorbar_ax=self.axis_bloch_sphere_colorbar,
-            view_azim=self.viewing_angles.azim, view_elev=self.viewing_angles.elev, view_roll=self.viewing_angles.roll, title=""
+            state, ax=self.axis_bloch_sphere, 
+            num_points=self.bloch_sphere_config.resolution, 
+            colorbar_ax=self.axis_bloch_sphere_colorbar,
+            alpha_min=self.bloch_sphere_config.alpha_min,
+            view_azim=self.bloch_sphere_config.viewing_angles.azim, 
+            view_elev=self.bloch_sphere_config.viewing_angles.elev, 
+            view_roll=self.bloch_sphere_config.viewing_angles.roll, 
+            title=""
         )
         if title is not None:
             self.figure.suptitle(title, fontsize=fontsize)
@@ -446,7 +465,7 @@ class MatterStatePlot():
 class VideoRecorder():
     def __init__(self, fps:float=10.0) -> None:
         self.fps = fps
-        self.frames_dir : str = self._reset_temp_folders_dir()
+        self.frames_dir : str = self._create_temp_folders_dir()
         self.frames_duration : List[int] = []
         self.frames_counter : int = 0
 
@@ -495,8 +514,8 @@ class VideoRecorder():
         return self.frames_dir+"frame"+f"{index}"
 
     @staticmethod
-    def _reset_temp_folders_dir()->str:
-        frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep
+    def _create_temp_folders_dir()->str:
+        frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep+strings.time_stamp()+os.sep
         saveload.force_folder_exists(frames_dir)
         return frames_dir
 

@@ -1,3 +1,5 @@
+import inspect
+
 from typing import (
     Any,
     Optional,
@@ -21,3 +23,6 @@ def default_value(
         return default_factory()
     raise ValueError(f"Must provide either `default` value or function `default_factory` that generates a value")
     
+
+def get_argument_names(f:Callable):
+    return inspect.getfullargspec(f)

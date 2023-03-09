@@ -48,14 +48,16 @@ from algo import metrics
 
 
 def best_sequence_params(
-    num_atoms:int
+    num_atoms:int,
+    /,*,
+    num_intermediate_states:int=0
 )-> Tuple[
     List[BaseParamType],
     List[Operation]
 ]:
     
     coherent_control = CoherentControl(num_atoms=num_atoms)    
-    standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=0)
+    standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_intermediate_states)
     
     rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
     p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
