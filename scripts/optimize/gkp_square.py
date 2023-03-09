@@ -147,6 +147,7 @@ def best_sequence_params(
     
     
 def main(
+    num_total_attempts=2000,
     num_atoms:int=40, 
     max_iter_per_attempt=30*int(1e3),
     max_error_per_attempt=1e-13,
@@ -163,7 +164,7 @@ def main(
 
     best_result = learn_custom_operation_by_partial_repetitions(
         # Amount:
-        num_attempts=2000,
+        num_attempts=num_total_attempts,
         # Mandatory Inputs:
         initial_state=initial_state,
         cost_function=cost_function,

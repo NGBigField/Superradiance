@@ -2,19 +2,24 @@ if __name__ == "__main__":
     import pathlib, sys, os 
     sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
 
-from scripts.gkp_square import learn_sx2_pulses as square_gkp
-from scripts.gkp_hex import learn_sx2_pulses as hex_gkp
-from scripts.cat4_thin import optimized_Sx2_pulses_by_partial_repetition as cat4
+from scripts.optimize.gkp_square import main as square_gkp
+from scripts.optimize.gkp_hex    import main as hex_gkp
+from scripts.optimize.cat4_thin  import main as cat4
+from scripts.optimize.cat2       import main as cat2
 
 
 def main(variation:int=2, seed:int=0):
+
+    num_total_attempts = 2
     
     if variation==0:
-        result = square_gkp()
+        result = square_gkp(num_total_attempts=num_total_attempts)
     elif variation==1:
-        result = hex_gkp()
+        result = hex_gkp(num_total_attempts=num_total_attempts)
     elif variation==2:
-        result = cat4()        
+        result = cat4(num_total_attempts=num_total_attempts)
+    elif variation==3:
+        result = cat2(num_total_attempts=num_total_attempts)
     else:
         raise ValueError(f"Not a supported variation: {variation}")
 
