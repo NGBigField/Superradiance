@@ -176,7 +176,7 @@ def _example_gkp2(
 ):
 
     # Define the basics:
-    ground_state = Fock.ground_state_density_matrix(num_atoms=num_moments)    
+    ground_state = ground_state(num_atoms=num_moments)    
     coherent_control = CoherentControl(num_atoms=num_moments)
     final_state = lambda x1, x2 : _get_final_state(ground_state, coherent_control, x1, x2)
 
@@ -202,7 +202,7 @@ def _example_gkp2(
 
 def _alexeys_recipe(num_moments:int=100):
     # Define the basics:
-    ground_state = Fock.ground_state_density_matrix(num_atoms=num_moments)    
+    ground_state = ground_state(num_atoms=num_moments)    
     coherent_control = CoherentControl(num_atoms=num_moments)
 
     # Learned parameters:
@@ -237,10 +237,10 @@ def _alexeys_recipe(num_moments:int=100):
 def main(
     num_atoms:int=40, 
     num_total_attempts:int=2000,
-    max_iter_per_attempt=3*int(1e3),
+    max_iter_per_attempt=4*int(1e3),
     max_error_per_attempt=1e-11,
     num_free_params=20,
-    sigma=0.00002
+    sigma=0.0002
 ):
 
     ## Define operations and cost-function:

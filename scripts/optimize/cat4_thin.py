@@ -4,8 +4,10 @@
 
 if __name__ == "__main__":
     import pathlib, sys
-    sys.path.append(str(pathlib.Path(__file__).parent.parent))
-
+    sys.path.append(
+        pathlib.Path(__file__).parent.parent.parent.__str__()
+    )
+    
 # Everyone needs numpy:
 import numpy as np
 from numpy import pi
@@ -76,11 +78,12 @@ def best_sequence_params(
 
     theta = [
         +1.6911753538276657 , +0.4165367678990034 , +1.1596610642766465 , +0.4970010986390708 , +1.1626455201688501 , 
+        +0 , +0 , +0 , +0 , +0 , 
         -0.8365536257598889 , -1.0001921078914235 , +1.3845575396713630 
     ]
     
     operations  = [
-        rotation, p2_pulse, rotation
+        rotation, p2_pulse, rotation, p2_pulse, rotation
     ]
 
     num_operation_params : int = sum([op.num_params for op in operations])
@@ -126,9 +129,9 @@ def main(
     num_moments:int=40, 
     num_total_attempts:int=2000, 
     num_runs_per_attempt:int=3*int(1e3), 
-    max_error_per_attempt:Optional[float]=1e-12,
-    num_free_params:int|None=5,
-    sigma:float=0.4
+    max_error_per_attempt:Optional[float]=1e-11,
+    num_free_params:int|None=7,
+    sigma:float=0.04
 ) -> LearnedResults:
     
     # Define target:
