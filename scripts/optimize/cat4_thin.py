@@ -1,11 +1,12 @@
 # ==================================================================================== #
 # |                                   Imports                                        | #
 # ==================================================================================== #
-
 if __name__ == "__main__":
     import pathlib, sys
-    sys.path.append(str(pathlib.Path(__file__).parent.parent))
-
+    sys.path.append(
+        pathlib.Path(__file__).parent.parent.parent.__str__()
+    )
+    
 # Everyone needs numpy:
 import numpy as np
 from numpy import pi

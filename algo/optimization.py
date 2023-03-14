@@ -143,7 +143,7 @@ class FreeParam(BaseParamType):
         """fix Turn param into a fix param
         """
         fixed_value = self.initial_guess
-        if isinstance(fixed_value, float):
+        if isinstance(fixed_value, float|int):
             return FixedParam(
                 index=self.index,
                 value=fixed_value,
