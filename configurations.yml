@@ -1,5 +1,6 @@
 directories:
-  python_path_remote: /Local/ph_keselman/anaconda3/bin/python
+  # python_path_remote: /Local/ph_keselman/anaconda3/bin/python
+  python_path_remote: /Local/ph_keselman/anaconda3/envs/supperradiance/bin/python
   std_error_dir: /storage/ph_keselman/ngutman/stderr/
   std_output_dir: /storage/ph_keselman/ngutman/stdout/
   log_dir: /storage/ph_keselman/ngutman/condor_logs/
