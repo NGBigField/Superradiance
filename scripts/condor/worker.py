@@ -1,5 +1,5 @@
 if __name__ == "__main__":
-    import pathlib, sys, os 
+    import pathlib, sys 
     sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
 
 from sys import argv
@@ -7,7 +7,7 @@ from sys import argv
 # Import DictWriter class from CSV module
 from csv import DictWriter
 
-from scripts.condor.job import main as func
+from scripts.condor.job import main as job
 
 
 # A main function to parse inputs:
@@ -27,11 +27,10 @@ def main():
     seed = int(argv[2])
     print(f"seed={seed}")
 
-    print(f"args3={argv[3]}")
     variation = int(argv[3])
     print(f"variation={variation}")
 
-    res = func(variation, seed)
+    res = job(variation, seed)
     print(f"res={res}")
 
     assert isinstance(res, dict), f"result must be of type `dict`! got {type(res)}"
