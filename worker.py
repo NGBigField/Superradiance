@@ -27,6 +27,7 @@ def main():
     seed = int(argv[2])
     print(f"seed={seed}")
 
+    print(f"args3={argv[3]}")
     variation = int(argv[3])
     print(f"variation={variation}")
 
