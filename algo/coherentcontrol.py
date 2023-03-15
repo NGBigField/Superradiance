@@ -99,10 +99,13 @@ class Operation():
         else:
             return None
         
-    def get_outputs(self, in_state:_DensityMatrixType, params:List[float], num_intermediate:int=1) -> Tuple[
+    def get_outputs(self, in_state:_DensityMatrixType, params:List[float], num_intermediate:int) -> Tuple[
         _DensityMatrixType,
         List[_DensityMatrixType]
     ]:
+        func = self.function
+        args.get_argument_names(func)
+        
         op_output = self.function(in_state, *params)                
         if isinstance(op_output, list):
             out_state = op_output[-1]
@@ -353,9 +356,9 @@ class SequenceMovieRecorder():
     
     ViewingAngles = visuals.ViewingAngles
     
+    @staticmethod
     def _default_score_str_func(state:_DensityMatrixType) -> str:
-        s = f"Purity = {purity(state)}"
-        return s
+        return ""
 
     @dataclass
     class Config():
@@ -364,9 +367,8 @@ class SequenceMovieRecorder():
         fps : int = 5
         num_transition_frames : int = 10
         num_freeze_frames : int = 5
-        bloch_sphere_resolution : int = 25
+        bloch_sphere_config : visuals.BlochSphereConfig = field( default_factory=visuals.BlochSphereConfig )
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
-        viewing_angles : Optional[visuals.ViewingAngles] = None
 
     
     def __init__(
@@ -376,16 +378,15 @@ class SequenceMovieRecorder():
     ) -> None:
         # Base properties:        
         self.config : SequenceMovieRecorder.Config = args.default_value(config, default_factory=SequenceMovieRecorder.Config )
-        viewing_angles = args.default_value( self.config.viewing_angles, visuals.ViewingAngles(elev=-20)  )
-        self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps)
         if self.config.active:
             self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(
-                block_sphere_resolution=self.config.bloch_sphere_resolution,
                 initial_state=initial_state,
-                viewing_angles=viewing_angles
+                bloch_sphere_config=self.config.bloch_sphere_config
             )            
+            self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps)
         else:
             self.figure_object = None
+            self.video_recorder = None
         # Score strung func:
         if self.config.score_str_func is None:
             self.config.score_str_func = SequenceMovieRecorder._default_score_str_func
@@ -875,7 +876,7 @@ class CoherentControl():
         movie_config = args.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
 
         # For sequence recording:
-        sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
+        sequence_recorder = SequenceMovieRecorder(config=movie_config)
 
         # iterate:
         num_iter = len(operations)

@@ -6,8 +6,17 @@ from algo.metrics import fidelity
 from typing import Callable
 
 
-def get_gkp_cost_function(num_moments:int, form="square") -> Callable[[np.matrix], float]:
-    target = gkp_state(num_moments, form)
+def get_gkp_cost_function(num_atoms:int, form="square") -> Callable[[np.matrix], float]:
+    """get_gkp_cost_function
+
+    Args:
+        num_atoms (int)
+        form (str): "square"/"hex"
+
+    Returns:
+        Callable[[np.matrix], float]
+    """
+    target = gkp_state(num_atoms, form)
 
     def cost_func(rho:np.matrix)->float:
         return -1*fidelity(rho, target)
@@ -16,7 +25,7 @@ def get_gkp_cost_function(num_moments:int, form="square") -> Callable[[np.matrix
 
 
 
-def gkp_state(num_moments:int, form="square")->np.matrix:
+def gkp_state(num_atoms:int, form="square")->np.matrix:
     """gkp_state Create a GKP state density matrix.
 
     Args:
@@ -28,9 +37,9 @@ def gkp_state(num_moments:int, form="square")->np.matrix:
     """
     # Get Ket Staet:
     if form=="square":
-        psi = _goal_gkp_state_ket_square(num_moments)
+        psi = _goal_gkp_state_ket_square(num_atoms)
     elif form =="hex":
-        psi = _goal_gkp_state_ket_alternative(num_moments, form)
+        psi = _goal_gkp_state_ket_alternative(num_atoms, form)
     else:
         raise ValueError(f"Not a possible option: form={form}")
     # Transform to DM:

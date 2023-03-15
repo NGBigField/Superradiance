@@ -34,11 +34,9 @@ from algo.optimization import (
     Operation
 )
 
-# For operations and cost functions:
-from physics.fock import Fock, cat_state
-from algo import metrics
-
-
+# Common states and cost functions:
+from physics.famous_density_matrices import cat_state, ground_state
+from algo.common_cost_functions import fidelity_to_cat
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
@@ -50,14 +48,16 @@ from algo import metrics
 
 
 def best_sequence_params(
-    num_atoms:int
+    num_atoms:int,
+    /,*,
+    num_intermediate_states:int=0    
 )-> Tuple[
     List[BaseParamType],
     List[Operation]
 ]:
     
     coherent_control = CoherentControl(num_atoms=num_atoms)    
-    standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=0)
+    standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_intermediate_states)
     
     rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
     p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
@@ -74,10 +74,25 @@ def best_sequence_params(
     _stark_lock = lambda n : [False]*n
    
 
+    # theta = [
+    #     +3.2415926535897932 , +0.1828973771603937 , -0.3865228829159012 , +1.0576654516530777 , +1.9488788559183661 , 
+    #     +3.2415926535897932 , -0.2227421037234675 , +2.2617422360192738 , +1.1431510776419032 , +0.9743504103718079 , 
+    #     -0.4536053424551550 , +1.7575897551939796 , +2.6764489388084356 
+    # ]
+    # theta = [
+    #     +1.6368658958523632 , +1.7027807751964548 , +1.6306314723134756 , +2.0693531144350454 , +0.9749253531352750 , 
+    #     +2.2598187757205923 , +1.4521477435029744 , +1.4746351015538939 , +2.4653392641318455 , +3.2415926535897932 , 
+    #     +0.5496666717820531 , +0.5376274709294500 , +1.7684380007018543 
+    # ]    
+    # theta = [
+    #     +2.2884243619726465 , +1.3277700706962539 , +2.0870455334233835 , +1.9391807444535574 , +0.7816679973293168 ,
+    #     +2.2504873168046138 , +1.3828220613581861 , +1.4841829260109276 , +2.4758211483630150 , +3.2401940268953995 ,
+    #     +0.5455567960592630 , +0.4546373693341874 , +1.6935620833025031        
+    # ]
     theta = [
-        +3.2415926535897932 , +0.1828973771603937 , -0.3865228829159012 , +1.0576654516530777 , +1.9488788559183661 , 
-        +3.2415926535897932 , -0.2227421037234675 , +2.2617422360192738 , +1.1431510776419032 , +0.9743504103718079 , 
-        -0.4536053424551550 , +1.7575897551939796 , +2.6764489388084356 
+        +2.5066248308223518 , +1.1532063519469733 , +2.1315549524903052 , +1.9395278536116698 , +0.7820697532208565 , 
+        +2.2494831260803050 , +1.3851850686407987 , +1.4840158399534116 , +2.4757063126764716 , +3.2400495813112133 , 
+        +0.5461308198007867 , +0.4539199743584972 , +1.6939129421385699         
     ]
     
     operations  = [
@@ -124,22 +139,20 @@ def best_sequence_params(
 
     
 def main(
-    num_moments:int=40, 
+    num_atoms:int=40, 
     num_total_attempts:int=2000, 
-    num_runs_per_attempt:int=6*int(1e3), 
+    num_runs_per_attempt:int=4*int(1e3), 
     max_error_per_attempt:Optional[float]=1e-12,
-    num_free_params:int|None=5,
-    sigma:float=0.4
+    num_free_params:int|None=None,
+    sigma:float=0.001
 ) -> LearnedResults:
     
     # Define target:
-    target_2legged_cat_state = cat_state(num_atoms=num_moments, alpha=3, num_legs=2).to_density_matrix()
-    initial_state = Fock.ground_state_density_matrix(num_atoms=num_moments)
-    def cost_function(final_state:_DensityMatrixType) -> float : 
-        return -1 * metrics.fidelity(final_state, target_2legged_cat_state)  
+    initial_state = ground_state(num_atoms=num_atoms)    
+    cost_function = fidelity_to_cat(num_atoms=num_atoms, num_legs=2)
     
     # Define operations:
-    param_config, operations = best_sequence_params(num_moments)
+    param_config, operations = best_sequence_params(num_atoms)
 
     best_result = learn_custom_operation_by_partial_repetitions(
         # Mandatory Inputs:

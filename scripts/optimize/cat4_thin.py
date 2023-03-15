@@ -49,14 +49,16 @@ from algo import metrics
 
 
 def best_sequence_params(
-    num_atoms:int
+    num_atoms:int,
+    /,*,
+    num_intermediate_states:int=0
 )-> Tuple[
     List[BaseParamType],
     List[Operation]
 ]:
     
     coherent_control = CoherentControl(num_atoms=num_atoms)    
-    standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=0)
+    standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_intermediate_states)
     
     rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
     p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
@@ -73,10 +75,20 @@ def best_sequence_params(
     _stark_lock = lambda n : [False]*n
    
 
+    # theta = [
+    #     +1.6911753538276657 , +0.4165367678990034 , +1.1596610642766465 , +0.4970010986390708 , +1.1626455201688501 , 
+    #     +0 , +0 , +0 , +0 , +0 , 
+    #     -0.8365536257598889 , -1.0001921078914235 , +1.3845575396713630 
+    # ]
+    # theta = [
+    #     +0.4318330313098309 , +1.6226884800739532 , -0.5184544170040373 , +0.4904292546661787 , +1.1579761103653765 , 
+    #     +0.2711072924647956 , -1.1455548573063417 , -0.0110646563013583 , +0.0058963857195526 , +0.0093821994475182 , 
+    #     -0.9014452124841090 , -1.6577610967809480 , +1.8807033704653549         
+    # ]
     theta = [
-        +1.6911753538276657 , +0.4165367678990034 , +1.1596610642766465 , +0.4970010986390708 , +1.1626455201688501 , 
-        +0, +0 , +0 , +0 , +0 , 
-        -0.8365536257598889 , -1.0001921078914235 , +1.3845575396713630 
+        +0.3658449972290249 , +0.9257611370387263 , -1.6882308749463719 , +0.4376024809598818 , +1.1897942064568279 , 
+        +1.1670054840863089 , -1.3422791867903432 , +0.4158322335275012 , +0.0188350187791549 , +0.0213576999852772 , 
+        -0.0528461850923196 , -1.9429029841060719 , +1.2938917481256631       
     ]
     
     operations  = [
@@ -125,10 +137,10 @@ def best_sequence_params(
 def main(
     num_moments:int=40, 
     num_total_attempts:int=2000, 
-    num_runs_per_attempt:int=3*int(1e3), 
+    num_runs_per_attempt:int=4*int(1e3), 
     max_error_per_attempt:Optional[float]=1e-12,
     num_free_params:int|None=7,
-    sigma:float=0.004
+    sigma:float=0.0004
 ) -> LearnedResults:
     
     # Define target:

@@ -16,7 +16,7 @@ def ground_state(num_atoms:int)->np.matrix:
 def fully_excited_state(num_atoms:int)->np.matrix:
     return Fock.excited_state_density_matrix(num_atoms=num_atoms)
 
-def cat_state(num_atoms:int, alpha:float, num_legs:int, odd:bool=False)->np.matrix:
+def cat_state(num_atoms:int, num_legs:int, alpha:float, odd:bool=False)->np.matrix:
     ket = cate_state_ket(num_atoms=num_atoms, alpha=alpha, num_legs=num_legs, odd=odd)
     return ket.to_density_matrix(num_moments=num_atoms)
 
