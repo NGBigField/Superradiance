@@ -17,6 +17,9 @@ from numpy import pi
 from typing import (
     Final,
     Optional,
+    Callable,
+    Generator,
+    NamedTuple
 )
 
 # import our helper modules
