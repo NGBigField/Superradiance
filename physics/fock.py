@@ -21,7 +21,7 @@ from utils import (
     errors,
     types,
     visuals,
-    args,
+    arguments,
     numpy_tools,
 )
 
@@ -223,7 +223,7 @@ class FockSum():
             warnings.warn("Create density matrices with normalized fock states")
         assert self.ket_or_bra == KetBra.Ket
         # Maximal fock number:
-        num_moments = args.default_value(num_moments, self.max_num)
+        num_moments = arguments.default_value(num_moments, self.max_num)
         # Prepare states:
         kets = self
         bras = ~self

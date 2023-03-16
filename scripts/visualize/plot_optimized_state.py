@@ -32,6 +32,7 @@ from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
 
 # for plotting:
 from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_light_wigner, ViewingAngles, BlochSphereConfig, save_figure
+from utils import assertions
 
 # for enums:
 from enum import Enum, auto
@@ -142,8 +143,40 @@ def _get_movie_config(
 
 
 
+def plot_sequence(
+    type_:Res = Res.GKPSquare,
+    num_atoms:int = 40,
+    folder:str = r"C:\Users\Nir\OneDrive - Technion\Courses\Research\Ido Kaminer\Writing a Paper\Figures\plots\gkp sequence"
+):
+    # constants:
 
+    # get
+    coherent_control, initial_state, theta, operations = _get_best_inputs(type_=type_, num_atoms=num_atoms, num_intermediate_states=0)
+    
+    # derive:
+    n = assertions.integer( (len(operations)-1)/2 )
+    
+    # iterate: 
+    for i in range(1, n):
+        # derive params for this iteration:
+        if i==0:
+            theta_i = []
+            operations_i = []
+        else:
+            theta_i = theta[:i*5+3]
+            operations_i = operations[:i*2+1]
+        name = type_.name+f"-{i:02}"
 
+        # Get state:
+        state_i = coherent_control.custom_sequence(state=initial_state, theta=theta_i, operations=operations_i)
+    
+        # plot light:
+        plot_light_wigner(state_i)
+        save_figure(folder=folder, file_name=name+" - Light")
+        
+        # plot bloch:
+        plot_wigner_bloch_sphere(state_i, view_elev=-90, alpha_min=1, title="")
+        save_figure(folder=folder, file_name=name+" - Sphere")
 
 ## Main:
 def main(
@@ -184,4 +217,4 @@ def main(
     
 
 if __name__ == "__main__":
-    main()
+    plot_sequence()

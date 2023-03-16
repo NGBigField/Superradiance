@@ -31,7 +31,7 @@ from typing import (
 
 # import our helper modules
 from utils import (
-    args,
+    arguments,
     assertions,
     numpy_tools as np_utils,
     visuals,
@@ -103,9 +103,6 @@ class Operation():
         _DensityMatrixType,
         List[_DensityMatrixType]
     ]:
-        func = self.function
-        args.get_argument_names(func)
-        
         op_output = self.function(in_state, *params)                
         if isinstance(op_output, list):
             out_state = op_output[-1]
@@ -377,7 +374,7 @@ class SequenceMovieRecorder():
         config : Optional[Config] = None,
     ) -> None:
         # Base properties:        
-        self.config : SequenceMovieRecorder.Config = args.default_value(config, default_factory=SequenceMovieRecorder.Config )
+        self.config : SequenceMovieRecorder.Config = arguments.default_value(config, default_factory=SequenceMovieRecorder.Config )
         if self.config.active:
             self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(
                 initial_state=initial_state,
@@ -534,7 +531,7 @@ class CoherentControl():
         time_steps:Optional[int]=None,
     )->np.matrix:
         # Complete missing inputs:
-        time_steps = args.default_value(time_steps, self._default_state_decay_resolution)    
+        time_steps = arguments.default_value(time_steps, self._default_state_decay_resolution)    
         assertions.integer(time_steps)
         # Params:
         params = evolution_params(
@@ -555,7 +552,7 @@ class CoherentControl():
 
     class StandardOperations():
 
-        def __init__(self, coherent_control:TypeVar("CoherentControl"), num_intermediate_states:int=0) -> None:
+        def __init__(self, coherent_control:"CoherentControl", num_intermediate_states:int=0) -> None:
             self.num_intermediate_states = num_intermediate_states
             self.coherent_control : CoherentControl = coherent_control
 
@@ -842,7 +839,7 @@ class CoherentControl():
     def squeezing_with_intermediate_states(self, state:_DensityMatrixType, strength:float, num_intermediate_states:int=0, axis:Tuple[float, float]=(1,0)) -> List[_DensityMatrixType] :
         # Check input:
         num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
-        axis = args.default_value(axis, (1,0))
+        axis = arguments.default_value(axis, (1,0))
         # Divide requested pulse into fragments
         strength_frac = strength/num_divides
         p = self._squeezing_operator(strength=strength_frac, axis=axis)
@@ -873,16 +870,20 @@ class CoherentControl():
         assertions.density_matrix(state, robust_check=True)
         all_params = _deal_costum_params(operations, theta)
         crnt_state = deepcopy(state)
-        movie_config = args.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
+        movie_config = arguments.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
 
         # For sequence recording:
         sequence_recorder = SequenceMovieRecorder(config=movie_config)
 
         # iterate:
         num_iter = len(operations)
-        prog_bar = strings.ProgressBar(num_iter, print_prefix="Performing custom sequence...  ")
+        if movie_config.active: 
+            prog_bar = strings.ProgressBar(num_iter, print_prefix="Performing custom sequence...  ")
+        else:                   
+            prog_bar = strings.ProgressBar.inactive()
+
         for i, (params, operation) in enumerate(zip(all_params, operations)):    
-            if movie_config.active: prog_bar.next()
+            prog_bar.next()
             # Check params:
             assert operation.num_params == len(params)
             # Apply operation:

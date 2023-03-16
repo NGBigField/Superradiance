@@ -2,6 +2,12 @@
 # |                                 Imports                                          | #
 # ==================================================================================== #
 
+if __name__ == "__main__":
+    import pathlib, sys
+    sys.path.append(
+        str(pathlib.Path(__file__).parent.parent)
+    )
+
 # For plotting:
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -30,12 +36,7 @@ from typing import (
 )
 
 # Import our tools and utils:
-from utils import (
-    strings,
-    args,
-    saveload,
-    assertions,
-)    
+from utils import strings, saveload, assertions
 
 # For function version detection:
 from packaging.version import parse as parse_version
@@ -57,18 +58,19 @@ import itertools
 # For oop style:
 from dataclasses import dataclass, field
 
+# for quantum tools:
 import qutip
 
 # ==================================================================================== #
 #|                                 Constants                                          |#
 # ==================================================================================== #
-VIDEOS_FOLDER = os.getcwd()+os.sep+"videos"+os.sep
+VIDEOS_FOLDER : str = os.getcwd()+os.sep+"videos"+os.sep
+IMAGES_FOLDER : str = os.getcwd()+os.sep+"images"+os.sep
 
 # Plot bloch default params:
 DEFAULT_ELEV : Final[float] = -40
 DEFAULT_AZIM : Final[float] = 45
 DEFAULT_ROLL : Final[float] =  0
-
 
 
 
@@ -131,15 +133,21 @@ def new_axis(is_3d:bool=False):
     return axis
 
 
-def save_figure(fig:Optional[Figure]=None, file_name:Optional[str]=None ) -> None:
+def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:Optional[str]=None ) -> None:
     # Figure:
     if fig is None:
         fig = plt.gcf()
+
     # Title:
     if file_name is None:
         file_name = strings.time_stamp()
+
     # Figures folder:
-    folder = Path().cwd().joinpath('images')
+    if folder is None:
+        folder = IMAGES_FOLDER
+    assert isinstance(folder, str)
+    
+    folder = Path(folder)
     if not folder.is_dir():
         os.mkdir(str(folder.resolve()))
     # Full path:
@@ -167,7 +175,7 @@ def plot_light_wigner(state:np.matrix, title:Optional[str]=None)->None:
 def plot_wigner_bloch_sphere(
     rho:np.matrix, 
     num_points:int=100, 
-    ax:Optional[Axes3D]=None, 
+    ax:Axes3D=None,  # type: ignore
     colorbar_ax:Axes=None, 
     warn_imaginary_part:bool=False, 
     title:str=None, 
@@ -183,9 +191,11 @@ def plot_wigner_bloch_sphere(
     # Check inputs:
     if ax is None:
         fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-    else:
+        ax : Axes3D = fig.add_subplot(111, projection='3d') # type: ignore
+    elif isinstance(ax, Axes3D):     # type: ignore
         fig = ax.figure
+    else:
+        raise TypeError(f"No a supproted `ax` of type '{type(ax)}'")
         
     # Basic data:
     num_atoms = rho.shape[0] - 1
@@ -239,13 +249,11 @@ def plot_wigner_bloch_sphere(
     for i, j in np.ndindex(normalized_face_values.shape):
         face_colors[i,j,3] = alpha_func(normalized_face_values[i,j])
 
-    # Light source:
-    # light = LightSource(azdeg=180, altdeg=315)
-    # face_colors = light.blend_hsv(face_colors[:,:,:3], Z)
-        
+    # Light Source:
+    lightsource = LightSource(azdeg=view_azim, altdeg=view_elev)
 
     # Set the aspect ratio to 1 so our sphere looks spherical
-    surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=face_colors)
+    surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=face_colors, lightsource=lightsource)
     m = cm.ScalarMappable(cmap=cm.bwr)
     m.set_array(normalized_face_values)
     m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
@@ -257,8 +265,7 @@ def plot_wigner_bloch_sphere(
         ax.set_title('$W(\\theta,\phi)$', fontsize=16, y=0.95)
         
     # Set "sphere orientation":
-    ax.view_init(elev=view_elev, azim=view_azim, roll=view_roll)
-    
+    ax.view_init(elev=view_elev, azim=view_azim, roll=view_roll)   
 
     # Color bar:
     if colorbar_ax is None:
@@ -281,6 +288,7 @@ def plot_wigner_bloch_sphere(
 
     # Turn off the axis planes
     ax.set_axis_off()
+
     return surface_plot
 
 def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=None):
@@ -526,65 +534,31 @@ class VideoRecorder():
 
 
 def _test_bloch_sphere():
-    # Constants:
-    num_moments = 8
-    num_points = 40
     # Specific imports:
-    import pathlib, sys
-    sys.path.append(str(pathlib.Path(__file__).parent.parent))
-    from fock import Fock, cat_state
-    # State
-    initial_state = cat_state(num_moments=num_moments, alpha=1, num_legs=4).to_density_matrix(num_moments=num_moments)
+    from physics.famous_density_matrices import gkp_state, cat_state
+
+    # Constants:
+    num_atoms = 6
+    num_points = 60
+
+    # State:
+    state = cat_state(num_atoms=num_atoms, num_legs=2, alpha=1.0)
+    # state = gkp_state(num_atoms=num_atoms, form="square")
+
     # Plot:
-    plot_wigner_bloch_sphere(initial_state, num_points=num_points )
     draw_now()
+    plot_wigner_bloch_sphere(
+        state, num_points=num_points,
+        alpha_min=1.0
+    )
+
     # Finish
     print("Done.")
     
 
-def _test_bloch_sphere_object():
-    # Specific imports:
-    import pathlib, sys
-    sys.path.append(str(pathlib.Path(__file__).parent.parent))
-    from fock import Fock
-    from coherentcontrol import CoherentControl
-    # Define state:
-    num_moments = 2
-    initial_state = Fock.create_coherent_state(num_moments=num_moments, alpha=0, output='density_matrix')
-    # Init figure object:
-    state_fig = MatterStatePlot(block_sphere_resolution=10, show_now=True)
-    state_fig.update(initial_state, title="Ground State", show_now=True)
-    plt.show(block=False)
-    # apply pulse:
-    coherent_control = CoherentControl(num_moments=num_moments)
-    final_state = coherent_control.pulse_on_state(initial_state, x=0.56)
-    state_fig.update(final_state, title="Final State", show_now=True)
-    # Show
-    print(f"Plotted")
-    
-
-def _test_gkp_state():
-    # Constants:
-    num_moments = 40
-    # Imports:
-    from pathlib import Path
-    sys.path.append( str(Path(__file__).parent.parent) )
-    from gkp import goal_gkp_state
-    # Get and plot:
-    gkp_state = goal_gkp_state(num_moments=num_moments)
-    plot_city(gkp_state)
-    plot_wigner_bloch_sphere(gkp_state, num_points=200)
-    draw_now()
-    # Print:
-    print("Plotted GKP State")
-
 def tests():
-    # _test_prog_bar_as_iterator()
-    # _test_prog_bar_as_object()
     _test_bloch_sphere()
-    # _test_bloch_sphere_object()
-    # _test_gkp_state()
-    
+
     
     print("Done tests.")
 

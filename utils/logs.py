@@ -1,8 +1,10 @@
 # ============================================================================ #
 #|                                  Imports                                   |#
 # ============================================================================ #
+import sys
+
 if __name__ == "__main__":
-    import sys, pathlib
+    import pathlib
     sys.path.append(pathlib.Path(__file__).parent.parent.__str__())
        
 import logging
@@ -18,7 +20,7 @@ import os
 
 # Logger config:
 DEFAULT_PRINT_FORMAT : Final = "%(asctime)s %(levelname)s %(message)s"
-DEFAULT_DATE_TINE_FORMAT : Final = "%Y-%m-%d %H:%M:%S"
+DEFAULT_DATE_TIME_FORMAT : Final = "%Y-%m-%d %H:%M:%S"
 
 # File system:
 PATH_SEP = os.sep
@@ -55,7 +57,26 @@ def _get_fullpath(filename:str)->str:
     saveload.force_folder_exists(LOGS_FOLDER)
     fullpath = LOGS_FOLDER+PATH_SEP+filename
     return fullpath
-        
+
+# ============================================================================ #
+#|                               Inner Classes                                |#
+# ============================================================================ #           
+
+class _MYFormatter(logging.Formatter):
+
+    def format(self, record)->str:
+        s = super().format(record)
+        level_value = record.levelno
+
+        if level_value in [LoggerLevels.CRITICAL.value, LoggerLevels.ERROR.value]:
+            color = strings.PrintColors.RED
+            s = strings.add_color(s, color)
+        elif level_value == LoggerLevels.WARNING.value:
+            warn1color = strings.PrintColors.YELLOW_DARK
+            warn2color = strings.PrintColors.HIGHLIGHTED_YELLOW
+            s = strings.add_color("Warning:", warn1color) + strings.add_color(s, warn2color)
+
+        return s
         
 # ============================================================================ #
 #|                             Declared Functions                             |#
@@ -77,18 +98,18 @@ def get_logger(
     fullpath = _get_fullpath(filename)
     
     ## Configuration:
-    f_formatter = logging.Formatter(fmt=DEFAULT_PRINT_FORMAT, datefmt=DEFAULT_DATE_TINE_FORMAT)
-    c_formatter = logging.Formatter(fmt="%(message)s")
+    f_formatter = logging.Formatter(fmt=DEFAULT_PRINT_FORMAT, datefmt=DEFAULT_DATE_TIME_FORMAT)
+    c_formatter = _MYFormatter(fmt="%(message)s")
     #
     f_handler = logging.FileHandler(fullpath)
-    c_handler = logging.StreamHandler()
+    c_handler = logging.StreamHandler(sys.stdout)
     #
     f_handler.setFormatter(f_formatter)
     c_handler.setFormatter(c_formatter)
     #
-    f_handler.setLevel(logging.DEBUG)
-    c_handler.setLevel(level.value)
-        
+    f_handler.setLevel(logging.DEBUG)  # Write all logs to file
+    c_handler.setLevel(level.value)    # Print only logs above level
+    
     ## set handlers:        
     logger.addHandler(f_handler)      
     logger.addHandler(c_handler)      
