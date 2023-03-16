@@ -35,6 +35,9 @@ from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_ligh
 from utils import assertions
 import matplotlib.pyplot as plt
 
+# for printing progress:
+from utils import strings
+
 # for enums:
 from enum import Enum, auto
 
@@ -160,7 +163,9 @@ def plot_sequence(
     n = assertions.integer( (len(operations)-1)/2 )
     
     # iterate: 
-    for i in range(1, n):
+    for i in range(n):
+        print(strings.num_out_of_num(i, n))
+
         # derive params for this iteration:
         if i==0:
             theta_i = []
@@ -175,15 +180,15 @@ def plot_sequence(
     
         # plot light:
         plot_light_wigner(state_i)
-        save_figure(folder=folder, file_name=name+" - Light")
-        
-        sleep(1)
-        plt.close("all")
-        
+        save_figure(folder=folder, file_name=name+" - Light")        
 
         # plot bloch:
         plot_wigner_bloch_sphere(state_i, view_elev=-90, alpha_min=1, title="", num_points=200)
         save_figure(folder=folder, file_name=name+" - Sphere")
+        
+        # Sleep and close open figures:
+        sleep(1)
+        plt.close("all")
 
 ## Main:
 def main(
