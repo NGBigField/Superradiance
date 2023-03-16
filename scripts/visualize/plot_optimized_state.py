@@ -33,10 +33,13 @@ from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
 # for plotting:
 from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_light_wigner, ViewingAngles, BlochSphereConfig, save_figure
 from utils import assertions
+import matplotlib.pyplot as plt
 
 # for enums:
 from enum import Enum, auto
 
+# for sleeping:
+from time import sleep
 
 
 # ==================================================================================== #
@@ -174,8 +177,12 @@ def plot_sequence(
         plot_light_wigner(state_i)
         save_figure(folder=folder, file_name=name+" - Light")
         
+        sleep(1)
+        plt.close("all")
+        
+
         # plot bloch:
-        plot_wigner_bloch_sphere(state_i, view_elev=-90, alpha_min=1, title="")
+        plot_wigner_bloch_sphere(state_i, view_elev=-90, alpha_min=1, title="", num_points=200)
         save_figure(folder=folder, file_name=name+" - Sphere")
 
 ## Main:
