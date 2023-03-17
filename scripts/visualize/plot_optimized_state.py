@@ -152,7 +152,7 @@ def _get_movie_config(
 def plot_sequence(
     type_:Res = Res.GKPSquare,
     num_atoms:int = 40,
-    folder:str = r"C:\Users\Nir\OneDrive - Technion\Courses\Research\Ido Kaminer\Writing a Paper\Figures\plots\gkp sequence"
+    folder:str|None = None
 ):
     # constants:
 
@@ -163,7 +163,7 @@ def plot_sequence(
     n = assertions.integer( (len(operations)-1)/2 )
     
     # iterate: 
-    for i in range(n):
+    for i in range(n+1):
         print(strings.num_out_of_num(i, n))
 
         # derive params for this iteration:
@@ -192,7 +192,7 @@ def plot_sequence(
 
 ## Main:
 def main(
-    type_:Res = Res.GKPHex,
+    type_:Res = Res.GKPSquare,
     create_movie:bool = False,
     num_atoms:int = 40
 ):
@@ -229,4 +229,5 @@ def main(
     
 
 if __name__ == "__main__":
-    plot_sequence()
+    # plot_sequence()
+    main()
