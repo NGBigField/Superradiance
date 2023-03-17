@@ -1,6 +1,9 @@
 import sys 
-import winsound
-from time import sleep
+try:
+    import winsound
+    has_sound = True
+except ImportError:
+    has_sound = False
 
 def ascend() -> None:
     for n in [0, 2, 4, 5, 7, 9, 11]:
@@ -17,7 +20,7 @@ def beep(
     octave:int=5,
 ) -> None:  
     freq = note_freq(note=note, octave=octave)
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' and has_sound:
         winsound.Beep(
             frequency=int(freq), 
             duration=int(duration*1000)  # In mili-sec

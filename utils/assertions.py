@@ -21,7 +21,7 @@ EPSILON = 0.1  # Used for distance validation
 # |                                    Types                                         | #
 # ==================================================================================== #
 
-_T = TypeVar('_T')
+_Numeric = TypeVar('_T', int, float)
 
 # ==================================================================================== #
 # |                               Inner Functions                                    | #
@@ -61,31 +61,31 @@ def _is_hermitian(m:np.matrix) -> bool:
 # |                              Declared Functions                                  | #
 # ==================================================================================== #
 
-def real(x:_T, reason:Optional[str]=None) -> _T:
+def real(x:_Numeric, reason:Optional[str]=None) -> _Numeric:
     _assert(np.imag(x)<EPSILON, reason=reason, default_reason=f"Must be real")
     return np.real(x)
 
-def integer(x:_T, reason:Optional[str]=None) -> _T:
+def integer(x:_Numeric, reason:Optional[str]=None) -> int:
     _assert( isinstance(x, (int, float)), reason=reason )
     _assert( round(x) == x, reason=reason )
     return int(x)
 
-def index(x:_T, reason:Optional[str]=None) -> _T:
+def index(x:_Numeric, reason:Optional[str]=None) -> int:
     x = integer(x, reason=reason)
     _assert( x >= 0, reason=reason )
     return x
 
-def bit(x:_T, reason:Optional[str]=None) -> _T:
+def bit(x:_Numeric, reason:Optional[str]=None) -> int:
     x = integer(x, reason=reason)
     _assert( x in [0, 1], reason=reason )
     return x
 
-def even(x:_T, reason:Optional[str]=None) -> _T:
+def even(x:_Numeric, reason:Optional[str]=None) -> int:
     x = integer(x, reason=reason)
     _assert( float(x)/2 == int(int(x)/2), reason=reason )
     return x
 
-def density_matrix(m:_T, reason:Optional[str]=None, robust_check:bool=True) -> _T:
+def density_matrix(m:_Numeric, reason:Optional[str]=None, robust_check:bool=True) -> _Numeric:
     _assert( isinstance(m, (np.matrix, np.ndarray)), reason=reason, default_reason="Must be a matrix type" )
     if not isinstance(m, np.matrix):
         m = np.matrix(m)

@@ -2,6 +2,7 @@
 from typing import (
     Tuple, 
     Iterator,
+    Generator,
 )
 
 # For smart iterations:
@@ -25,3 +26,9 @@ def all_possible_indices(dimensions: Tuple[int, ...]) -> Iterator :
     """
     return itertools.product(*(range(dim) for dim in dimensions) )
 
+
+def indices_gen() -> Generator[int, None, None]:
+    i = 0
+    while True:
+        yield i
+        i += 1

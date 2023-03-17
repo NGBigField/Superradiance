@@ -21,9 +21,6 @@ from typing import (
     Optional,
     Callable,
     Generator,
-    TypeAlias,
-    NamedTuple,
-    
 )
 
 # import our helper modules
@@ -34,7 +31,7 @@ from utils import (
     saveload,
     strings,
     errors,
-    args,
+    arguments,
     indices,
     sounds,
     decorators,
@@ -52,8 +49,6 @@ from algo.coherentcontrol import (
 
 # for optimization:
 from scipy.optimize import minimize, OptimizeResult
-from algo import metrics 
-from physics import gkp 
         
 # For measuring time:
 import time
@@ -63,8 +58,6 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from copy import deepcopy
 
-# for plotting stuff wigner
-import matplotlib.pyplot as plt
 
 
 # ==================================================================================== #
@@ -146,7 +139,7 @@ class FreeParam(BaseParamType):
         """fix Turn param into a fix param
         """
         fixed_value = self.initial_guess
-        if isinstance(fixed_value, float):
+        if isinstance(fixed_value, float|int):
             return FixedParam(
                 index=self.index,
                 value=fixed_value,
@@ -405,18 +398,8 @@ def _initial_guess() -> List[float] :
     delta_2 = -18.4 * 2 * np.pi / omega
     phi_3 = 0.503
     phi_4 = 0.257
-
     return [  t_1,     t_2,     delta_1,     t_3,       phi_3,    t_4,        phi_4,    delta_2 ]
-    # return [ 2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576,    0.1602, -107.5689]
-    # return [  2.5066,    0.238 ,  -32.9246,    0.58  ,    0.5366,    2.1576/4,    0.1602, -107.5689]
-
-
-
-def _coherent_control_from_mat(mat:_DensityMatrixType) -> CoherentControl:
-    # Set basic properties:
-    matrix_size = mat.shape[0]
-    max_state_num = matrix_size-1
-    return CoherentControl(max_state_num)
+ 
 
 def _deal_params_config( 
     num_operation_params:int, 
@@ -479,126 +462,10 @@ def _positive_indices_from_operations(operations:List[Operation]) -> np.ndarray:
     return positive_indices
 
 
-def _deal_initial_guess(num_free_params:int, initial_guess:Optional[np.ndarray|list], positive_indices:np.ndarray) -> np.ndarray:
-    if initial_guess is not None:  # If guess is given:
-        assert len(initial_guess) == num_free_params, f"Needed number of parameters for the initial guess is {num_free_params} while {len(initial_guess)} were given"
-        if isinstance(initial_guess, list):
-            initial_guess = np.array(initial_guess)
-        if len(positive_indices)>0:
-            assert np.all(initial_guess[positive_indices]>=0), f"All decay-times must be non-negative!"    
-    else:  # if we need to create a guess:    
-        initial_guess = np.random.normal(0, np.pi/2, num_free_params)
-        if len(positive_indices)>0:
-            initial_guess[positive_indices] = np.abs(initial_guess[positive_indices])
-    return initial_guess
-
-def _common_learn(
-    initial_state : _DensityMatrixType, 
-    cost_function : Callable[[_DensityMatrixType], float],
-    max_iter : int,
-    num_pulses : int,
-    initial_guess : Optional[np.array] = None,
-    save_results : bool=True
-) -> LearnedResults:
-    
-    # Set basic properties:
-    coherent_control = _coherent_control_from_mat(initial_state)
-    num_params = CoherentControl.num_params_for_pulse_sequence(num_pulses=num_pulses)
-
-    # Progress_bar
-    prog_bar = visuals.ProgressBar(max_iter, "Minimizing: ")
-    def _after_each(xk:np.ndarray) -> bool:
-        prog_bar.next()
-        finish : bool = False
-        return finish
-
-    # Opt Config:
-    initial_guess = _deal_initial_guess_old(num_params, initial_guess)
-    options = dict(
-        maxiter = max_iter,
-        ftol=DEFAULT_TOLERANCE,
-    )      
-    bounds = _deal_bounds(num_params)      
-
-    # Run optimization:
-    start_time = time.time()
-    opt_res : OptimizeResult = minimize(
-        cost_function, 
-        initial_guess, 
-        method=OPT_METHOD, 
-        options=options, 
-        callback=_after_each, 
-        bounds=bounds    
-    )
-    finish_time = time.time()
-    optimal_theta = opt_res.x
-    prog_bar.close()
-    
-    # Pack learned-results:
-    learned_results = LearnedResults(
-        theta = optimal_theta,
-        score = opt_res.fun,
-        time = finish_time-start_time,
-        initial_state = initial_state,
-        final_state = coherent_control.coherent_sequence(initial_state, optimal_theta),
-        iterations = opt_res.nit,
-    )
-
-    if save_results:
-        saveload.save(learned_results, "learned_results "+strings.time_stamp())
-
-
-    return learned_results
-
-def _score_str_func(state:_DensityMatrixType) -> str:
-    s =  f"Purity     = {purity(state)} \n"
-    s += f"Negativity = {negativity(state)}"
-    # s += f"Fidelity = {fidelity(crnt_state, target_state)} \n"
-    # s += f"Distance = {distance(crnt_state, target_state)} "
-    return s
-
-
 # ==================================================================================== #
 # |                             Common Cost Functions                                | #
 # ==================================================================================== #
 
-class CostFunctions():
-
-    @staticmethod
-    def fidelity_to_gkp(num_moments:int, gkp_form:str="square")->Callable[[_DensityMatrixType], float] :
-        return gkp.get_gkp_cost_function(num_moments=num_moments, form=gkp_form)
-
-    @staticmethod
-    def fidelity_to_noon(initial_state:_DensityMatrixType) -> Callable[[_DensityMatrixType], float] :
-        # Define cost function
-        matrix_size = initial_state.shape[0]
-        target_state = np.zeros(shape=(matrix_size,matrix_size))
-        for i in [0, matrix_size-1]:
-            for j in [0, matrix_size-1]:
-                target_state[i,j]=0.5
-
-        def cost_function(final_state:_DensityMatrixType) -> float : 
-            return (-1) * metrics.fidelity(final_state, target_state)
-
-        return cost_function
-
-    @staticmethod
-    def weighted_noon(initial_state:_DensityMatrixType) -> Callable[[_DensityMatrixType], float] :
-        # Define cost function
-        matrix_size = initial_state.shape[0]
-
-        def cost_function(final_state:_DensityMatrixType) -> float : 
-            total_cost = 0.0
-            for i, j in indices.all_possible_indices((matrix_size, matrix_size)):
-                element = final_state[i,j]
-                if (i in [0, matrix_size-1]) and  (j in [0, matrix_size-1]):  # Corners:
-                    cost = np.absolute(element-0.5)  # distance from 1/2
-                else: 
-                    cost = np.absolute(element)  # distance from 0
-                total_cost += cost
-            return total_cost
-
-        return cost_function
 
 
 # ==================================================================================== #

@@ -26,13 +26,12 @@ from typing import (
     Union,
     Generator,
     overload,
-    TypeVar,
-    TypeAlias,
+    TypeVar
 )
 
 # import our helper modules
 from utils import (
-    args,
+    arguments,
     assertions,
     numpy_tools as np_utils,
     visuals,
@@ -52,7 +51,7 @@ from matplotlib.axes import Axes  # for type hinting:
 from dataclasses import dataclass, field
 
 # For simulating state decay:
-from physics.light_wigner.main import decay
+from physics.emitted_light.main import decay
 from physics.evolution import (
     evolve,
     Params as evolution_params,
@@ -81,8 +80,7 @@ class _PulseSequenceParams():
     xyz : Tuple[float]
     pause : float
 
-
-_DensityMatrixType : TypeAlias = np.matrix
+_DensityMatrixType = np.matrix   # type alias
 
 @dataclass
 class Operation():
@@ -101,7 +99,7 @@ class Operation():
         else:
             return None
         
-    def get_outputs(self, in_state:_DensityMatrixType, params:List[float], num_intermediate:int=1) -> Tuple[
+    def get_outputs(self, in_state:_DensityMatrixType, params:List[float], num_intermediate:int) -> Tuple[
         _DensityMatrixType,
         List[_DensityMatrixType]
     ]:
@@ -355,9 +353,9 @@ class SequenceMovieRecorder():
     
     ViewingAngles = visuals.ViewingAngles
     
+    @staticmethod
     def _default_score_str_func(state:_DensityMatrixType) -> str:
-        s = f"Purity = {purity(state)}"
-        return s
+        return ""
 
     @dataclass
     class Config():
@@ -366,9 +364,8 @@ class SequenceMovieRecorder():
         fps : int = 5
         num_transition_frames : int = 10
         num_freeze_frames : int = 5
-        bloch_sphere_resolution : int = 25
+        bloch_sphere_config : visuals.BlochSphereConfig = field( default_factory=visuals.BlochSphereConfig )
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
-        viewing_angles : Optional[visuals.ViewingAngles] = None
 
     
     def __init__(
@@ -377,17 +374,16 @@ class SequenceMovieRecorder():
         config : Optional[Config] = None,
     ) -> None:
         # Base properties:        
-        self.config : SequenceMovieRecorder.Config = args.default_value(config, default_factory=SequenceMovieRecorder.Config )
-        viewing_angles = args.default_value( self.config.viewing_angles, visuals.ViewingAngles(elev=-20)  )
-        self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps)
+        self.config : SequenceMovieRecorder.Config = arguments.default_value(config, default_factory=SequenceMovieRecorder.Config )
         if self.config.active:
             self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(
-                block_sphere_resolution=self.config.bloch_sphere_resolution,
                 initial_state=initial_state,
-                viewing_angles=viewing_angles
+                bloch_sphere_config=self.config.bloch_sphere_config
             )            
+            self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps)
         else:
             self.figure_object = None
+            self.video_recorder = None
         # Score strung func:
         if self.config.score_str_func is None:
             self.config.score_str_func = SequenceMovieRecorder._default_score_str_func
@@ -471,14 +467,14 @@ class CoherentControl():
 
     def __init__(
         self, 
-        num_moments:int,
+        num_atoms:int,
         gamma:float=1.0,
     ) -> None:
         # Keep basic properties:        
-        self._num_moments = num_moments
+        self._num_moments = num_atoms
         self.gamma = gamma
         # define basic pulses:
-        self.s_pulses = SPulses(num_moments)
+        self.s_pulses = SPulses(num_atoms)
 
     # ==================================================== #
     #|                  static methods                    |#
@@ -535,7 +531,7 @@ class CoherentControl():
         time_steps:Optional[int]=None,
     )->np.matrix:
         # Complete missing inputs:
-        time_steps = args.default_value(time_steps, self._default_state_decay_resolution)    
+        time_steps = arguments.default_value(time_steps, self._default_state_decay_resolution)    
         assertions.integer(time_steps)
         # Params:
         params = evolution_params(
@@ -556,7 +552,7 @@ class CoherentControl():
 
     class StandardOperations():
 
-        def __init__(self, coherent_control:TypeVar("CoherentControl"), num_intermediate_states:int=0) -> None:
+        def __init__(self, coherent_control:"CoherentControl", num_intermediate_states:int=0) -> None:
             self.num_intermediate_states = num_intermediate_states
             self.coherent_control : CoherentControl = coherent_control
 
@@ -843,7 +839,7 @@ class CoherentControl():
     def squeezing_with_intermediate_states(self, state:_DensityMatrixType, strength:float, num_intermediate_states:int=0, axis:Tuple[float, float]=(1,0)) -> List[_DensityMatrixType] :
         # Check input:
         num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
-        axis = args.default_value(axis, (1,0))
+        axis = arguments.default_value(axis, (1,0))
         # Divide requested pulse into fragments
         strength_frac = strength/num_divides
         p = self._squeezing_operator(strength=strength_frac, axis=axis)
@@ -874,16 +870,20 @@ class CoherentControl():
         assertions.density_matrix(state, robust_check=True)
         all_params = _deal_costum_params(operations, theta)
         crnt_state = deepcopy(state)
-        movie_config = args.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
+        movie_config = arguments.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
 
         # For sequence recording:
-        sequence_recorder = SequenceMovieRecorder(initial_state=crnt_state, config=movie_config)
+        sequence_recorder = SequenceMovieRecorder(config=movie_config)
 
         # iterate:
         num_iter = len(operations)
-        prog_bar = strings.ProgressBar(num_iter, print_prefix="Performing custom sequence...  ")
+        if movie_config.active: 
+            prog_bar = strings.ProgressBar(num_iter, print_prefix="Performing custom sequence...  ")
+        else:                   
+            prog_bar = strings.ProgressBar.inactive()
+
         for i, (params, operation) in enumerate(zip(all_params, operations)):    
-            if movie_config.active: prog_bar.next()
+            prog_bar.next()
             # Check params:
             assert operation.num_params == len(params)
             # Apply operation:
@@ -996,7 +996,7 @@ def _test_record_sequence():
     theta = np.random.random((num_params))
     initial_state = Fock.ground_state_density_matrix(num_moments)
     # Apply:
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     final_state = coherent_control.coherent_sequence(state=initial_state, theta=theta, record_movie=True, movie_config=movie_config )
     print("Movie is ready in folder 'video' ")
 
@@ -1008,7 +1008,7 @@ def _test_pulse_in_steps():
     fps:int=5
     # Init state:
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     # Apply pulse:
     all_pulse_states = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps, x=np.pi )
     # Apply decay time:
@@ -1039,7 +1039,7 @@ def _test_power_pulse():
     block_sphere_resolution:int=100
     # Init state:
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     # Apply pulse:
     pi_half_transition = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps1, x=np.pi/2, power=1 )
     sz2_transition     = coherent_control.pulse_on_state_with_intermediate_states(state=pi_half_transition[-1], num_intermediate_states=num_steps2, z=np.pi/8, power=2 )
@@ -1068,7 +1068,7 @@ def _test_goal_gkp():
     num_moments:int=40
     block_sphere_resolution:int=200
     # Init state:
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     gkp = goal_gkp_state(num_moments=num_moments)
     # Plot:
     visuals.plot_city(gkp)
@@ -1094,7 +1094,7 @@ def _show_analitical_gkp():
     )
 
     ## Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
     initial_state = Fock.ground_state_density_matrix(num_moments)
 
@@ -1149,8 +1149,8 @@ def _test_custom_sequence():
     
     # define score function:
     from metrics import fidelity  
-    from physics.gkp import goal_gkp_state  
-    target_state = goal_gkp_state(num_moments, form="square")
+    from physics.gkp import gkp_state  
+    target_state = gkp_state(num_moments, form="square")
     def _score_str_func(rho:np.matrix)->str:
         fidel = fidelity(rho, target_state)
         s = f"Fidelity: {fidel}"
@@ -1168,7 +1168,7 @@ def _test_custom_sequence():
     )
 
     ## Define operations:
-    coherent_control = CoherentControl(num_moments=num_moments)
+    coherent_control = CoherentControl(num_atoms=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
     rotation_op = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
