@@ -6,7 +6,7 @@ if __name__ == "__main__":
 # Import DictWriter class from CSV module
 from csv import DictWriter
 
-def main(num_seeds:int=1, num_variations:int=2):
+def main(num_seeds:int=1, num_variations:int=4):
 
     ## Define paths and names:
     sep = os.sep
@@ -26,13 +26,7 @@ def main(num_seeds:int=1, num_variations:int=2):
     job_params = []
 
     for variation in range(num_variations):
-        match variation:
-            case 0:
-                variation="2"
-            case 1:
-                variation="3"
-        
-        # variation = f"{variation}"
+        variation = f"{variation}"
 
         for seed in range(num_seeds):
             seed = f"{seed}"

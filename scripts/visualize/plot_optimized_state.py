@@ -120,14 +120,14 @@ def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], f
     
         
 def _get_movie_config(
-    create_movie:bool, num_transition_frames:int
+    create_movie:bool, num_transition_frames:int, state_type:StateType
 ) -> CoherentControl.MovieConfig:
     # Basic data:
     fps=20
     
     bloch_sphere_config = BlochSphereConfig(
         alpha_min=0.2,
-        resolution=5,  # 200
+        resolution=250,
         viewing_angles=ViewingAngles(
             elev=-45
         )
@@ -140,7 +140,8 @@ def _get_movie_config(
         num_freeze_frames=fps//2,
         fps=fps,
         bloch_sphere_config=bloch_sphere_config,
-        num_transition_frames=num_transition_frames        
+        num_transition_frames=num_transition_frames,
+        temp_dir_name=state_type.name     
     )
     
     return movie_config
@@ -244,7 +245,7 @@ def create_movie(
 
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(type_=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
-    movie_config = _get_movie_config(True, num_transition_frames)
+    movie_config = _get_movie_config(True, num_transition_frames, state_type)
     
     # create state:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)

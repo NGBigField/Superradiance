@@ -9,12 +9,15 @@ from scripts.visualize.plot_optimized_state import create_movie, StateType
 
 from typing import Any
 
+from time import sleep
 
-def main(variation:int=3, num_transition_frames:int=2) -> dict[str, Any]:
+
+def main(variation:int=3, num_transition_frames:int=40) -> dict[str, Any]:
     
     ## Constants:
     num_atoms=40
 
+    ## Choose method:
     if variation==0:
         state_type = StateType.GKPSquare
         name = "square_gkp"
@@ -30,6 +33,10 @@ def main(variation:int=3, num_transition_frames:int=2) -> dict[str, Any]:
     else:
         raise ValueError(f"Not a supported variation: {variation}")
     
+    ## Sleep:
+    sleep(variation)
+
+    ## Create movie:
     score = create_movie(state_type=state_type, num_atoms=num_atoms, num_transition_frames=num_transition_frames)
 
 

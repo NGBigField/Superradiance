@@ -463,9 +463,9 @@ class MatterStatePlot():
         return fig, ax_bloch_sphe, ax_color_bar, ax_block_city
 
 class VideoRecorder():
-    def __init__(self, fps:float=10.0) -> None:
+    def __init__(self, fps:float=10.0, temp_dir_name:str="") -> None:
         self.fps = fps
-        self.frames_dir : str = self._create_temp_folders_dir()
+        self.frames_dir : str = self._create_temp_folders_dir(temp_dir_name=temp_dir_name)
         self.frames_duration : List[int] = []
         self.frames_counter : int = 0
 
@@ -514,8 +514,8 @@ class VideoRecorder():
         return self.frames_dir+"frame"+f"{index}"
 
     @staticmethod
-    def _create_temp_folders_dir()->str:
-        frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep+strings.time_stamp()+os.sep
+    def _create_temp_folders_dir(temp_dir_name:str="")->str:
+        frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep+temp_dir_name+"-"+strings.time_stamp()+os.sep
         saveload.force_folder_exists(frames_dir)
         return frames_dir
 

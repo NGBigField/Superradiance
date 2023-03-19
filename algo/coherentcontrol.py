@@ -366,6 +366,7 @@ class SequenceMovieRecorder():
         num_freeze_frames : int = 5
         bloch_sphere_config : visuals.BlochSphereConfig = field( default_factory=visuals.BlochSphereConfig )
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
+        temp_dir_name : str = ""
 
     
     def __init__(
@@ -380,7 +381,7 @@ class SequenceMovieRecorder():
                 initial_state=initial_state,
                 bloch_sphere_config=self.config.bloch_sphere_config
             )            
-            self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps)
+            self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps, temp_dir_name=self.config.temp_dir_name)
         else:
             self.figure_object = None
             self.video_recorder = None
