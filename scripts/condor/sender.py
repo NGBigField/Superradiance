@@ -14,8 +14,8 @@ def main(num_seeds:int=10, num_variations:int=4):
     #
     script_fullpath     = this_folder_path+sep+"worker.py"
     results_fullpath    = this_folder_path+sep+"results.csv"
-    output_files_prefix = 'superradiance'
     job_type            = "movie"   # "movie"\"optimize"
+    output_files_prefix = "superradiance-"+job_type
     #
     print(f"script_fullpath={script_fullpath!r}")
     print(f"results_fullpath={results_fullpath!r}")
