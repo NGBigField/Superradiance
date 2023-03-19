@@ -557,7 +557,7 @@ def learn_custom_operation(
 
     options = dict(maxiter = max_iter)   
     bounds = param_config.bounds
-    tolerance = args.default_value(tolerance, DEFAULT_TOLERANCE)
+    tolerance = arguments.default_value(tolerance, DEFAULT_TOLERANCE)
 
     # Run optimization:
     start_time = time.time()

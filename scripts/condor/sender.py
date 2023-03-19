@@ -15,10 +15,12 @@ def main(num_seeds:int=10, num_variations:int=4):
     script_fullpath     = this_folder_path+sep+"worker.py"
     results_fullpath    = this_folder_path+sep+"results.csv"
     output_files_prefix = 'superradiance'
+    job_type            = "movie"   # "movie"\"optimize"
     #
-    print(f"script_fullpath={script_fullpath}")
-    print(f"results_fullpath={results_fullpath}")
-    print(f"output_files_prefix={output_files_prefix}")
+    print(f"script_fullpath={script_fullpath!r}")
+    print(f"results_fullpath={results_fullpath!r}")
+    print(f"output_files_prefix={output_files_prefix!r}")
+    print(f"job_type={job_type!r}")
 
     ## Define job params:
     job_params = []
@@ -32,6 +34,7 @@ def main(num_seeds:int=10, num_variations:int=4):
                 outfile=results_fullpath,
                 variation=variation,
                 seed=seed,
+                job_type=job_type
             ))
 
     for params in job_params:
@@ -52,7 +55,7 @@ def main(num_seeds:int=10, num_variations:int=4):
         job_params,
         request_cpus='8',
         requestMemory='5gb',
-        Arguments='$(outfile) $(seed) $(variation)'
+        Arguments='$(outfile) $(seed) $(variation) $(job_type)'
     )
 
     print("Called condor successfully")

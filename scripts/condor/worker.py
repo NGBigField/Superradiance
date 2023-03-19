@@ -7,15 +7,21 @@ from sys import argv
 # Import DictWriter class from CSV module
 from csv import DictWriter
 
-from scripts.condor.job import main as job
+from scripts.condor.job_optimize import main as optimize
+from scripts.condor.job_movie    import main as movie
+
+
+
+NUM_EXPECTED_ARGS = 5
 
 
 # A main function to parse inputs:
 def main():
 
-    num_expected_args = 4
-    assert len(argv)==num_expected_args, f"Expected {num_expected_args} arguments. Got {len(argv)}."
+    ## Check function call:
+    assert len(argv)==NUM_EXPECTED_ARGS, f"Expected {NUM_EXPECTED_ARGS} arguments. Got {len(argv)}."
 
+    ## Parse args:
     print("The arguments are:")
 
     this_func_name = argv[0]
@@ -30,11 +36,24 @@ def main():
     variation = int(argv[3])
     print(f"variation={variation}")
 
-    res = job(variation, seed)
+    job_type = int(argv[4])
+    print(f"job_type={job_type}")
+
+    ## Call job:        # "movie"\"optimize"
+    if job_type=="movie":
+        res = movie(variation)
+    elif job_type=="optimize":
+        res = optimize(variation, seed)
+    else: 
+        raise ValueError(f"Not an expected job_type={job_type!r}")
+            
+            
     print(f"res={res}")
 
+    ## check output:
     assert isinstance(res, dict), f"result must be of type `dict`! got {type(res)}"
 
+    ## Write result:
     with open( output_file ,'a') as f:
         dict_writer = DictWriter(f, fieldnames=list( res.keys() ) )
         dict_writer.writerow(res)

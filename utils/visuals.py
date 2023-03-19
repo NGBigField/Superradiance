@@ -159,13 +159,13 @@ def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:
 
 
 
-def plot_light_wigner(state:np.matrix, title:Optional[str]=None)->None:
+def plot_light_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False)->None:
     # Inversed color-map:
     cmap = cm.get_cmap('RdBu')
     cmap = cmap.reversed()
     
     # plot:
-    fig, ax = qutip.plot_wigner( qutip.Qobj(state), cmap=cmap )
+    fig, ax = qutip.plot_wigner( qutip.Qobj(state), cmap=cmap, colorbar=with_colorbar )
     plt.grid(True)
     
     # Add title:
