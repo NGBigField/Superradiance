@@ -216,13 +216,13 @@ def main(
     save_figure(file_name=type_.name+" - Light")
     
     # plot bloch:
-    plot_wigner_bloch_sphere(final_state, view_elev=-90, alpha_min=1, title="")
+    plot_wigner_bloch_sphere(final_state, view_elev=-90, alpha_min=1, title="", num_points=250)
     save_figure(file_name=type_.name+" - Sphere")
     
-    # plot complete matter:
-    bloch_config = BlochSphereConfig()
-    plot_matter_state(final_state, config=bloch_config)
-    save_figure(file_name=type_.name+" - Matter")
+    # # plot complete matter:
+    # bloch_config = BlochSphereConfig()
+    # plot_matter_state(final_state, config=bloch_config)
+    # save_figure(file_name=type_.name+" - Matter")
     
     # Done:
     print("Done.")

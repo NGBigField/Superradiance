@@ -12,7 +12,7 @@ from scripts.optimize.cat2       import main as cat2
 
 
 
-def main(variation:int=2, seed:int=0, num_total_attempts:int=2000):
+def main(variation:int=2, seed:int=0, num_total_attempts:int=400):
     
     if variation==0:
         result = square_gkp(num_total_attempts=num_total_attempts)
