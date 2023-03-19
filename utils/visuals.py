@@ -25,18 +25,10 @@ import numpy as np
 import math
 
 # For type hints:
-from typing import (
-    Any,
-    Optional,
-    Union,
-    Generator,
-    List,
-    ClassVar,
-    Final,
-)
+from typing import Any, Optional, Union, Generator, List, ClassVar, Final
 
 # Import our tools and utils:
-from utils import strings, saveload, assertions
+from utils import strings, saveload, assertions, arguments
 
 # For function version detection:
 from packaging.version import parse as parse_version
@@ -479,7 +471,7 @@ class VideoRecorder():
 
     def capture(self, fig:Optional[Figure]=None, duration:Optional[int]=None)->None:
         # Complete missing inputs:
-        duration = args.default_value(duration, 1)
+        duration = arguments.default_value(duration, 1)
         if fig is None:
             fig = plt.gcf()
         # Check inputs:
@@ -496,7 +488,7 @@ class VideoRecorder():
 
     def write_video(self, name:Optional[str]=None)->None:
         # Complete missing inputs:
-        name = args.default_value(name, default_factory=strings.time_stamp )        
+        name = arguments.default_value(name, default_factory=strings.time_stamp )        
         # Prepare folder for video:
         saveload.force_folder_exists(VIDEOS_FOLDER)
         clips_gen = self.image_clips()
