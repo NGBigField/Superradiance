@@ -22,22 +22,22 @@ def main():
     assert len(argv)==NUM_EXPECTED_ARGS, f"Expected {NUM_EXPECTED_ARGS} arguments. Got {len(argv)}."
 
     ## Parse args:
-    print("The arguments are:")
+    print(f"The {NUM_EXPECTED_ARGS} arguments are:")
 
     this_func_name = argv[0]
-    print(f"this_func_name={this_func_name}")
+    print(f"1: this_func_name={this_func_name!r}")
 
     output_file = argv[1]
-    print(f"output_file={output_file}")
+    print(f"2: output_file={output_file!r}")
 
     seed = int(argv[2])
-    print(f"seed={seed}")
+    print(f"3: seed={seed}")
 
     variation = int(argv[3])
-    print(f"variation={variation}")
+    print(f"4: variation={variation}")
 
-    job_type = int(argv[4])
-    print(f"job_type={job_type}")
+    job_type = argv[4]
+    print(f"5: job_type={job_type}")
 
     ## Call job:        # "movie"\"optimize"
     if job_type=="movie":

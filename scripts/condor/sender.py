@@ -6,7 +6,7 @@ if __name__ == "__main__":
 # Import DictWriter class from CSV module
 from csv import DictWriter
 
-def main(num_seeds:int=10, num_variations:int=4):
+def main(num_seeds:int=1, num_variations:int=4):
 
     ## Define paths and names:
     sep = os.sep
