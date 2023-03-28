@@ -7,6 +7,7 @@ from sys import argv
 # Import DictWriter class from CSV module
 from csv import DictWriter
 
+from scripts.condor.job_plot_system_size import main as job_plot_system_size
 from scripts.condor.job_optimize import main as optimize
 from scripts.condor.job_movie    import main as movie
 
@@ -44,6 +45,8 @@ def main():
         res = movie(variation)
     elif job_type=="optimize":
         res = optimize(variation, seed)
+    elif job_type=="plot_system_size":
+        res = job_plot_system_size(variation, seed)
     else: 
         raise ValueError(f"Not an expected job_type={job_type!r}")
             

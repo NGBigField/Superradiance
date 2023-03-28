@@ -81,7 +81,7 @@ def _get_best_params(
 
 
 def _get_type_inputs(
-    type_:StateType, num_atoms:int, num_intermediate_states:int
+    state_type:StateType, num_atoms:int, num_intermediate_states:int
 ) -> tuple[
     CoherentControl,
     np.matrix,
@@ -90,10 +90,10 @@ def _get_type_inputs(
     Callable[[np.matrix], float]
 ]:
     # Get all needed data:
-    params, operations = _get_best_params(type_, num_atoms, num_intermediate_states)
+    params, operations = _get_best_params(state_type, num_atoms, num_intermediate_states)
     initial_state = ground_state(num_atoms=num_atoms)
     coherent_control = CoherentControl(num_atoms=num_atoms)
-    cost_function = _get_cost_function(type_=type_, num_atoms=num_atoms)
+    cost_function = _get_cost_function(type_=state_type, num_atoms=num_atoms)
     
     # derive theta:
     theta = [param.get_value() for param in params]
@@ -153,14 +153,14 @@ def _get_movie_config(
 
 
 def plot_sequence(
-    type_:StateType = StateType.GKPSquare,
+    state_type:StateType = StateType.GKPSquare,
     num_atoms:int = 40,
     folder:str|None = None
 ):
     # constants:
 
     # get
-    coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(type_=type_, num_atoms=num_atoms, num_intermediate_states=0)
+    coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=0)
     
     # derive:
     n = assertions.integer( (len(operations)-1)/2 )
@@ -176,7 +176,7 @@ def plot_sequence(
         else:
             theta_i = theta[:i*5+3]
             operations_i = operations[:i*2+1]
-        name = type_.name+f"-{i:02}"
+        name = state_type.name+f"-{i:02}"
 
         # Get state:
         state_i = coherent_control.custom_sequence(state=initial_state, theta=theta_i, operations=operations_i)
@@ -198,41 +198,54 @@ def plot_all_best_results(
     create_movie:bool = False,
     num_atoms:int = 40
 ):
-    # derive:
-    num_transition_frames = 20 if create_movie else 0
     
-    for type_ in StateType:
+    for state_type in StateType:
         # Print:
-        print(f"State: {type_.name!r}")
+        print(f"State: {state_type.name!r}")
 
-        # get
-        coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(type_=type_, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
-        movie_config = _get_movie_config(create_movie, num_transition_frames)
-        
-        # create state:
-        final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
-        
-        # print  fidelity:
-        _print_fidelity(final_state, cost_function)
-        
-        # plot light:
-        plot_light_wigner(final_state)
-        save_figure(file_name=type_.name+" - Light")
-        
-        # plot bloch:
-        # plot_wigner_bloch_sphere(final_state, view_elev=-90, alpha_min=1, title="", num_points=300)
-        # save_figure(file_name=type_.name+" - Sphere")
-        
-        # # plot complete matter:
-        # bloch_config = BlochSphereConfig()
-        # plot_matter_state(final_state, config=bloch_config)
-        # save_figure(file_name=type_.name+" - Matter")
+        plot_result(state_type, create_movie, num_atoms)
         
         # Done:
         print("Done.")
     
 
-## Main:
+def plot_result(
+    state_type:StateType,
+    create_movie:bool = False,
+    num_atoms:int = 40
+)->None:
+    
+    # derive:
+    num_transition_frames = 20 if create_movie else 0
+    state_name = state_type.name
+    if num_atoms != 40:
+        state_name += f"{num_atoms}"
+    
+    # get
+    coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
+    movie_config = _get_movie_config(create_movie, num_transition_frames, state_type)
+    
+    # create state:
+    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
+    
+    # print  fidelity:
+    _print_fidelity(final_state, cost_function)
+    
+    # plot light:
+    plot_light_wigner(final_state)
+    save_figure(file_name=state_name+" - Light")
+    
+    # plot bloch:
+    plot_wigner_bloch_sphere(final_state, alpha_min=1, title="", num_points=300)
+    save_figure(file_name=state_name+" - Sphere")
+    
+    # # plot complete matter:
+    # bloch_config = BlochSphereConfig()
+    # plot_matter_state(final_state, config=bloch_config)
+    # save_figure(file_name=state_type.name+" - Matter")
+
+
+
 def create_movie(
     state_type:StateType = StateType.GKPHex,
     num_atoms:int = 40,
@@ -244,7 +257,7 @@ def create_movie(
     print(f"State: {state_type.name!r}")
 
     # get
-    coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(type_=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
+    coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
     movie_config = _get_movie_config(True, num_transition_frames, state_type)
     
     # create state:
@@ -253,8 +266,6 @@ def create_movie(
     # print  fidelity:
     _print_fidelity(final_state, cost_function)    
     return cost_function(final_state)
-
-
 
 
 
