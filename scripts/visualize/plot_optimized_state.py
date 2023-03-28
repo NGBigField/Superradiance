@@ -123,7 +123,7 @@ def _get_movie_config(
     create_movie:bool, num_transition_frames:int, state_type:StateType
 ) -> CoherentControl.MovieConfig:
     # Basic data:
-    fps=20
+    fps=30
     
     bloch_sphere_config = BlochSphereConfig(
         alpha_min=0.2,

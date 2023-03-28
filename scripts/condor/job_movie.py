@@ -12,7 +12,7 @@ from typing import Any
 from time import sleep
 
 
-def main(variation:int=3, num_transition_frames:int=40) -> dict[str, Any]:
+def main(variation:int=0, num_transition_frames:int=80) -> dict[str, Any]:
     
     ## Constants:
     num_atoms=40
