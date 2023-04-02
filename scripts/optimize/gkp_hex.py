@@ -90,8 +90,7 @@ def best_sequence_params(
     coherent_control = CoherentControl(num_atoms=num_atoms)    
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_intermediate_states)
     rotation_op = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
-    x_op = lambda p: standard_operations.power_pulse_on_specific_directions(power=p, indices=[0])
-    y_op = lambda p: standard_operations.power_pulse_on_specific_directions(power=p, indices=[1])
+    squeezing_op = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0,1])
 
     # theta = [
     #     +0.5352819887733233 , -0.1217385211787736 , -0.0142376006460310 , -0.0294579569374435 , +0.0033285013050357 ,
@@ -159,6 +158,20 @@ def best_sequence_params(
     #     -0.0408913633776599 , +0.5286796361284312 , +1.3131957339557676 , +0.2189660178395867 , +1.0514909586960635 , 
     #     +3.1371755863506041 , +1.6978206391566413 , -0.0553346287389674        
     # ]
+    # theta = [
+    #     +1.8694845453333038 , -1.6538998510827434 , +0.0173955033523857 , -0.1427543446043249 , +0.0013401420177127 ,
+    #     +0.0132033138493881 , +2.3711220285307935 , +2.3216823816623511 , +0.6956368011725400 , -0.0058590351094509 ,
+    #     -3.1510206569057702 , -0.0310655291272540 , +0.2214583212528842 , -0.4380454982687370 , +0.2179576478698781 ,
+    #     +0.6186524691848645 , +0.5688307748925898 , -0.2649311065299481 , -0.0048151394726125 , +0.0461321331865688 ,
+    #     +0.0013543187209960 , +0.0002460961316067 , +0.0004860199692774 , +0.0003564107348303 , -0.0001056713255050 ,
+    #     +0.1302484971403531 , +0.0024197238278509 , -0.8041732425799708 , +0.0059307742506406 , +0.0142934022979440 ,
+    #     +2.2398448099050197 , -0.6544496570066938 , -2.6421784265687505 , +3.1515926535897929 , -0.0099045248977743 ,
+    #     +0.4225712253427635 , -0.6367171854587395 , -0.3246532749141368 , -1.3801630477318843 , +0.0058266767360957 ,
+    #     +0.6246799605103033 , +0.1545629771807398 , +0.3472660971707482 , +0.4662916270780456 , +0.2446900032743903 ,
+    #     +0.4740847230825757 , +0.1790289349460414 , -0.2523086117654533 , +3.0240595425646672 , +0.7507018885577637 ,
+    #     -0.0408913633776599 , +0.5281971056349757 , +1.3137321670607456 , +0.2189660178395867 , +1.0515755969221923 ,
+    #     +3.1374263902891872 , +1.6978206391566413 , -0.0553346287389674
+    # ] # 93.57 fidelity
     theta = [
         +1.8694845453333038 , -1.6538998510827434 , +0.0173955033523857 , -0.1427543446043249 , +0.0013401420177127 ,
         +0.0132033138493881 , +2.3711220285307935 , +2.3216823816623511 , +0.6956368011725400 , -0.0058590351094509 ,
@@ -172,31 +185,31 @@ def best_sequence_params(
         +0.4740847230825757 , +0.1790289349460414 , -0.2523086117654533 , +3.0240595425646672 , +0.7507018885577637 ,
         -0.0408913633776599 , +0.5281971056349757 , +1.3137321670607456 , +0.2189660178395867 , +1.0515755969221923 ,
         +3.1374263902891872 , +1.6978206391566413 , -0.0553346287389674
-    ] # 93.57 fidelity
+    ] # 0000 fidelity  # 11 params
 
     operations = [
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
-        x_op(2), y_op(2),
+        squeezing_op,
         rotation_op,
     ]
     
@@ -279,11 +292,11 @@ def _alexeys_recipe(num_moments:int=100):
 
 def main(
     num_atoms:int=40, 
-    num_total_attempts:int=2000,
-    max_iter_per_attempt=4*int(1e3),
-    max_error_per_attempt=1e-11,
+    num_total_attempts:int=1000,
+    max_iter_per_attempt=5*int(1e3),
+    max_error_per_attempt=1e-16,
     num_free_params=20,
-    sigma=0.0002
+    sigma=0.005
 ):
 
     ## Define operations and cost-function:

@@ -97,7 +97,11 @@ def best_sequence_params(
     #     -0.0541798806370485 , -1.9406363397783859 , +1.2944312375423341
     # ]
     theta = [
-        0.4707,  0.9475, -2.037, 0.4416,  1.1942,  0.0367,  0.0239 , 0.05 ,   0.0194 , 0.0042 , 1.0667 ,-1.3842,  0.5415 , 0.0365 , 0.0344 ,-0.0775 ,-1.6467 , 1.3874
+        0.4707,  0.9475, -2.037, 0.4416,  1.1942,  
+        0.0367,  0.0239 , 0.05 ,   0.0194 , 0.0042 , 
+        0.0667 , 0.0,  0.0 , 0.0 , 0.0 ,
+        1.0667 ,-1.3842,  0.5415 , 0.0365 , 0.0344 ,
+        -0.0775 ,-1.6467 , 1.3874
     ]
     
     operations  = [
@@ -146,11 +150,10 @@ def best_sequence_params(
 def main(
     num_moments:int=40, 
     num_total_attempts:int=1000, 
-    
     num_runs_per_attempt:int=5*int(1e3), 
-    max_error_per_attempt:Optional[float]=1e-12,
-    num_free_params:int|None=13,
-    sigma:float=0.004
+    max_error_per_attempt:Optional[float]=1e-16,
+    num_free_params:int|None=14,
+    sigma:float=0.005
 ) -> LearnedResults:
     
     # Define target:
