@@ -58,7 +58,7 @@ def main(
         output_files_prefix,
         job_params,
         request_cpus='8',
-        requestMemory='5gb',
+        requestMemory='1gb',
         Arguments='$(outfile) $(seed) $(variation) $(job_type)'
     )
 
