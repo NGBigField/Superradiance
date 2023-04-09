@@ -4,6 +4,13 @@
 # |                                   Imports                                        | #
 # ==================================================================================== #
 
+if __name__ == "__main__":
+    import sys, pathlib
+    sys.path.append(
+        str(pathlib.Path(__file__).parent.parent)
+    )
+
+
 # Everyone needs numpy and numeric stuff:
 import numpy as np
 from numpy import pi
@@ -97,6 +104,14 @@ class LearnedResults():
         s += np_utils.mat_str_with_leading_text(self.final_state  , text="final_state  : ")+newline  
         s += f"num_iterations={self.iterations}"+newline
         s += f"operations: {self.operations}"+newline
+        return s
+    
+    def operation_params_str(self)->str:
+        s = "["
+        for v in self.operation_params:
+            s += f"{v}, "
+        s = s[:-2]
+        s += "]"
         return s
     
 
@@ -672,5 +687,10 @@ def _test():
     results = optimized_Sx2_pulses_by_partial_repetition()
 
 if __name__ == "__main__":
+    l = LearnedResults(operation_params=[-1.0, 2.31, 1241.14, 10.523 , 140.514])
+    s = l.operation_params_str()
+    
+
+
     _test()
     print("Done.")

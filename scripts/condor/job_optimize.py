@@ -13,19 +13,24 @@ from scripts.optimize.cat2       import main as cat2
 from typing import Any
 
 
-def main(variation:int=2, seed:int=0, num_total_attempts:int=500) -> dict[str, Any]:
+def main(
+    variation:int=2, 
+    seed:int=0, 
+    num_total_attempts:int=100,
+    max_iter_per_attempt:int=5*int(1e3)
+) -> dict[str, Any]:
     
     if variation==0:
-        result = square_gkp(num_total_attempts=num_total_attempts)
+        result = square_gkp(num_total_attempts=num_total_attempts, max_iter_per_attempt=max_iter_per_attempt)
         name = "square_gkp"
     elif variation==1:
-        result = hex_gkp(num_total_attempts=num_total_attempts)
+        result = hex_gkp(num_total_attempts=num_total_attempts, max_iter_per_attempt=max_iter_per_attempt)
         name = "hex_gkp"
     elif variation==2:
-        result = cat4(num_total_attempts=num_total_attempts)
+        result = cat4(num_total_attempts=num_total_attempts, max_iter_per_attempt=max_iter_per_attempt)
         name = "cat4"
     elif variation==3:
-        result = cat2(num_total_attempts=num_total_attempts)
+        result = cat2(num_total_attempts=num_total_attempts, max_iter_per_attempt=max_iter_per_attempt)
         name = "cat2"
     else:
         raise ValueError(f"Not a supported variation: {variation}")
@@ -37,10 +42,10 @@ def main(variation:int=2, seed:int=0, num_total_attempts:int=500) -> dict[str, A
         variation = name,
         seed = seed,
         score = result.score,
-        theta = result.operation_params
+        theta = result.operation_params_str()
     )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     main()
 

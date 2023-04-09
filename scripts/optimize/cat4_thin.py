@@ -96,13 +96,16 @@ def best_sequence_params(
     #     +1.1655035689193887 , -1.3427208539321607 , +0.4163584988465759 , +0.0187488498052232 , +0.0211625884315972 ,
     #     -0.0541798806370485 , -1.9406363397783859 , +1.2944312375423341
     # ]
-    theta = [
-        0.4707,  0.9475, -2.037, 0.4416,  1.1942,  
-        0.0367,  0.0239 , 0.05 ,   0.0194 , 0.0042 , 
-        0.0667 , 0.0,  0.0 , 0.0 , 0.0 ,
-        1.0667 ,-1.3842,  0.5415 , 0.0365 , 0.0344 ,
-        -0.0775 ,-1.6467 , 1.3874
-    ]
+    # theta = [
+    #     0.4707,  0.9475, -2.037, 0.4416,  1.1942,  
+    #     0.0367,  0.0239 , 0.05 ,   0.0194 , 0.0042 , 
+    #     0.0667 , 0.0,  0.0 , 0.0 , 0.0 ,
+    #     1.0667 ,-1.3842,  0.5415 , 0.0365 , 0.0344 ,
+    #     -0.0775 ,-1.6467 , 1.3874
+    # ] # 4 steps
+    theta = [ 
+        1.1803e+00,  1.5190e+00, -2.7493e+00,  5.5551e-01,  1.2073e+00,  1.9587e-01,  4.5409e-02,  1.2921e-01,  2.9619e-02,  6.3605e-02,  2.5091e-01,  9.9681e-02,  2.4469e-01,  3.3896e-02, -7.0516e-04,  8.0374e-01, -1.6534e+00,  2.2976e-01,  6.8397e-02,  4.6005e-02,  1.2234e-01, -1.4178e+00,  1.5972e+00
+    ] # 4 steps - fidelity  -0.794306029286899
     
     operations  = [
         rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation
@@ -150,10 +153,10 @@ def best_sequence_params(
 def main(
     num_moments:int=40, 
     num_total_attempts:int=1000, 
-    num_runs_per_attempt:int=5*int(1e3), 
+    max_iter_per_attempt:int=5*int(1e3), 
     max_error_per_attempt:Optional[float]=1e-16,
     num_free_params:int|None=14,
-    sigma:float=0.005
+    sigma:float=0.0005
 ) -> LearnedResults:
     
     # Define target:
@@ -172,7 +175,7 @@ def main(
         operations=operations,
         initial_params=param_config,
         # Heuristic Params:
-        max_iter_per_attempt=num_runs_per_attempt,
+        max_iter_per_attempt=max_iter_per_attempt,
         max_error_per_attempt=max_error_per_attempt,
         num_free_params=num_free_params,
         sigma=sigma,

@@ -89,11 +89,14 @@ def best_sequence_params(
     #     +2.2504873168046138 , +1.3828220613581861 , +1.4841829260109276 , +2.4758211483630150 , +3.2401940268953995 ,
     #     +0.5455567960592630 , +0.4546373693341874 , +1.6935620833025031        
     # ]
+    # theta = [
+    #     +2.5066248308223518 , +1.1532063519469733 , +2.1315549524903052 , +1.9395278536116698 , +0.7820697532208565 , 
+    #     +2.2494831260803050 , +1.3851850686407987 , +1.4840158399534116 , +2.4757063126764716 , +3.2400495813112133 , 
+    #     +0.5461308198007867 , +0.4539199743584972 , +1.6939129421385699         
+    # ]
     theta = [
-        +2.5066248308223518 , +1.1532063519469733 , +2.1315549524903052 , +1.9395278536116698 , +0.7820697532208565 , 
-        +2.2494831260803050 , +1.3851850686407987 , +1.4840158399534116 , +2.4757063126764716 , +3.2400495813112133 , 
-        +0.5461308198007867 , +0.4539199743584972 , +1.6939129421385699         
-    ]
+        2.2188, 1.4497, 1.9767, 1.8809, 0.6809, 2.4522, 1.6573, 1.3389, 2.4622, 3.2328, 0.5011, 0.584,  1.7406
+    ] # fidelity = 0.937194595494278
     
     operations  = [
         rotation, p2_pulse, rotation, p2_pulse, rotation
@@ -141,10 +144,10 @@ def best_sequence_params(
 def main(
     num_atoms:int=40, 
     num_total_attempts:int=2000, 
-    num_runs_per_attempt:int=5*int(1e3), 
+    max_iter_per_attempt:int=5*int(1e3), 
     max_error_per_attempt:Optional[float]=1e-16,
-    num_free_params:int|None=None,
-    sigma:float=0.01
+    num_free_params:int|None=10,
+    sigma:float=0.0005
 ) -> LearnedResults:
     
     # Define target:
@@ -161,7 +164,7 @@ def main(
         operations=operations,
         initial_params=param_config,
         # Heuristic Params:
-        max_iter_per_attempt=num_runs_per_attempt,
+        max_iter_per_attempt=max_iter_per_attempt,
         max_error_per_attempt=max_error_per_attempt,
         num_free_params=num_free_params,
         sigma=sigma,

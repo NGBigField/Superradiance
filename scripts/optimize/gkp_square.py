@@ -163,10 +163,10 @@ def best_sequence_params(
 def main(
     num_total_attempts=2000,
     num_atoms:int=40, 
-    max_iter_per_attempt=30*int(1e3),
-    max_error_per_attempt=1e-13,
-    num_free_params=None,
-    sigma=0.0000002
+    max_iter_per_attempt=6*int(1e3),
+    max_error_per_attempt=1e-17,
+    num_free_params:int|None=35,
+    sigma=0.0002
 ) -> LearnedResults:
         
     # Similar to previous method:
