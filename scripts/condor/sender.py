@@ -7,10 +7,10 @@ if __name__ == "__main__":
 from csv import DictWriter
 
 def main(
-        num_seeds:int=10, 
-        num_variations:int=4,
-        job_type="optimize"  # "movie"\"optimize"\"plot_system_size"
-        ):
+    num_seeds:int=20, 
+    num_variations:int=4,
+    job_type="optimize"  # "movie"\"optimize"\"plot_system_size"
+):
 
     ## Define paths and names:
     sep = os.sep

@@ -144,10 +144,10 @@ def best_sequence_params(
 def main(
     num_atoms:int=40, 
     num_total_attempts:int=2000, 
-    max_iter_per_attempt:int=5*int(1e3), 
-    max_error_per_attempt:Optional[float]=1e-16,
-    num_free_params:int|None=10,
-    sigma:float=0.0005
+    max_iter_per_attempt:int=8*int(1e3), 
+    max_error_per_attempt:Optional[float]=1e-17,
+    num_free_params:int|None=None,
+    sigma:float=0.002
 ) -> LearnedResults:
     
     # Define target:

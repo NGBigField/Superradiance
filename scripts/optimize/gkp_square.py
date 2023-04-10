@@ -165,8 +165,8 @@ def main(
     num_atoms:int=40, 
     max_iter_per_attempt=6*int(1e3),
     max_error_per_attempt=1e-17,
-    num_free_params:int|None=35,
-    sigma=0.0002
+    num_free_params:int|None=30,
+    sigma=0.0003
 ) -> LearnedResults:
         
     # Similar to previous method:
