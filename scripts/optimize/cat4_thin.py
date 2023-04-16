@@ -163,8 +163,8 @@ def main(
     num_moments:int=40, 
     num_total_attempts:int=1000, 
     max_iter_per_attempt:int=5*int(1e3), 
-    max_error_per_attempt:Optional[float]=1e-16,
-    num_free_params:int|None=18,
+    max_error_per_attempt:Optional[float]=1e-17,
+    num_free_params:int|None=15,
     sigma:float=0.0005
 ) -> LearnedResults:
     

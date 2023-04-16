@@ -70,7 +70,8 @@ from copy import deepcopy
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-OPT_METHOD : Final[str] = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
+POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead', "COBYLA"]
+DEFAULT_OPT_METHOD : Final[str] = "Nelder-Mead" 
 NUM_PULSE_PARAMS : Final = 4  
 
 DEFAULT_TOLERANCE : Final[float] = 1e-12  
@@ -531,6 +532,7 @@ def learn_custom_operation(
     cost_function : Callable[[_DensityMatrixType], float],
     max_iter : int=100, 
     tolerance : Optional[float] = None,
+    opt_method : str = DEFAULT_OPT_METHOD,
     initial_guess : Optional[np.ndarray] = None,
     parameters_config : Optional[List[BaseParamType]] = None,
     save_results : bool = True,
@@ -579,7 +581,7 @@ def learn_custom_operation(
     opt_res : OptimizeResult = minimize(
         _total_cost_function, 
         initial_guess, 
-        method=OPT_METHOD, 
+        method=opt_method, 
         options=options, 
         callback=_after_each, 
         bounds=bounds,
@@ -619,6 +621,7 @@ def learn_custom_operation_by_partial_repetitions(
     max_error_per_attempt:Optional[float]=None,
     num_free_params:int|None=20,
     sigma:float = 0.002,
+    initial_sigma:float = 0.2,
     log_name:str=strings.time_stamp()
 )-> LearnedResults:
     
@@ -629,7 +632,8 @@ def learn_custom_operation_by_partial_repetitions(
     num_operation_params = sum([op.num_params for op in operations])    
     assert len(initial_params)==num_operation_params
 
-    ## Initital theta
+    ## Initital params:
+    initial_params = add_noise_to_free_params(initial_params, initial_sigma)
     initial_theta = [param.get_value() for param in initial_params]
 
     ## Set 0'th iteration:
@@ -637,7 +641,10 @@ def learn_custom_operation_by_partial_repetitions(
 
     ## Iterate:
     for attempt_ind in range(num_attempts):
-        logger.info(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)}")
+        ## Use a random optimization method:
+        opt_method = lists.random_item(POSSIBLE_OPE_METHODS)
+
+        logger.info(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)} ; Optimization method: {opt_method!r}")
         
         ## Lock random params and add noise to free params::
         num_fix_params = 0 if num_free_params is None else num_operation_params-num_free_params
@@ -649,6 +656,7 @@ def learn_custom_operation_by_partial_repetitions(
             param.set_value(value)
             params[i] = param
         params = add_noise_to_free_params(params, sigma)
+
         
         ## Learn the best theta with these locked params:
         try:            
@@ -658,7 +666,8 @@ def learn_custom_operation_by_partial_repetitions(
                 operations=operations, 
                 max_iter=max_iter_per_attempt, 
                 tolerance=max_error_per_attempt,
-                parameters_config=params
+                parameters_config=params,
+                opt_method=opt_method
             )
         except Exception as e:
             s = errors.get_traceback(e)
