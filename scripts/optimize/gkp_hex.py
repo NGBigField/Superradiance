@@ -303,7 +303,7 @@ def main(
     max_error_per_attempt=1e-16,
     num_free_params=30,
     sigma=0.0005,
-    initial_sigma:float=0.001
+    initial_sigma:float=0.01
 ):
 
     ## Define operations and cost-function:

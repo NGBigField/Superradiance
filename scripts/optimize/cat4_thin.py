@@ -165,7 +165,8 @@ def main(
     max_iter_per_attempt:int=5*int(1e3), 
     max_error_per_attempt:Optional[float]=1e-17,
     num_free_params:int|None=15,
-    sigma:float=0.0005
+    sigma:float=0.0005,
+    initial_sigma:float=0.01
 ) -> LearnedResults:
     
     # Define target:
@@ -184,6 +185,7 @@ def main(
         operations=operations,
         initial_params=param_config,
         # Heuristic Params:
+        initial_sigma=initial_sigma,
         max_iter_per_attempt=max_iter_per_attempt,
         max_error_per_attempt=max_error_per_attempt,
         num_free_params=num_free_params,
