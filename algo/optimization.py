@@ -70,7 +70,7 @@ from copy import deepcopy
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead', "COBYLA"]
+POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead']
 DEFAULT_OPT_METHOD : Final[str] = "Nelder-Mead" 
 NUM_PULSE_PARAMS : Final = 4  
 

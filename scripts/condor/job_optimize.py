@@ -16,7 +16,7 @@ from typing import Any
 def main(
     variation:int=2, 
     seed:int=0, 
-    num_total_attempts:int=100
+    num_total_attempts:int=150
 ) -> dict[str, Any]:
     
     if variation==0:

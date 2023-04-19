@@ -156,7 +156,7 @@ def main(
     max_error_per_attempt=1e-17,
     num_free_params:int|None=30,
     sigma=0.0003,
-    initial_sigma:float=0.01
+    initial_sigma:float=0.001
 ) -> LearnedResults:
         
     # Similar to previous method:
