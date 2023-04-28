@@ -74,10 +74,14 @@ def best_sequence_params(
     _stark_lock = lambda n : [False]*n
    
 
+    # theta = [
+    #     0.0005128168028236, 0.0089496740531838, 0.0008262087960614, 0.000331551981269, 0.0773288810263087, 
+    #     0.0005335029252635, 0.0004086130028968, 0.000606862784992
+    # ]  # fidelity = ?????  - 1 steps
     theta = [
-        0.0005128168028236, 0.0089496740531838, 0.0008262087960614, 0.000331551981269, 0.0773288810263087, 
-        0.0005335029252635, 0.0004086130028968, 0.000606862784992
-    ]  # fidelity = ?????  - 1 steps
+        +1.2885253855565413 , +0.2048102879848464 , -2.6348915354127707 , -0.0300543192486739 , +0.1090078002183574 ,
+        +0.0158027353902013 , +0.6604241035769685 , +0.3387780297299488
+    ] # fidelity = 0.5  - 1 steps
     
     operations  = [
         rotation, p2_pulse, rotation
@@ -126,7 +130,7 @@ def main(
     num_atoms:int=40, 
     num_total_attempts:int=2000, 
     max_iter_per_attempt:int=8*int(1e3), 
-    max_error_per_attempt:Optional[float]=1e-17,
+    max_error_per_attempt:Optional[float]=1e-13,
     num_free_params:int|None=7,
     sigma:float=0.005,
     initial_sigma:float=0.01

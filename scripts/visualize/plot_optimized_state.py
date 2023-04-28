@@ -32,7 +32,7 @@ from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
 
 # for plotting:
 from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_plain_wigner, ViewingAngles, BlochSphereConfig, save_figure
-from utils import assertions
+from utils import assertions, saveload
 import matplotlib.pyplot as plt
 
 # for printing progress:
@@ -62,6 +62,21 @@ class StateType(Enum):
 # ==================================================================================== #
 #| Inner Functions:
 # ==================================================================================== #
+
+
+def _get_emitted_light(state_type:StateType, final_state:np.matrix):
+    # Basic info:
+    file_name = f"Emitted-light {state_type.name}"
+    sub_folder = "Emitted-Light"
+    # Get or calc:
+    if saveload.exist(file_name, sub_folder=sub_folder):
+        emitted_light_state = saveload.load(file_name, sub_folder=sub_folder)        
+    else:
+        emitted_light_state = calc_emitted_light(final_state, time_resolution=200)
+        saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
+    # Return:
+    return emitted_light_state
+
 
 def _get_best_params(
     type_:StateType, 
@@ -232,16 +247,20 @@ def plot_result(
     print(f"State: {state_name!r}")
     _print_fidelity(final_state, cost_function)
     
+    # plot bloch:
+    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=200, view_elev=-90)
+    save_figure(file_name=state_name+" - Sphere")
+    
     # plot light:
-    emitted_light_state = calc_emitted_light(final_state, time_resolution=400)
+    emitted_light_state = _get_emitted_light(state_type, final_state)
     plot_plain_wigner(emitted_light_state, with_colorbar=True)
+    save_figure(file_name=state_name+" - Light - colorbar")
+    plot_plain_wigner(emitted_light_state, with_colorbar=False)
     save_figure(file_name=state_name+" - Light")
     plot_plain_wigner(final_state, with_colorbar=False)
     save_figure(file_name=state_name+" - Projection")
     
-    # plot bloch:
-    plot_wigner_bloch_sphere(final_state, alpha_min=1, title="", num_points=300)
-    save_figure(file_name=state_name+" - Sphere")
+    # plt.close("all")
     
     # # plot complete matter:
     # bloch_config = BlochSphereConfig()

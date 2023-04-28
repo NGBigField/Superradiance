@@ -153,7 +153,62 @@ def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:
 
 
 
-def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False)->None:
+def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
+                cmap=None, alpha_max=7.5, colorbar=False,
+                method='clenshaw', projection='2d'):
+    """_plot_wigner Taken from qutip and slightly changed. 
+    qutip are the authors of this function.
+    """
+    
+    if not fig and not ax:
+        if projection == '2d':
+            fig, ax = plt.subplots(1, 1, figsize=figsize)
+        elif projection == '3d':
+            fig = plt.figure(figsize=figsize)
+            ax = fig.add_subplot(1, 1, 1, projection='3d')
+        else:
+            raise ValueError('Unexpected value of projection keyword argument')
+
+    if qutip.isket(rho):
+        rho = qutip.ket2dm(rho)
+
+    xvec = np.linspace(-alpha_max, alpha_max, 200)
+    W0 = qutip.wigner(rho, xvec, xvec, method=method)
+
+    W, yvec = W0 if isinstance(W0, tuple) else (W0, xvec)
+
+    wlim = abs(W).max()
+
+    if cmap is None:
+        cmap = cm.get_cmap('RdBu')
+
+    if projection == '2d':
+        cf = ax.contourf(xvec, yvec, W, 100,
+                         norm=mpl.colors.Normalize(-wlim, wlim), cmap=cmap)
+    elif projection == '3d':
+        X, Y = np.meshgrid(xvec, xvec)
+        cf = ax.plot_surface(X, Y, W0, rstride=5, cstride=5, linewidth=0.5,
+                             norm=mpl.colors.Normalize(-wlim, wlim), cmap=cmap)
+    else:
+        raise ValueError('Unexpected value of projection keyword argument.')
+
+    if xvec is not yvec:
+        ax.set_ylim(xvec.min(), xvec.max())
+
+    ax.set_xlabel(r'$\rm{Re}(\alpha)$', fontsize=12)
+    ax.set_ylabel(r'$\rm{Im}(\alpha)$', fontsize=12)
+
+    if colorbar:
+        cb = fig.colorbar(cf, ax=ax)
+    else:
+        cb = None
+
+    ax.set_title("Wigner function", fontsize=12)
+
+    return fig, ax, cf, cb
+
+
+def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False, colorbar_lims:tuple[float, float]|None=None)->None:
     # Inversed color-map:
     cmap = cm.get_cmap('RdBu')
     cmap = cmap.reversed()
@@ -162,12 +217,19 @@ def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:b
     qu_state = qutip.Qobj(state)
     
     # plot:
-    fig, ax = qutip.plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar )
+    fig, ax, cf, cb = _plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar )
     plt.grid(True)
+    
+    if colorbar_lims is not None:
+        assert len(colorbar_lims)==2
+        assert isinstance(colorbar_lims, tuple)
+        cf.set_clim(*colorbar_lims)
+
     
     # Add title:
     if title is not None:
         ax.set_title(title)
+        
 
 def plot_wigner_bloch_sphere(
     rho:np.matrix, 
@@ -552,9 +614,25 @@ def _test_bloch_sphere():
     # Finish
     print("Done.")
     
+def _test_light_wigner():
+    # Specific imports:
+    from physics.famous_density_matrices import gkp_state, cat_state
+
+    # Constants:
+    num_atoms = 20
+
+    # State:
+    state = cat_state(num_atoms=num_atoms, num_legs=2, alpha=1.0)
+    # state = gkp_state(num_atoms=num_atoms, form="square")
+
+    # Plot:
+    draw_now()
+    plot_plain_wigner(state, "Test", with_colorbar=True, colorbar_lims=(-1, 1))
+    
 
 def tests():
-    _test_bloch_sphere()
+    # _test_bloch_sphere()
+    _test_light_wigner()
 
     
     print("Done tests.")
