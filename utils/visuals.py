@@ -23,6 +23,7 @@ from matplotlib.colors import LightSource
 # Everyone needs numpy in their life and other math stuff:
 import numpy as np
 import math
+import scipy
 
 # For type hints:
 from typing import Any, Optional, Union, Generator, List, ClassVar, Final
@@ -52,6 +53,7 @@ from dataclasses import dataclass, field
 
 # for quantum tools:
 import qutip
+
 
 # ==================================================================================== #
 #|                                 Constants                                          |#
@@ -151,13 +153,16 @@ def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:
 
 
 
-def plot_light_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False)->None:
+def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False)->None:
     # Inversed color-map:
     cmap = cm.get_cmap('RdBu')
     cmap = cmap.reversed()
     
+    # Qutip object:
+    qu_state = qutip.Qobj(state)
+    
     # plot:
-    fig, ax = qutip.plot_wigner( qutip.Qobj(state), cmap=cmap, colorbar=with_colorbar )
+    fig, ax = qutip.plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar )
     plt.grid(True)
     
     # Add title:

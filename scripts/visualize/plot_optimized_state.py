@@ -31,7 +31,7 @@ from scripts.optimize.gkp_square import best_sequence_params as gkp_square_param
 from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
 
 # for plotting:
-from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_light_wigner, ViewingAngles, BlochSphereConfig, save_figure
+from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_plain_wigner, ViewingAngles, BlochSphereConfig, save_figure
 from utils import assertions
 import matplotlib.pyplot as plt
 
@@ -43,6 +43,9 @@ from enum import Enum, auto
 
 # for sleeping:
 from time import sleep
+
+# For emitted light calculation 
+from physics.emitted_light_approx import main as calc_emitted_light
 
 
 # ==================================================================================== #
@@ -182,7 +185,7 @@ def plot_sequence(
         state_i = coherent_control.custom_sequence(state=initial_state, theta=theta_i, operations=operations_i)
     
         # plot light:
-        plot_light_wigner(state_i)
+        plot_plain_wigner(state_i)
         save_figure(folder=folder, file_name=name+" - Light")        
 
         # plot bloch:
@@ -200,13 +203,10 @@ def plot_all_best_results(
 ):
     
     for state_type in StateType:
-        # Print:
-        print(f"State: {state_type.name!r}")
-
-        plot_result(state_type, create_movie, num_atoms)
+        plot_result(state_type, create_movie, num_atoms)        
+        print(" ")
         
-        # Done:
-        print("Done.")
+    print("Done.")
     
 
 def plot_result(
@@ -229,11 +229,15 @@ def plot_result(
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     
     # print  fidelity:
+    print(f"State: {state_name!r}")
     _print_fidelity(final_state, cost_function)
     
     # plot light:
-    plot_light_wigner(final_state)
+    emitted_light_state = calc_emitted_light(final_state, time_resolution=400)
+    plot_plain_wigner(emitted_light_state, with_colorbar=True)
     save_figure(file_name=state_name+" - Light")
+    plot_plain_wigner(final_state, with_colorbar=False)
+    save_figure(file_name=state_name+" - Projection")
     
     # plot bloch:
     plot_wigner_bloch_sphere(final_state, alpha_min=1, title="", num_points=300)
@@ -273,3 +277,4 @@ if __name__ == "__main__":
     # plot_sequence()
     # create_movie()
     plot_all_best_results()
+    # plot_result(StateType.Cat2)

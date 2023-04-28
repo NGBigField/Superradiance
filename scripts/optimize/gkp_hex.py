@@ -67,7 +67,7 @@ def _get_final_state(
     rho = coherent_control.pulse_on_state(rho, x=x2, power=1)
     rho = coherent_control.pulse_on_state(rho, z=z2, power=2)
 
-    visuals.plot_light_wigner(rho)
+    visuals.plot_plain_wigner(rho)
     visuals.draw_now()
 
     return rho
@@ -297,7 +297,7 @@ def _alexeys_recipe(num_moments:int=100):
     rho = coherent_control.pulse_on_state(rho, z=z2, power=2)
 
     # Plot:
-    visuals.plot_light_wigner(rho)
+    visuals.plot_plain_wigner(rho)
     visuals.draw_now()
     print("Done.")
     

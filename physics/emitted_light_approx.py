@@ -11,10 +11,10 @@ import numpy as np
 # Number of sample points
 OMEGA_1 = 1.  # Laser Rabi Frequency (*2)
 OMEGA_0 = 0  # atomic transition frequency
-RES = 200
+DEFAULT_TIME_RES = 200
 GAMMA = 1
 GAMMA_s = 0.
-Tf = 0.6 # GAMMA ** -1 * 30
+t_final = 0.6 # GAMMA ** -1 * 30
 cmap = matplotlib.cm.bwr
 
 
@@ -90,7 +90,7 @@ def get_coupling_from_mode(mode, times, position=1, coupling_prev=None):
     return coupling
 
 
-def get_light_outside(rho_init, times, GAMMA, light_dim, atom_dim, mode_eta):
+def get_light_outside(rho_init, times, GAMMA, light_dim, atom_dim, mode_eta, progress_bar:bool=True):
     '''
 
     :param rho_init:
@@ -121,7 +121,7 @@ def get_light_outside(rho_init, times, GAMMA, light_dim, atom_dim, mode_eta):
     H_lst = [H0, [H1, coupling1_coef], [H1_dag, coupling1_coef_conj]]
     L_lst = [GAMMA ** 0.5 * sm, [a_eta, coupling1_coef_conj]]
 
-    result = mesolve(H_lst, rho_init, times, [L_lst, [GAMMA_s ** 0.5 * sm]], args=args, options=opts)
+    result = mesolve(H_lst, rho_init, times, [L_lst, [GAMMA_s ** 0.5 * sm]], args=args, options=opts, progress_bar=progress_bar)
     rho_f = result.states[-1].ptrace([1])
     return times, rho_f
 
@@ -161,7 +161,7 @@ def plot_g2(times, g2):
     plt.show()
 
 
-def get_g1_modes(H, psi_init, times, sig_m, sig_p, GAMMA_s, num_modes=10):
+def get_g1_modes(H, psi_init, times, sig_m, sig_p, GAMMA_s, num_modes=10, plot_mods:bool=False):
     dt = times[1] - times[0]
     corr = correlation_2op_2t(H, psi_init, times, times,
                               [[GAMMA ** 0.5 * sig_m, GAMMA_s ** 0.5 * sig_m]], sig_p, sig_m)
@@ -180,15 +180,17 @@ def get_g1_modes(H, psi_init, times, sig_m, sig_p, GAMMA_s, num_modes=10):
 
     # plot_g2(times, g2)
     # plot_g1
-    f, (ax1, ax2, ax3) = plt.subplots(1, 3)
+    if plot_mods:
+        f, (ax1, ax2, ax3) = plt.subplots(1, 3)
 
-    ax1.pcolormesh(times, times, np.real(g1), cmap='bwr')
-    m = ax1.collections[0]
-    m.set_clim(-1, 1)
-    ax1.set_xlabel('t1', fontsize=12)
-    ax1.set_ylabel('t2', fontsize=12)
-    h = plt.colorbar(m)
-    h.set_label('$g^{(1)}(t_1,t_2)$')
+        ax1.pcolormesh(times, times, np.real(g1), cmap='bwr')
+        m = ax1.collections[0]
+        m.set_clim(-1, 1)
+        ax1.set_xlabel('t1', fontsize=12)
+        ax1.set_ylabel('t2', fontsize=12)
+        h = plt.colorbar(m)
+        h.set_label('$g^{(1)}(t_1,t_2)$')
+        
     w, v = np.linalg.eig(corr_cor * GAMMA * dt)
 
     modes = []
@@ -196,13 +198,17 @@ def get_g1_modes(H, psi_init, times, sig_m, sig_p, GAMMA_s, num_modes=10):
     for i in range(3):
         modes.append(v[:, w == np.sort(w)[-i - 1]])
         occupations.append(np.sort(np.abs(w))[-i - 1])
-        ax2.plot(times, np.real(v[:, w == np.sort(w)[-i - 1]]))
-        ax2.set_xlabel('times ($\\Gamma^{-1}$)', fontsize=12)
-    ax2.legend(['mode 1', 'mode 2', 'mode 3', 'mode 4'], fontsize=12)
-    num_oc = 15
-    ax3.bar(np.linspace(1, num_oc, num_oc), np.abs(np.sort(w)[:-num_oc - 1:-1]))
-    ax3.set_xlabel('mode', fontsize=12)
-    ax3.set_ylabel('occupation', fontsize=12)
+        if plot_mods:
+            ax2.plot(times, np.real(v[:, w == np.sort(w)[-i - 1]]))
+            ax2.set_xlabel('times ($\\Gamma^{-1}$)', fontsize=12)
+            
+    if plot_mods:
+        ax2.legend(['mode 1', 'mode 2', 'mode 3', 'mode 4'], fontsize=12)
+        num_oc = 15
+        ax3.bar(np.linspace(1, num_oc, num_oc), np.abs(np.sort(w)[:-num_oc - 1:-1]))
+        ax3.set_xlabel('mode', fontsize=12)
+        ax3.set_ylabel('occupation', fontsize=12)
+        
     return np.real(modes), np.real(occupations)
 
 
@@ -222,18 +228,18 @@ def make_plots(times, modes, rho_eta_mode_a, rho_eta_mode_b, result, occupations
 
 
 def simulate_emitter(times, atom_dim, light_dim, atomic_rho, light_rho,
-                     plot=False, state_outside=True):
+                     plot_mods=False, state_outside=True, progress_bar=True):
     sig_z, sig_p, sig_m = qutip.jmat((atom_dim - 1) / 2, 'z'), qutip.jmat((atom_dim - 1) / 2, '+'), qutip.jmat(
         (atom_dim - 1) / 2, '-')
 
     H = [0 * sig_z]
 
-    opts = qutip.Options(nsteps=15000, atol=1e-13, rtol=1e-13)
-    opts.store_states = True
+    # opts = qutip.Options(nsteps=15000, atol=1e-13, rtol=1e-13)
+    # opts.store_states = True
     # psi_init = qutip.basis(atom_dim, 1)
     dt = times[1] - times[0]
 
-    modes, occupations = get_g1_modes(H, atomic_rho, times, sig_m, sig_p, GAMMA_s)
+    modes, occupations = get_g1_modes(H, atomic_rho, times, sig_m, sig_p, GAMMA_s, plot_mods=plot_mods)
     mode_1 = modes[0]
     mode_1 = np.array(mode_1 / (np.sum(np.abs(mode_1) ** 2 * dt) ** 0.5))
 
@@ -242,13 +248,13 @@ def simulate_emitter(times, atom_dim, light_dim, atomic_rho, light_rho,
 
     rho_init = qutip.tensor(atomic_rho, ket2dm(qutip.basis(light_dim, 0)))
 
-    times, rho_eta_mode_a = get_light_outside(rho_init, times, GAMMA, light_dim, atom_dim, mode_1)
+    times, rho_eta_mode_a = get_light_outside(rho_init, times, GAMMA, light_dim, atom_dim, mode_1, progress_bar=progress_bar)
 
     return rho_eta_mode_a
 
 
-def main():
-    times = np.linspace(0, Tf, RES)
+def example():
+    times = np.linspace(0, t_final, DEFAULT_TIME_RES)
 
     atom_dim = 40
     light_dim = atom_dim + 1
@@ -276,5 +282,36 @@ def main():
     plt.show()
 
 
+def main(atomic_rho_in:np.matrix, time_resolution:int=DEFAULT_TIME_RES, progress_bar:bool=True, plot_mods:bool=False) -> np.matrix :
+    
+    ## Derive simple info from inputs and check:
+    atom_dim = atomic_rho_in.shape[0]
+    assert atomic_rho_in.shape[0]==atomic_rho_in.shape[1]
+    light_dim = atom_dim 
+    # assert time_resolution>15
+    
+    ## Define helpers
+    Sx = qutip.jmat((atom_dim - 1) / 2, 'x')
+    to_exp = 1j * Sx * np.pi 
+    
+    ## Prepare inputs:
+    times = np.linspace(0, t_final, time_resolution)
+    light_rho_initial = qutip.ket2dm(qutip.basis(light_dim, 0))  # initial light state
+    atomic_rho = Qobj(atomic_rho_in)
+    # plot_wigner(atomic_rho, cmap='bwr')    
+    atomic_rho = to_exp.expm() * atomic_rho * (to_exp.dag()).expm()  # qutip uses density matrices that are flipped
+    
+    ## Calc
+    light_rho_final = simulate_emitter(times, atom_dim, light_dim, atomic_rho, light_rho_initial, plot_mods=plot_mods, state_outside=True, progress_bar=progress_bar)
+    
+    
+    ## Transform to numpy object:
+    light_rho = light_rho_final.data
+    if scipy.sparse.issparse(light_rho):
+        light_rho = light_rho.todense()
+    
+    return light_rho
+    
+
 if __name__ == '__main__':
-    main()
+    example()

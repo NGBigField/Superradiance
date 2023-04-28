@@ -1125,7 +1125,7 @@ def _show_analitical_gkp():
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     
     # Plot
-    visuals.plot_light_wigner(final_state)
+    visuals.plot_plain_wigner(final_state)
     
     plt = visuals.plot_wigner_bloch_sphere(final_state, num_points=150, view_elev=-50)
     fig = plt.axes.figure
