@@ -64,9 +64,9 @@ class StateType(Enum):
 # ==================================================================================== #
 
 
-def _get_emitted_light(state_type:StateType, final_state:np.matrix):
+def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:float):
     # Basic info:
-    file_name = f"Emitted-light {state_type.name}"
+    file_name = f"Emitted-Light {state_type.name} fidelity={fidelity}"
     sub_folder = "Emitted-Light"
     # Get or calc:
     if saveload.exist(file_name, sub_folder=sub_folder):
@@ -131,10 +131,11 @@ def _get_cost_function(type_:StateType, num_atoms:int) -> Callable[[np.matrix], 
     else:
         raise ValueError(f"Not an option '{type_}'")
 
-def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], float]):
+def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], float]) -> float:
     cost = cost_function(final_state)
     fidelity = -cost
     print(f"Fidelity = {fidelity}")
+    return fidelity
     
         
 def _get_movie_config(
@@ -249,18 +250,18 @@ def plot_result(
     # print  fidelity:
     print(f"State: {state_name!r}")
     print(f"num steps={num_steps}")
-    _print_fidelity(final_state, cost_function)
+    fidelity = _print_fidelity(final_state, cost_function)
     
     ## plot bloch:
-    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=200, view_elev=-90)
-    # save_figure(file_name=state_name+" - Sphere")
+    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=200, view_elev=-90)
+    save_figure(file_name=state_name+" - Sphere")
     
     ## plot light:
-    # emitted_light_state = _get_emitted_light(state_type, final_state)
-    # plot_plain_wigner(emitted_light_state, with_colorbar=True)
-    # save_figure(file_name=state_name+" - Light - colorbar")
-    # plot_plain_wigner(emitted_light_state, with_colorbar=False)
-    # save_figure(file_name=state_name+" - Light")
+    emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
+    plot_plain_wigner(emitted_light_state, with_colorbar=True)
+    save_figure(file_name=state_name+" - Light - colorbar")
+    plot_plain_wigner(emitted_light_state, with_colorbar=False)
+    save_figure(file_name=state_name+" - Light")
     plot_plain_wigner(final_state, with_colorbar=False)
     save_figure(file_name=state_name+" - Projection")
     

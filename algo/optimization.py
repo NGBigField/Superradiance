@@ -553,6 +553,9 @@ def learn_custom_operation(
 
 
     # Progress_bar
+    if opt_method=="SLSQP":
+        print_interval = 1
+        max_iter *= 10
     prog_bar = strings.ProgressBar(max_iter, "Minimizing: ", print_length=100)    
     @decorators.sparse_execution(skip_num=print_interval, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
