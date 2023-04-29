@@ -23,7 +23,7 @@ import numpy as np
 
 # Our best optimized results:    
 from scripts.optimize.cat4_thin  import best_sequence_params as cat4_params
-from scripts.optimize.cat2       import best_sequence_params as cat2_params
+from scripts.optimize.cat2_i     import best_sequence_params as cat2_params
 from scripts.optimize.gkp_hex    import best_sequence_params as gkp_hex_params
 from scripts.optimize.gkp_square import best_sequence_params as gkp_square_params
 
@@ -72,7 +72,7 @@ def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:flo
     if saveload.exist(file_name, sub_folder=sub_folder):
         emitted_light_state = saveload.load(file_name, sub_folder=sub_folder)        
     else:
-        emitted_light_state = calc_emitted_light(final_state, time_resolution=200)
+        emitted_light_state = calc_emitted_light(final_state, time_resolution=300)
         saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
     # Return:
     return emitted_light_state
@@ -127,7 +127,7 @@ def _get_cost_function(type_:StateType, num_atoms:int) -> Callable[[np.matrix], 
     elif type_ is StateType.Cat4:
         return fidelity_to_cat(num_atoms=num_atoms, num_legs=4)
     elif type_ is StateType.Cat2:
-        return fidelity_to_cat(num_atoms=num_atoms, num_legs=2)        
+        return fidelity_to_cat(num_atoms=num_atoms, num_legs=2, phase=np.pi/2)        
     else:
         raise ValueError(f"Not an option '{type_}'")
 
@@ -253,7 +253,7 @@ def plot_result(
     fidelity = _print_fidelity(final_state, cost_function)
     
     ## plot bloch:
-    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=200, view_elev=-90)
+    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=100, view_elev=-90)
     save_figure(file_name=state_name+" - Sphere")
     
     ## plot light:
@@ -300,5 +300,5 @@ def create_movie(
 if __name__ == "__main__":
     # plot_sequence()
     # create_movie()
-    plot_all_best_results()
-    # plot_result(StateType.Cat2)
+    # plot_all_best_results()
+    plot_result(StateType.Cat2)
