@@ -22,7 +22,7 @@ from physics.famous_density_matrices import ground_state
 import numpy as np
 
 # Our best optimized results:    
-from scripts.optimize.cat4       import best_sequence_params as cat4_params
+from scripts.optimize.cat4_thin  import best_sequence_params as cat4_params
 from scripts.optimize.cat2       import best_sequence_params as cat2_params
 from scripts.optimize.gkp_hex    import best_sequence_params as gkp_hex_params
 from scripts.optimize.gkp_square import best_sequence_params as gkp_square_params
@@ -238,31 +238,35 @@ def plot_result(
     
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
-    movie_config = _get_movie_config(create_movie, num_transition_frames, state_type)
+    movie_config = _get_movie_config(create_movie, num_transition_frames, state_type)    
     
     # create state:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     
+    # Num step:
+    num_steps = sum([1 for op in operations if op.name=="squeezing"])
+    
     # print  fidelity:
     print(f"State: {state_name!r}")
+    print(f"num steps={num_steps}")
     _print_fidelity(final_state, cost_function)
     
-    # plot bloch:
-    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=200, view_elev=-90)
-    save_figure(file_name=state_name+" - Sphere")
+    ## plot bloch:
+    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=200, view_elev=-90)
+    # save_figure(file_name=state_name+" - Sphere")
     
-    # plot light:
-    emitted_light_state = _get_emitted_light(state_type, final_state)
-    plot_plain_wigner(emitted_light_state, with_colorbar=True)
-    save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False)
-    save_figure(file_name=state_name+" - Light")
+    ## plot light:
+    # emitted_light_state = _get_emitted_light(state_type, final_state)
+    # plot_plain_wigner(emitted_light_state, with_colorbar=True)
+    # save_figure(file_name=state_name+" - Light - colorbar")
+    # plot_plain_wigner(emitted_light_state, with_colorbar=False)
+    # save_figure(file_name=state_name+" - Light")
     plot_plain_wigner(final_state, with_colorbar=False)
     save_figure(file_name=state_name+" - Projection")
     
     # plt.close("all")
     
-    # # plot complete matter:
+    ## # plot complete matter picture:
     # bloch_config = BlochSphereConfig()
     # plot_matter_state(final_state, config=bloch_config)
     # save_figure(file_name=state_type.name+" - Matter")

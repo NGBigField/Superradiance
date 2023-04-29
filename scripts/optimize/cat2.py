@@ -60,7 +60,7 @@ def best_sequence_params(
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_intermediate_states)
     
     rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
-    p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
+    squeezing   = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
     stark_shift = standard_operations.stark_shift_and_rot()
         
     eps = 0.1    
@@ -104,7 +104,7 @@ def best_sequence_params(
     ]  # fidelity = 0.938   - 2 steps
     
     operations  = [
-        rotation, p2_pulse, rotation, p2_pulse, rotation
+        rotation, squeezing, rotation, squeezing, rotation
     ]
 
     num_operation_params : int = sum([op.num_params for op in operations])
@@ -120,7 +120,7 @@ def best_sequence_params(
         elif op is stark_shift:
             params_bound += _stark_bounds(n)
             params_lock  += _stark_lock(n)
-        elif op is p2_pulse:
+        elif op is squeezing:
             params_bound += _p2_bounds(n)
             params_lock  += _p2_lock(n)
         else:

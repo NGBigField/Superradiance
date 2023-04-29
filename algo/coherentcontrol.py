@@ -90,6 +90,7 @@ class Operation():
     string : str = None
     positive_params_only : bool = False
     rotation_params : List[int] = None
+    name : str = ""
     
     def get_string(self, params:List[float]) -> str:
         if self.string_func is not None:
@@ -579,11 +580,18 @@ class CoherentControl():
             return self.power_pulse_on_specific_directions(power=power, indices=indices)
 
         def power_pulse_on_specific_directions(self, power:int, indices:List[int] = [0,1,2]) -> Operation:
-            return Operation(
+            op = Operation(
                 num_params = len(indices),
                 function = lambda rho, *theta: self._power_pulse_func(rho, power=power, theta=theta, indices=indices),
                 string_func = lambda *theta: self._power_pulse_string_func(theta=theta, indices=indices, power=power )
             )
+            if power==1:
+                op.name = "rotation"
+            elif power==2:
+                op.name = "squeezing"
+            else:
+                op.name = f"power-{power} pulse"                
+            return op
         
         def squeezing(self, axis:Optional[Tuple[float, float]]=None) -> Operation:
             # Define num params:

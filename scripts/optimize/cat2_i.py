@@ -78,10 +78,15 @@ def best_sequence_params(
     #     0.0005128168028236, 0.0089496740531838, 0.0008262087960614, 0.000331551981269, 0.0773288810263087, 
     #     0.0005335029252635, 0.0004086130028968, 0.000606862784992
     # ]  # fidelity = ?????  - 1 steps
+    # theta = [
+    #     +2.2634889386413555 , +0.0191982536001193 , -1.8928371986018913 , -0.0333016826990670 , +0.2205461238230759 ,
+    #     -0.0210681193831718 , +0.4497206129835951 , +0.1635441051534410
+    # ] # fidelity = 0.5  - 1 steps
     theta = [
-        +1.2885253855565413 , +0.2048102879848464 , -2.6348915354127707 , -0.0300543192486739 , +0.1090078002183574 ,
-        +0.0158027353902013 , +0.6604241035769685 , +0.3387780297299488
-    ] # fidelity = 0.5  - 1 steps
+        -0.5760774336082597 , +0.1323903179629796 , -3.2415926535897932 , +0.0393305489457032 , +0.8003328339843916 , 
+        -0.1019899724435195 , +0.7026257860191545 , -0.0335225940181096
+    ] # fidelity = 0.695  - 1 steps
+    
     
     operations  = [
         rotation, p2_pulse, rotation
@@ -129,11 +134,11 @@ def best_sequence_params(
 def main(
     num_atoms:int=40, 
     num_total_attempts:int=2000, 
-    max_iter_per_attempt:int=8*int(1e3), 
-    max_error_per_attempt:Optional[float]=1e-13,
-    num_free_params:int|None=7,
+    max_iter_per_attempt:int=6*int(1e3), 
+    max_error_per_attempt:Optional[float]=1e-14,
+    num_free_params:int|None=6,
     sigma:float=0.005,
-    initial_sigma:float=0.01
+    initial_sigma:float=0.0000
 ) -> LearnedResults:
     
     # Define target:
