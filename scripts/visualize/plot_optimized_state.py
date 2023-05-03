@@ -31,7 +31,7 @@ from scripts.optimize.gkp_square import best_sequence_params as gkp_square_param
 from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
 
 # for plotting:
-from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_plain_wigner, ViewingAngles, BlochSphereConfig, save_figure
+from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_plain_wigner, ViewingAngles, BlochSphereConfig, save_figure, draw_now
 from utils import assertions, saveload
 import matplotlib.pyplot as plt
 
@@ -217,7 +217,6 @@ def plot_all_best_results(
     create_movie:bool = False,
     num_atoms:int = 40
 ):
-    
     for state_type in StateType:
         plot_result(state_type, create_movie, num_atoms)        
         print(" ")
@@ -253,17 +252,17 @@ def plot_result(
     fidelity = _print_fidelity(final_state, cost_function)
     
     ## plot bloch:
-    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=100, view_elev=-90)
-    save_figure(file_name=state_name+" - Sphere")
+    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=100, view_elev=-90)
+    # save_figure(file_name=state_name+" - Sphere")
     
-    ## plot light:
-    emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
-    plot_plain_wigner(emitted_light_state, with_colorbar=True)
-    save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False)
-    save_figure(file_name=state_name+" - Light")
-    plot_plain_wigner(final_state, with_colorbar=False)
-    save_figure(file_name=state_name+" - Projection")
+    # ## plot light:
+    # emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
+    # plot_plain_wigner(emitted_light_state, with_colorbar=True)
+    # save_figure(file_name=state_name+" - Light - colorbar")
+    # plot_plain_wigner(emitted_light_state, with_colorbar=False)
+    # save_figure(file_name=state_name+" - Light")
+    # plot_plain_wigner(final_state, with_colorbar=False)
+    # save_figure(file_name=state_name+" - Projection")
     
     # plt.close("all")
     
@@ -300,5 +299,5 @@ def create_movie(
 if __name__ == "__main__":
     # plot_sequence()
     # create_movie()
-    # plot_all_best_results()
-    plot_result(StateType.Cat2)
+    # plot_result(StateType.Cat2)
+    plot_all_best_results()

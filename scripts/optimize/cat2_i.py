@@ -92,9 +92,9 @@ def best_sequence_params(
     #     +0.2827102621043437 , -0.1090679797134472 , +1.2558451565627515
     # ] #  fidelity = 0.743  - 1 steps
     theta = [
-        +0.5255095876932305 , +1.6043558187790552 , +3.0708303318106438 , +1.5707067759783184 , +1.5707846557800629 ,
-        -0.0000073450157912 , -0.0000069179431008 , +1.6821322659593454
-    ] # fidelity 0.99 - 1 step
+        +1.6672585088573388 , +0.7966649375214807 , +3.2415926535897932 , +1.5714319595349933 , +1.5701701865717275 , 
+        -0.0000111217866419 , -0.0000015622659345 , +2.3594798466050158
+    ] # fidelity 0.9918 - 1 step
     
     
     operations  = [
@@ -143,10 +143,10 @@ def best_sequence_params(
 def main(
     num_atoms:int=40, 
     num_total_attempts:int=2000, 
-    max_iter_per_attempt:int=3*int(1e3), 
-    max_error_per_attempt:Optional[float]=1e-15,
+    max_iter_per_attempt:int=2*int(1e3), 
+    max_error_per_attempt:Optional[float]=1e-20,
     num_free_params:int|None=7,
-    sigma:float=0.08,
+    sigma:float=0.005,
     initial_sigma:float=0.0000
 ) -> LearnedResults:
     
