@@ -22,7 +22,7 @@ from physics.famous_density_matrices import ground_state
 import numpy as np
 
 # Our best optimized results:    
-from scripts.optimize.cat4_thin  import best_sequence_params as cat4_params
+from scripts.optimize.cat4_i     import best_sequence_params as cat4_params
 from scripts.optimize.cat2_i     import best_sequence_params as cat2_params
 from scripts.optimize.gkp_hex    import best_sequence_params as gkp_hex_params
 from scripts.optimize.gkp_square import best_sequence_params as gkp_square_params
@@ -125,7 +125,7 @@ def _get_cost_function(type_:StateType, num_atoms:int) -> Callable[[np.matrix], 
     elif type_ is StateType.GKPSquare:
         return fidelity_to_gkp(num_atoms=num_atoms, gkp_form="square")        
     elif type_ is StateType.Cat4:
-        return fidelity_to_cat(num_atoms=num_atoms, num_legs=4)
+        return fidelity_to_cat(num_atoms=num_atoms, num_legs=4, phase=np.pi/4)
     elif type_ is StateType.Cat2:
         return fidelity_to_cat(num_atoms=num_atoms, num_legs=2, phase=np.pi/2)        
     else:
@@ -261,8 +261,8 @@ def plot_result(
     # save_figure(file_name=state_name+" - Light - colorbar")
     # plot_plain_wigner(emitted_light_state, with_colorbar=False)
     # save_figure(file_name=state_name+" - Light")
-    # plot_plain_wigner(final_state, with_colorbar=False)
-    # save_figure(file_name=state_name+" - Projection")
+    plot_plain_wigner(final_state, with_colorbar=False)
+    save_figure(file_name=state_name+" - Projection")
     
     # plt.close("all")
     
@@ -299,5 +299,5 @@ def create_movie(
 if __name__ == "__main__":
     # plot_sequence()
     # create_movie()
-    # plot_result(StateType.Cat2)
-    plot_all_best_results()
+    plot_result(StateType.Cat4)
+    # plot_all_best_results()

@@ -84,6 +84,10 @@ def best_sequence_params(
         -0.0148392776373756 , +1.0095951617596193 , -0.3672414790623336 , +1.1767024803183896 , +2.4076033049249776 , 
         -0.3040730687012984 , -0.0332194445613795 , -0.1377646027883810  
     ]  # 1 step - 0.50 fidelity
+    theta = [
+        +0.8937567499106599 , +3.2085033698137830 , -2.3242661423839071 , +0.0036751816770657 , -0.7836001773757240 , 
+        +2.6065083924231915 , +2.2505047554207338 , -2.4740789195081394        
+    ] # 1 step - 96 fidelity
 
     operations  = [
         rotation, squeezing, rotation
@@ -131,9 +135,9 @@ def main(
     num_total_attempts:int=1000, 
     max_iter_per_attempt:int=2*int(1e3), 
     max_error_per_attempt:Optional[float]=1e-10,
-    num_free_params:int|None=6,
-    sigma:float=0.005,
-    initial_sigma:float=0.10
+    num_free_params:int|None=7,
+    sigma:float=0.0005,
+    initial_sigma:float=0.00
 ) -> LearnedResults:
     
     # Define target:
