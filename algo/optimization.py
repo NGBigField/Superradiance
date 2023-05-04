@@ -553,10 +553,11 @@ def learn_custom_operation(
 
 
     # Progress_bar
+    progbar_max_iter = max_iter
     if opt_method=="SLSQP":
         print_interval = 1
-        max_iter *= 100
-    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ", print_length=100)    
+        max_iter *= 10000
+    prog_bar = strings.ProgressBar(progbar_max_iter, "Minimizing: ", print_length=100)    
     @decorators.sparse_execution(skip_num=print_interval, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
         cost = _total_cost_function(xk)
