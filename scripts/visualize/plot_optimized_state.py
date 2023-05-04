@@ -64,7 +64,7 @@ class StateType(Enum):
 # ==================================================================================== #
 
 
-def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:float):
+def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:float) -> np.matrix:
     # Basic info:
     file_name = f"Emitted-Light {state_type.name} fidelity={fidelity}"
     sub_folder = "Emitted-Light"
@@ -75,7 +75,7 @@ def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:flo
         emitted_light_state = calc_emitted_light(final_state, time_resolution=300)
         saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
     # Return:
-    return emitted_light_state
+    return emitted_light_state #type: ignore
 
 
 def _get_best_params(
@@ -252,15 +252,15 @@ def plot_result(
     fidelity = _print_fidelity(final_state, cost_function)
     
     ## plot bloch:
-    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=100, view_elev=-90)
-    # save_figure(file_name=state_name+" - Sphere")
+    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=300, view_elev=-90)
+    save_figure(file_name=state_name+" - Sphere")
     
     # ## plot light:
-    # emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
-    # plot_plain_wigner(emitted_light_state, with_colorbar=True)
-    # save_figure(file_name=state_name+" - Light - colorbar")
-    # plot_plain_wigner(emitted_light_state, with_colorbar=False)
-    # save_figure(file_name=state_name+" - Light")
+    emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
+    plot_plain_wigner(emitted_light_state, with_colorbar=True)
+    save_figure(file_name=state_name+" - Light - colorbar")
+    plot_plain_wigner(emitted_light_state, with_colorbar=False)
+    save_figure(file_name=state_name+" - Light")
     plot_plain_wigner(final_state, with_colorbar=False)
     save_figure(file_name=state_name+" - Projection")
     
@@ -301,3 +301,5 @@ if __name__ == "__main__":
     # create_movie()
     plot_result(StateType.Cat4)
     # plot_all_best_results()
+    
+    print("Done.")

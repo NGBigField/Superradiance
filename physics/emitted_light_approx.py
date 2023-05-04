@@ -14,7 +14,7 @@ OMEGA_0 = 0  # atomic transition frequency
 DEFAULT_TIME_RES = 200
 GAMMA = 1
 GAMMA_s = 0.
-t_final = 0.6 # GAMMA ** -1 * 30
+DEFAULT_T_FINAL = 0.6  # GAMMA ** -1 * 30
 cmap = matplotlib.cm.bwr
 
 
@@ -282,13 +282,12 @@ def example():
     plt.show()
 
 
-def main(atomic_rho_in:np.matrix, time_resolution:int=DEFAULT_TIME_RES, progress_bar:bool=True, plot_mods:bool=False) -> np.matrix :
+def main(atomic_rho_in:np.matrix, time_resolution:int=DEFAULT_TIME_RES, t_final:float=DEFAULT_T_FINAL, progress_bar:bool=True, plot_mods:bool=False) -> np.matrix :
     
     ## Derive simple info from inputs and check:
     atom_dim = atomic_rho_in.shape[0]
     assert atomic_rho_in.shape[0]==atomic_rho_in.shape[1]
     light_dim = atom_dim 
-    # assert time_resolution>15
     
     ## Define helpers
     Sx = qutip.jmat((atom_dim - 1) / 2, 'x')
