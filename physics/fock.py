@@ -372,7 +372,25 @@ class FockSum():
 # |                             Declared Functions                                   | #
 # ==================================================================================== #
 
-def cat_state(num_atoms:int, alpha:float, num_legs:int, odd:bool=False)->FockSum:
+def cat_state(num_atoms:int, alpha:float, num_legs:int, phase:float=0.0)->FockSum:
+    """cat_state _summary_
+
+    _extended_summary_
+
+    Args:
+        num_atoms (int): 
+        alpha (float): 
+        num_legs (int): 
+        phase (float, optional):  Defaults to 0.0.
+            if phase == 0  then we get an even cat.
+            if phase == pi then we get an odd  cat.
+            else, some other relative phase between each macroscopic state.
+            
+
+    Returns:
+        FockSum: 
+    """
+    
     # check inputs:
     num_atoms = assertions.integer(num_atoms)
     num_legs = assertions.integer(num_legs)
@@ -384,8 +402,9 @@ def cat_state(num_atoms:int, alpha:float, num_legs:int, odd:bool=False)->FockSum
     for moment in range(0, num_atoms+1):
         
         total_coefficient = 0.0
-        for leg in range(num_legs):
-            leg_alpha = alpha * np.exp(1j * 2*np.pi * leg / num_legs)
+        for leg_index in range(num_legs):
+            leg_number = leg_index + 1
+            leg_alpha = alpha * np.exp(1j * 2*np.pi * leg_index / num_legs)
             leg_alpha = numpy_tools.reduce_small_imaginary_to_zero(leg_alpha)
 
             # compute coefficient
@@ -394,9 +413,10 @@ def cat_state(num_atoms:int, alpha:float, num_legs:int, odd:bool=False)->FockSum
             else:
                 power = np.power(leg_alpha, moment) 
                 coef = np.exp( -(abs(leg_alpha)**2)/2 ) * power / _root_factorial(moment) 
-
-            if odd and num_legs==2 and leg!=0:
-                coef *= -1
+                
+            if phase!=0.0:
+                exponent = 1j*phase * leg_index 
+                coef *= numpy_tools.reduce_small_imaginary_to_zero( np.exp(exponent) )
                 
             total_coefficient += coef
 
@@ -467,14 +487,15 @@ def _test_simple_fock_density_matrix():
     print(rho)
 
 def _test_cat_state(
-    num_moments:int = 40,
+    num_moments:int = 20,
     alpha:float = 3,
-    num_legs:int = 4
+    num_legs:int = 2
 ):
-    fock_sum = cat_state(num_atoms=num_moments, alpha=alpha, num_legs=num_legs)
+    fock_sum = cat_state(num_atoms=num_moments, alpha=alpha, num_legs=num_legs, phase=np.pi/2)
     print(fock_sum)
     rho = fock_sum.to_density_matrix(num_moments=num_moments)
-    visuals.plot_matter_state(rho)
+    # visuals.plot_matter_state(rho)
+    visuals.plot_plain_wigner(rho)
     visuals.draw_now()
     print("Printed")
 

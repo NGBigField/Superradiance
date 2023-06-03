@@ -112,12 +112,12 @@ def _goal_gkp_state_ket_square(
     return psi
 
 def _test_plot_goal_gkp():
-    from utils.visuals import plot_matter_state, plot_light_wigner
+    from utils.visuals import plot_matter_state, plot_plain_wigner
 
     num_moments = 40
     for form in ["square", "hex"]:
         rho = gkp_state(num_moments, form)
-        plot_light_wigner(rho)
+        plot_plain_wigner(rho)
     plot_matter_state(rho)
     
     print("Done.")

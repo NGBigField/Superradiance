@@ -4,6 +4,13 @@
 # |                                   Imports                                        | #
 # ==================================================================================== #
 
+if __name__ == "__main__":
+    import sys, pathlib
+    sys.path.append(
+        str(pathlib.Path(__file__).parent.parent)
+    )
+
+
 # Everyone needs numpy and numeric stuff:
 import numpy as np
 from numpy import pi
@@ -63,7 +70,8 @@ from copy import deepcopy
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-OPT_METHOD : Final[str] = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
+POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead']
+DEFAULT_OPT_METHOD : Final[str] = "Nelder-Mead" 
 NUM_PULSE_PARAMS : Final = 4  
 
 DEFAULT_TOLERANCE : Final[float] = 1e-12  
@@ -97,6 +105,14 @@ class LearnedResults():
         s += np_utils.mat_str_with_leading_text(self.final_state  , text="final_state  : ")+newline  
         s += f"num_iterations={self.iterations}"+newline
         s += f"operations: {self.operations}"+newline
+        return s
+    
+    def operation_params_str(self)->str:
+        s = "["
+        for v in self.operation_params:
+            s += f"{v}, "
+        s = s[:-2]
+        s += "]"
         return s
     
 
@@ -516,6 +532,7 @@ def learn_custom_operation(
     cost_function : Callable[[_DensityMatrixType], float],
     max_iter : int=100, 
     tolerance : Optional[float] = None,
+    opt_method : str = DEFAULT_OPT_METHOD,
     initial_guess : Optional[np.ndarray] = None,
     parameters_config : Optional[List[BaseParamType]] = None,
     save_results : bool = True,
@@ -536,7 +553,11 @@ def learn_custom_operation(
 
 
     # Progress_bar
-    prog_bar = strings.ProgressBar(max_iter, "Minimizing: ", print_length=100)    
+    progbar_max_iter = max_iter
+    if opt_method=="SLSQP":
+        print_interval = 1
+        max_iter *= 10000
+    prog_bar = strings.ProgressBar(progbar_max_iter, "Minimizing: ", print_length=100)    
     @decorators.sparse_execution(skip_num=print_interval, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
         cost = _total_cost_function(xk)
@@ -557,14 +578,14 @@ def learn_custom_operation(
 
     options = dict(maxiter = max_iter)   
     bounds = param_config.bounds
-    tolerance = args.default_value(tolerance, DEFAULT_TOLERANCE)
+    tolerance = arguments.default_value(tolerance, DEFAULT_TOLERANCE)
 
     # Run optimization:
     start_time = time.time()
     opt_res : OptimizeResult = minimize(
         _total_cost_function, 
         initial_guess, 
-        method=OPT_METHOD, 
+        method=opt_method, 
         options=options, 
         callback=_after_each, 
         bounds=bounds,
@@ -604,6 +625,7 @@ def learn_custom_operation_by_partial_repetitions(
     max_error_per_attempt:Optional[float]=None,
     num_free_params:int|None=20,
     sigma:float = 0.002,
+    initial_sigma:float = 0.2,
     log_name:str=strings.time_stamp()
 )-> LearnedResults:
     
@@ -614,7 +636,8 @@ def learn_custom_operation_by_partial_repetitions(
     num_operation_params = sum([op.num_params for op in operations])    
     assert len(initial_params)==num_operation_params
 
-    ## Initital theta
+    ## Initital params:
+    initial_params = add_noise_to_free_params(initial_params, initial_sigma)
     initial_theta = [param.get_value() for param in initial_params]
 
     ## Set 0'th iteration:
@@ -622,7 +645,10 @@ def learn_custom_operation_by_partial_repetitions(
 
     ## Iterate:
     for attempt_ind in range(num_attempts):
-        logger.info(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)}")
+        ## Use a random optimization method:
+        opt_method = lists.random_item(POSSIBLE_OPE_METHODS)
+
+        logger.info(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)} ; Optimization method: {opt_method!r}")
         
         ## Lock random params and add noise to free params::
         num_fix_params = 0 if num_free_params is None else num_operation_params-num_free_params
@@ -634,6 +660,7 @@ def learn_custom_operation_by_partial_repetitions(
             param.set_value(value)
             params[i] = param
         params = add_noise_to_free_params(params, sigma)
+
         
         ## Learn the best theta with these locked params:
         try:            
@@ -643,7 +670,8 @@ def learn_custom_operation_by_partial_repetitions(
                 operations=operations, 
                 max_iter=max_iter_per_attempt, 
                 tolerance=max_error_per_attempt,
-                parameters_config=params
+                parameters_config=params,
+                opt_method=opt_method
             )
         except Exception as e:
             s = errors.get_traceback(e)
@@ -672,5 +700,10 @@ def _test():
     results = optimized_Sx2_pulses_by_partial_repetition()
 
 if __name__ == "__main__":
+    l = LearnedResults(operation_params=[-1.0, 2.31, 1241.14, 10.523 , 140.514])
+    s = l.operation_params_str()
+    
+
+
     _test()
     print("Done.")

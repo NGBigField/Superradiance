@@ -10,9 +10,14 @@ from scripts.optimize.gkp_hex    import main as hex_gkp
 from scripts.optimize.cat4_thin  import main as cat4
 from scripts.optimize.cat2       import main as cat2
 
+from typing import Any
 
 
-def main(variation:int=2, seed:int=0, num_total_attempts:int=2000):
+def main(
+    variation:int=2, 
+    seed:int=0, 
+    num_total_attempts:int=150
+) -> dict[str, Any]:
     
     if variation==0:
         result = square_gkp(num_total_attempts=num_total_attempts)
@@ -36,10 +41,10 @@ def main(variation:int=2, seed:int=0, num_total_attempts:int=2000):
         variation = name,
         seed = seed,
         score = result.score,
-        theta = result.operation_params
+        theta = result.operation_params_str()
     )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     main()
 

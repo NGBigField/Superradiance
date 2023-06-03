@@ -23,20 +23,13 @@ from matplotlib.colors import LightSource
 # Everyone needs numpy in their life and other math stuff:
 import numpy as np
 import math
+import scipy
 
 # For type hints:
-from typing import (
-    Any,
-    Optional,
-    Union,
-    Generator,
-    List,
-    ClassVar,
-    Final,
-)
+from typing import Any, Optional, Union, Generator, List, ClassVar, Final
 
 # Import our tools and utils:
-from utils import strings, saveload, assertions
+from utils import strings, saveload, assertions, arguments
 
 # For function version detection:
 from packaging.version import parse as parse_version
@@ -60,6 +53,7 @@ from dataclasses import dataclass, field
 
 # for quantum tools:
 import qutip
+
 
 # ==================================================================================== #
 #|                                 Constants                                          |#
@@ -159,18 +153,83 @@ def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:
 
 
 
-def plot_light_wigner(state:np.matrix, title:Optional[str]=None)->None:
+def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
+                cmap=None, alpha_max=7.5, colorbar=False,
+                method='clenshaw', projection='2d'):
+    """_plot_wigner Taken from qutip and slightly changed. 
+    qutip are the authors of this function.
+    """
+    
+    if not fig and not ax:
+        if projection == '2d':
+            fig, ax = plt.subplots(1, 1, figsize=figsize)
+        elif projection == '3d':
+            fig = plt.figure(figsize=figsize)
+            ax = fig.add_subplot(1, 1, 1, projection='3d')
+        else:
+            raise ValueError('Unexpected value of projection keyword argument')
+
+    if qutip.isket(rho):
+        rho = qutip.ket2dm(rho)
+
+    xvec = np.linspace(-alpha_max, alpha_max, 200)
+    W0 = qutip.wigner(rho, xvec, xvec, method=method)
+
+    W, yvec = W0 if isinstance(W0, tuple) else (W0, xvec)
+
+    wlim = abs(W).max()
+
+    if cmap is None:
+        cmap = cm.get_cmap('RdBu')
+
+    if projection == '2d':
+        cf = ax.contourf(xvec, yvec, W, 100,
+                         norm=mpl.colors.Normalize(-wlim, wlim), cmap=cmap)
+    elif projection == '3d':
+        X, Y = np.meshgrid(xvec, xvec)
+        cf = ax.plot_surface(X, Y, W0, rstride=5, cstride=5, linewidth=0.5,
+                             norm=mpl.colors.Normalize(-wlim, wlim), cmap=cmap)
+    else:
+        raise ValueError('Unexpected value of projection keyword argument.')
+
+    if xvec is not yvec:
+        ax.set_ylim(xvec.min(), xvec.max())
+
+    ax.set_xlabel(r'$\rm{Re}(\alpha)$', fontsize=12)
+    ax.set_ylabel(r'$\rm{Im}(\alpha)$', fontsize=12)
+
+    if colorbar:
+        cb = fig.colorbar(cf, ax=ax)
+    else:
+        cb = None
+
+    ax.set_title("Wigner function", fontsize=12)
+
+    return fig, ax, cf, cb
+
+
+def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False, colorbar_lims:tuple[float, float]|None=None)->None:
     # Inversed color-map:
     cmap = cm.get_cmap('RdBu')
     cmap = cmap.reversed()
     
+    # Qutip object:
+    qu_state = qutip.Qobj(state)
+    
     # plot:
-    fig, ax = qutip.plot_wigner( qutip.Qobj(state), cmap=cmap )
+    fig, ax, cf, cb = _plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar )
     plt.grid(True)
+    
+    if colorbar_lims is not None:
+        assert len(colorbar_lims)==2
+        assert isinstance(colorbar_lims, tuple)
+        cf.set_clim(*colorbar_lims)
+
     
     # Add title:
     if title is not None:
         ax.set_title(title)
+        
 
 def plot_wigner_bloch_sphere(
     rho:np.matrix, 
@@ -471,15 +530,15 @@ class MatterStatePlot():
         return fig, ax_bloch_sphe, ax_color_bar, ax_block_city
 
 class VideoRecorder():
-    def __init__(self, fps:float=10.0) -> None:
+    def __init__(self, fps:float=10.0, temp_dir_name:str="") -> None:
         self.fps = fps
-        self.frames_dir : str = self._create_temp_folders_dir()
+        self.frames_dir : str = self._create_temp_folders_dir(temp_dir_name=temp_dir_name)
         self.frames_duration : List[int] = []
         self.frames_counter : int = 0
 
     def capture(self, fig:Optional[Figure]=None, duration:Optional[int]=None)->None:
         # Complete missing inputs:
-        duration = args.default_value(duration, 1)
+        duration = arguments.default_value(duration, 1)
         if fig is None:
             fig = plt.gcf()
         # Check inputs:
@@ -496,7 +555,7 @@ class VideoRecorder():
 
     def write_video(self, name:Optional[str]=None)->None:
         # Complete missing inputs:
-        name = args.default_value(name, default_factory=strings.time_stamp )        
+        name = arguments.default_value(name, default_factory=strings.time_stamp )        
         # Prepare folder for video:
         saveload.force_folder_exists(VIDEOS_FOLDER)
         clips_gen = self.image_clips()
@@ -522,8 +581,8 @@ class VideoRecorder():
         return self.frames_dir+"frame"+f"{index}"
 
     @staticmethod
-    def _create_temp_folders_dir()->str:
-        frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep+strings.time_stamp()+os.sep
+    def _create_temp_folders_dir(temp_dir_name:str="")->str:
+        frames_dir = VIDEOS_FOLDER+"temp_frames"+os.sep+temp_dir_name+"-"+strings.time_stamp()+os.sep
         saveload.force_folder_exists(frames_dir)
         return frames_dir
 
@@ -555,9 +614,25 @@ def _test_bloch_sphere():
     # Finish
     print("Done.")
     
+def _test_light_wigner():
+    # Specific imports:
+    from physics.famous_density_matrices import gkp_state, cat_state
+
+    # Constants:
+    num_atoms = 20
+
+    # State:
+    state = cat_state(num_atoms=num_atoms, num_legs=2, alpha=1.0)
+    # state = gkp_state(num_atoms=num_atoms, form="square")
+
+    # Plot:
+    draw_now()
+    plot_plain_wigner(state, "Test", with_colorbar=True, colorbar_lims=(-1, 1))
+    
 
 def tests():
-    _test_bloch_sphere()
+    # _test_bloch_sphere()
+    _test_light_wigner()
 
     
     print("Done tests.")

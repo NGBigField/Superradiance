@@ -6,7 +6,11 @@ if __name__ == "__main__":
 # Import DictWriter class from CSV module
 from csv import DictWriter
 
-def main(num_seeds:int=10, num_variations:int=4):
+def main(
+    num_seeds:int=20, 
+    num_variations:int=4,
+    job_type="optimize"  # "movie"\"optimize"\"plot_system_size"
+):
 
     ## Define paths and names:
     sep = os.sep
@@ -14,24 +18,27 @@ def main(num_seeds:int=10, num_variations:int=4):
     #
     script_fullpath     = this_folder_path+sep+"worker.py"
     results_fullpath    = this_folder_path+sep+"results.csv"
-    output_files_prefix = 'superradiance'
+    output_files_prefix = "superradiance-"+job_type
     #
-    print(f"script_fullpath={script_fullpath}")
-    print(f"results_fullpath={results_fullpath}")
-    print(f"output_files_prefix={output_files_prefix}")
+    print(f"script_fullpath={script_fullpath!r}")
+    print(f"results_fullpath={results_fullpath!r}")
+    print(f"output_files_prefix={output_files_prefix!r}")
+    print(f"job_type={job_type!r}")
 
     ## Define job params:
     job_params = []
-    for seed in range(num_seeds):
-        seed = f"{seed}"
 
-        for variation in range(num_variations):
-            variation = f"{variation}"
+    for variation in range(num_variations):
+        variation = f"{variation}"
+
+        for seed in range(num_seeds):
+            seed = f"{seed}"
 
             job_params.append( dict(
                 outfile=results_fullpath,
                 variation=variation,
                 seed=seed,
+                job_type=job_type
             ))
 
     for params in job_params:
@@ -51,8 +58,8 @@ def main(num_seeds:int=10, num_variations:int=4):
         output_files_prefix,
         job_params,
         request_cpus='8',
-        requestMemory='5gb',
-        Arguments='$(outfile) $(seed) $(variation)'
+        requestMemory='1gb',
+        Arguments='$(outfile) $(seed) $(variation) $(job_type)'
     )
 
     print("Called condor successfully")

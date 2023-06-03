@@ -90,6 +90,7 @@ class Operation():
     string : str = None
     positive_params_only : bool = False
     rotation_params : List[int] = None
+    name : str = ""
     
     def get_string(self, params:List[float]) -> str:
         if self.string_func is not None:
@@ -366,6 +367,7 @@ class SequenceMovieRecorder():
         num_freeze_frames : int = 5
         bloch_sphere_config : visuals.BlochSphereConfig = field( default_factory=visuals.BlochSphereConfig )
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
+        temp_dir_name : str = ""
 
     
     def __init__(
@@ -380,7 +382,7 @@ class SequenceMovieRecorder():
                 initial_state=initial_state,
                 bloch_sphere_config=self.config.bloch_sphere_config
             )            
-            self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps)
+            self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps, temp_dir_name=self.config.temp_dir_name)
         else:
             self.figure_object = None
             self.video_recorder = None
@@ -578,11 +580,18 @@ class CoherentControl():
             return self.power_pulse_on_specific_directions(power=power, indices=indices)
 
         def power_pulse_on_specific_directions(self, power:int, indices:List[int] = [0,1,2]) -> Operation:
-            return Operation(
+            op = Operation(
                 num_params = len(indices),
                 function = lambda rho, *theta: self._power_pulse_func(rho, power=power, theta=theta, indices=indices),
                 string_func = lambda *theta: self._power_pulse_string_func(theta=theta, indices=indices, power=power )
             )
+            if power==1:
+                op.name = "rotation"
+            elif power==2:
+                op.name = "squeezing"
+            else:
+                op.name = f"power-{power} pulse"                
+            return op
         
         def squeezing(self, axis:Optional[Tuple[float, float]]=None) -> Operation:
             # Define num params:
@@ -1124,7 +1133,7 @@ def _show_analitical_gkp():
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     
     # Plot
-    visuals.plot_light_wigner(final_state)
+    visuals.plot_plain_wigner(final_state)
     
     plt = visuals.plot_wigner_bloch_sphere(final_state, num_points=150, view_elev=-50)
     fig = plt.axes.figure
@@ -1148,72 +1157,40 @@ def _test_custom_sequence():
     
     
     # define score function:
-    from metrics import fidelity  
-    from physics.gkp import gkp_state  
-    target_state = gkp_state(num_moments, form="square")
-    def _score_str_func(rho:np.matrix)->str:
-        fidel = fidelity(rho, target_state)
-        s = f"Fidelity: {fidel}"
-        return s
-    
-    # Movie config:
-    movie_config=CoherentControl.MovieConfig(
-        active=active_movie_recorder,
-        show_now=False,
-        num_freeze_frames=fps,
-        fps=fps,
-        bloch_sphere_resolution=200,
-        score_str_func=_score_str_func,
-        viewing_angles=visuals.ViewingAngles(elev=-40)
-    )
+    from common_cost_functions import fidelity_to_cat
+    fidelity_to_cat_ = fidelity_to_cat(num_atoms=40, num_legs=2, phase=np.pi/2)
+
 
     ## Define operations:
     coherent_control = CoherentControl(num_atoms=num_moments)
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
 
-    rotation_op = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0,1,2])
-    rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
-    p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
+    rotation  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
+    squeezing = standard_operations.power_pulse_on_specific_directions(power=2, indices=[2])
+    
+    pi = np.pi
+    pi_half = pi/2
     
     theta = [
-        -0.0005220242430289 , +0.1214854878121696 , -0.3503382136478652 , +0.0249467996324166 , +0.2268814500064196 , 
-        -0.0193968256968388 , +0.2519820229625508 , -1.0606927877255754 , +0.0024581418239480 , +0.2153721559181195 , 
-        +0.0321185421898414 , +0.1529898586244914 , -0.0064135162095041 , -0.0039080523787257 , -0.0660546199676986 , 
-        +2.4479021917891095 , -1.1173897335549225 , +1.4100021342608935 , -0.0483775581651196 , -0.2901330051698872 , 
-        -2.2320845648230905 , +2.2071336237395207 , -1.5501063082693158 , -1.1049689855154776 , -0.2459043981170417 , 
-        +0.0586184142142499 , -2.5989519864652655 , -1.0735239017020244 , +0.0287628506285407 , -0.1139472738214305 , 
-        -0.2676402390664875 , -0.2192863054735023 , +0.0562764996156372 , +0.4029315953634696 , +0.1678269369508926 , 
-        +1.6507252256843938 , -0.2433358605879460 , -0.4109160437178895 , -0.0077238107589316 , +0.1030779049811571 , 
-        +0.6580218847840631 , +0.1737022815366773 , +0.3615269622275386 , +0.0449993627605910 , -0.0653603295524819 , 
-        +0.0561416491965956 , -0.2384603860353423 , +0.0761315335076899 , -0.0819355517867351 , +0.0493571995862350 , 
-        +0.1630899016912762 , -0.3402727893857073 , -0.3380625489369050 , -0.3092182212419290 , +0.9926118928574805 , 
-        -0.0108749414709896 , -0.9716827701536934 , +1.0845501665990769 
+        +pi_half , +0.00 , -0.00 , 
+        +1.0  ,
+        -pi_half , -0.00 , +0.00 
     ]
     
-    x_op = lambda p: standard_operations.power_pulse_on_specific_directions(power=p, indices=[0])
-    z_op = lambda p: standard_operations.power_pulse_on_specific_directions(power=p, indices=[2])
 
     operations = [
-        rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation, p2_pulse, rotation,  p2_pulse, rotation, p2_pulse, rotation
+        rotation, squeezing, rotation
     ]
     
     initial_state = Fock.ground_state_density_matrix(num_moments)
     
     # Apply:
-    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
-    visuals.plot_wigner_bloch_sphere(final_state, num_points=200, view_elev=-55, alpha_min=1)
+    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations)
+    # visuals.plot_wigner_bloch_sphere(final_state, num_points=200, view_elev=-55, alpha_min=1)
+    visuals.plot_plain_wigner(final_state)
     visuals.draw_now()
-    visuals.save_figure()
-    
-    print("Movie is ready in folder 'video' ")
-    # plot
-    '''
-        score_str = _score_str_func(final_state)
-        fig = visuals.plot_matter_state(final_state, block_sphere_resolution=150)
-        fig.suptitle(f"{score_str}", fontsize=16)
-        visuals.plot_light_wigner(final_state)
-        visuals.draw_now()
-    '''
+    # visuals.save_figure()
+    print("Done.")
     
 if __name__ == "__main__":    
     np_utils.fix_print_length()

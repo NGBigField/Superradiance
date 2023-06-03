@@ -5,6 +5,7 @@ from typing import (
     TypeVar,
     Tuple,
 )
+import numpy as np
 
 _T = TypeVar('_T')
 
@@ -46,3 +47,8 @@ def iterate_with_edge_indicators(l:List[_T]) -> Generator[Tuple[bool, bool, _T],
         yield is_first, is_last, item
 
         is_first = False
+
+def random_item(lis:List[_T])->_T:
+    n = len(lis)
+    index = np.random.choice(n)
+    return lis[index]

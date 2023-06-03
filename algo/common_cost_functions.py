@@ -17,8 +17,8 @@ __all__ = [
 def fidelity_to_gkp(num_atoms:int, gkp_form:str="square")->Callable[[_DensityMatrixType], float] :
     return gkp.get_gkp_cost_function(num_atoms=num_atoms, form=gkp_form)
 
-def fidelity_to_cat(num_atoms:int, num_legs:int)->Callable[[_DensityMatrixType], float]:
-    target = cat_state(num_atoms, alpha=3, num_legs=num_legs)
+def fidelity_to_cat(num_atoms:int, num_legs:int, phase:float=0.0)->Callable[[_DensityMatrixType], float]:
+    target = cat_state(num_atoms, alpha=3, num_legs=num_legs, phase=phase)
     def cost_func(rho:np.matrix)->float:
         return -1*fidelity(rho, target)
     return cost_func
