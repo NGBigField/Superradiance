@@ -282,7 +282,7 @@ def example():
     plt.show()
 
 
-def main(atomic_rho_in:np.matrix, time_resolution:int=DEFAULT_TIME_RES, t_final:float=DEFAULT_T_FINAL, progress_bar:bool=True, plot_mods:bool=False) -> np.matrix :
+def main(atomic_rho_in:np.matrix, time_resolution:int=DEFAULT_TIME_RES, t_final:float=DEFAULT_T_FINAL, progress_bar:bool=True, plot_mods:bool=True) -> np.matrix :
     
     ## Derive simple info from inputs and check:
     atom_dim = atomic_rho_in.shape[0]

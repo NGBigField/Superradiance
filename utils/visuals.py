@@ -19,6 +19,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.axes import Axes
 from matplotlib.transforms import Bbox
 from matplotlib.colors import LightSource
+from matplotlib.colorbar import Colorbar
+from matplotlib.contour import ContourSet
 
 # Everyone needs numpy in their life and other math stuff:
 import numpy as np
@@ -60,6 +62,7 @@ import qutip
 # ==================================================================================== #
 VIDEOS_FOLDER : str = os.getcwd()+os.sep+"videos"+os.sep
 IMAGES_FOLDER : str = os.getcwd()+os.sep+"images"+os.sep
+
 
 # Plot bloch default params:
 DEFAULT_ELEV : Final[float] = -40
@@ -153,9 +156,17 @@ def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:
 
 
 
-def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
-                cmap=None, alpha_max=7.5, colorbar=False,
-                method='clenshaw', projection='2d'):
+def _plot_wigner(
+    rho, fig=None, ax:plt.Axes|None=None, figsize=(6, 6),
+    cmap=None, alpha_max=7.5, colorbar=False,
+    colorlims:tuple[float, float]|None=None,
+    method='clenshaw', projection='2d'
+)->tuple[
+    Figure,         # fig, 
+    plt.Axes,       # ax, 
+    ContourSet,     # cf, 
+    Colorbar        # cb
+]:
     """_plot_wigner Taken from qutip and slightly changed. 
     qutip are the authors of this function.
     """
@@ -169,6 +180,8 @@ def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
         else:
             raise ValueError('Unexpected value of projection keyword argument')
 
+    assert isinstance(ax, plt.Axes)
+
     if qutip.isket(rho):
         rho = qutip.ket2dm(rho)
 
@@ -177,18 +190,31 @@ def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
 
     W, yvec = W0 if isinstance(W0, tuple) else (W0, xvec)
 
+
+    # Color limits:
+    if colorlims is not None:
+        assert len(colorlims)==2
+        assert isinstance(colorlims, tuple)
+        with np.nditer(W, op_flags=['readwrite']) as it:
+            for x in it:
+                if x<colorlims[0]:
+                    x[...] = colorlims[0]
+                elif x>colorlims[1]:
+                    x[...] = colorlims[1]
+
     wlim = abs(W).max()
+    wlims = (-wlim, wlim)
 
     if cmap is None:
         cmap = cm.get_cmap('RdBu')
 
     if projection == '2d':
         cf = ax.contourf(xvec, yvec, W, 100,
-                         norm=mpl.colors.Normalize(-wlim, wlim), cmap=cmap)
+                         norm=mpl.colors.Normalize(wlims[0], wlims[1]), cmap=cmap)
     elif projection == '3d':
         X, Y = np.meshgrid(xvec, xvec)
         cf = ax.plot_surface(X, Y, W0, rstride=5, cstride=5, linewidth=0.5,
-                             norm=mpl.colors.Normalize(-wlim, wlim), cmap=cmap)
+                             norm=mpl.colors.Normalize(wlims[0], wlims[1]), cmap=cmap)
     else:
         raise ValueError('Unexpected value of projection keyword argument.')
 
@@ -198,6 +224,8 @@ def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
     ax.set_xlabel(r'$\rm{Re}(\alpha)$', fontsize=12)
     ax.set_ylabel(r'$\rm{Im}(\alpha)$', fontsize=12)
 
+
+    # cf.set_clim(colorlim[0], colorlim[1])
     if colorbar:
         cb = fig.colorbar(cf, ax=ax)
     else:
@@ -208,24 +236,27 @@ def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
     return fig, ax, cf, cb
 
 
-def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False, colorbar_lims:tuple[float, float]|None=None)->None:
+def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False, with_axes:bool=True, colorlims:tuple[float, float]|None=None)->None:
     # Inversed color-map:
-    cmap = cm.get_cmap('RdBu')
-    cmap = cmap.reversed()
+    # cmap = cm.get_cmap('RdBu')
+    cmap = cm.get_cmap('bwr')
+    # cmap = cmap.reversed()
     
     # Qutip object:
     qu_state = qutip.Qobj(state)
-    
-    # plot:
-    fig, ax, cf, cb = _plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar )
-    plt.grid(True)
-    
-    if colorbar_lims is not None:
-        assert len(colorbar_lims)==2
-        assert isinstance(colorbar_lims, tuple)
-        cf.set_clim(*colorbar_lims)
 
-    
+    # plot:
+    fig, ax, cf, cb = _plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar, colorlims=colorlims )
+    plt.grid(True)
+
+    # axes
+    if not with_axes:
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_title("")
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        
     # Add title:
     if title is not None:
         ax.set_title(title)
@@ -627,7 +658,7 @@ def _test_light_wigner():
 
     # Plot:
     draw_now()
-    plot_plain_wigner(state, "Test", with_colorbar=True, colorbar_lims=(-1, 1))
+    plot_plain_wigner(state, "Test", with_colorbar=True, colorlims=(-1, 1))
     
 
 def tests():

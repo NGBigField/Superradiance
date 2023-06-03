@@ -48,6 +48,15 @@ from time import sleep
 from physics.emitted_light_approx import main as calc_emitted_light
 
 
+
+# ==================================================================================== #
+#| Constants:
+# ==================================================================================== #
+
+# DEFAULT_COLORLIM = (-0.1, 0.2)
+DEFAULT_COLORLIM = None
+
+
 # ==================================================================================== #
 #| Helper types:
 # ==================================================================================== #
@@ -251,18 +260,22 @@ def plot_result(
     print(f"num steps={num_steps}")
     fidelity = _print_fidelity(final_state, cost_function)
     
+    ## Naive projection onto plain:
+    # plot_plain_wigner(final_state, with_colorbar=True)
+    # save_figure(file_name=state_name+" - Projection - colorbar")
+    # plot_plain_wigner(final_state, with_colorbar=False)
+    # save_figure(file_name=state_name+" - Projection")
+
     ## plot bloch:
-    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=300, view_elev=-90)
-    save_figure(file_name=state_name+" - Sphere")
+    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=300, view_elev=-90)
+    # save_figure(file_name=state_name+" - Sphere")
     
-    # ## plot light:
+    ## plot light:
     emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
-    plot_plain_wigner(emitted_light_state, with_colorbar=True)
+    plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
     save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False)
+    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False)
     save_figure(file_name=state_name+" - Light")
-    plot_plain_wigner(final_state, with_colorbar=False)
-    save_figure(file_name=state_name+" - Projection")
     
     # plt.close("all")
     
@@ -299,7 +312,7 @@ def create_movie(
 if __name__ == "__main__":
     # plot_sequence()
     # create_movie()
-    plot_result(StateType.Cat4)
-    # plot_all_best_results()
+    # plot_result(StateType.Cat4)
+    plot_all_best_results()
     
     print("Done.")
