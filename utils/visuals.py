@@ -280,7 +280,7 @@ def plot_wigner_bloch_sphere(
 
     # Check inputs:
     if ax is None:
-        fig = plt.figure()
+        fig = plt.figure(figsize=(10,8))
         ax : Axes3D = fig.add_subplot(111, projection='3d') # type: ignore
     elif isinstance(ax, Axes3D):     # type: ignore
         fig = ax.figure
@@ -336,8 +336,8 @@ def plot_wigner_bloch_sphere(
     face_colors = cm.bwr(normalized_face_values / 2 + 0.5)
     ## Adjust opacity values:
     alpha_func = lambda normalized_face_value : _face_value_function(normalized_face_value, alpha_min)
-    for i, j in np.ndindex(normalized_face_values.shape):
-        face_colors[i,j,3] = alpha_func(normalized_face_values[i,j])
+    for ind_, j in np.ndindex(normalized_face_values.shape):
+        face_colors[ind_,j,3] = alpha_func(normalized_face_values[ind_,j])
 
     # Light Source:
     lightsource = LightSource(azdeg=view_azim, altdeg=view_elev)
@@ -348,6 +348,9 @@ def plot_wigner_bloch_sphere(
     m.set_array(normalized_face_values)
     m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
     
+
+    assert isinstance(ax, Axes)
+
     # Set title:
     if title is not None:
         ax.set_title(title, y=1.10)
@@ -365,14 +368,16 @@ def plot_wigner_bloch_sphere(
 
     # xyz axes:
     if with_axes_arrows:
-        for i, str_ in enumerate(['x', 'y', 'z']):
+        for ind_, str_ in enumerate(['x', 'y', 'z']):
             xyz = [0, 0, 0]
-            xyz[i] = 1.5
-            quiver_inputs = [0,0,0]
-            quiver_inputs.extend(xyz)
-            arrow = ax.quiver(*quiver_inputs,  length=1.2, arrow_length_ratio=0.1, zorder=100+i, alpha=0.5)
+            xyz[ind_] = 1.3
+            quiver_inputs = [0,0,0]+xyz
+            arrow = ax.quiver(
+                *quiver_inputs,  length=1.2, arrow_length_ratio=0.1, zorder=100+ind_, alpha=0.5
+            )
+            arrow.set_capstyle
             arrow.set_linewidth(4)
-            xyz[i] = 1.7
+            xyz[ind_] = 1.7
             ax.text(*xyz, str_, font=dict(size=18))
     
 
@@ -629,7 +634,7 @@ def _test_bloch_sphere():
 
     # Constants:
     num_atoms = 6
-    num_points = 60
+    num_points = 20
 
     # State:
     state = cat_state(num_atoms=num_atoms, num_legs=2, alpha=1.0)
@@ -639,7 +644,8 @@ def _test_bloch_sphere():
     draw_now()
     plot_wigner_bloch_sphere(
         state, num_points=num_points,
-        alpha_min=1.0
+        alpha_min=1.0,
+        view_elev=-90
     )
 
     # Finish
@@ -662,12 +668,13 @@ def _test_light_wigner():
     
 
 def tests():
-    # _test_bloch_sphere()
-    _test_light_wigner()
+    _test_bloch_sphere()
+    # _test_light_wigner()
 
     
     print("Done tests.")
 
 if __name__ == "__main__":
+    draw_now()
     tests()
     print("Done.")

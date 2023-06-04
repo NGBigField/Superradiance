@@ -267,15 +267,15 @@ def plot_result(
     # save_figure(file_name=state_name+" - Projection")
 
     ## plot bloch:
-    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=300, view_elev=-90)
-    # save_figure(file_name=state_name+" - Sphere")
+    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=400, view_elev=-90)
+    save_figure(file_name=state_name+" - Sphere")
     
     ## plot light:
-    emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
-    plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
-    save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False)
-    save_figure(file_name=state_name+" - Light")
+    # emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
+    # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
+    # save_figure(file_name=state_name+" - Light - colorbar")
+    # plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False)
+    # save_figure(file_name=state_name+" - Light")
     
     # plt.close("all")
     
