@@ -81,7 +81,7 @@ def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:flo
     if saveload.exist(file_name, sub_folder=sub_folder):
         emitted_light_state = saveload.load(file_name, sub_folder=sub_folder)        
     else:
-        emitted_light_state = calc_emitted_light(final_state, time_resolution=300)
+        emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=500)
         saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
     # Return:
     return emitted_light_state #type: ignore
@@ -221,7 +221,42 @@ def plot_sequence(
         sleep(1)
         plt.close("all")
 
+
+
+
 ## Main:
+def print_all_fidelities(num_atoms=40):
+
+    for state_type in StateType:
+
+        # Basic info
+        coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=0)
+        movie_config = _get_movie_config(create_movie=False, num_transition_frames=0, state_type=state_type)    
+        state_name = state_type.name
+        num_steps = sum([1 for op in operations if op.name=="squeezing"])
+        
+        # print stuff:
+        print("")
+        print(f"===========")
+        print(f"State: {state_name!r}")
+        print(f"num steps={num_steps}")
+
+        # Create final matter state:
+        matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
+        matter_fidelity = -cost_function(matter_state)
+
+        # Get light state:
+        emitted_light_state = _get_emitted_light(state_type, matter_state, matter_fidelity)
+        emitted_light_fidelity = -cost_function(emitted_light_state)
+
+        # print stuff:
+        print(f"Matter Fidelity={matter_fidelity}")
+        print(f"Light Fidelity={emitted_light_fidelity}")
+        print("")
+         
+            
+
+
 def plot_all_best_results(
     create_movie:bool = False,
     num_atoms:int = 40
@@ -314,5 +349,6 @@ if __name__ == "__main__":
     # create_movie()
     # plot_result(StateType.Cat4)
     plot_all_best_results()
+    # print_all_fidelities()
     
     print("Done.")
