@@ -47,7 +47,8 @@ from time import sleep
 # For emitted light calculation 
 from physics.emitted_light_approx import main as calc_emitted_light
 
-
+# For writing results to file:
+from csv import DictWriter
 
 # ==================================================================================== #
 #| Constants:
@@ -71,6 +72,81 @@ class StateType(Enum):
 # ==================================================================================== #
 #| Inner Functions:
 # ==================================================================================== #
+
+
+def print_params_canonical(operations:list[Operation], thetas:list[float], state_name:str="something")->None:
+
+    ## Write result: =
+    output_file = "Params "+state_name+".csv"
+
+    def get_dict_write(f):
+        return DictWriter(f, fieldnames=["nx", "ny", "nz", "theta", "a", "b"], lineterminator="\n")
+
+    with open(output_file, 'w') as f:
+        row = dict(
+            nx="nx",
+            ny="ny",
+            nz="nz",
+            theta="theta",
+            a="a",
+            b="b"
+        )
+        dict_writer = get_dict_write(f)
+        dict_writer.writerow(row)
+
+    def write_row(row:dict):
+        with open( output_file ,'a') as f:
+            dict_writer = get_dict_write(f)
+            dict_writer.writerow(row)
+            
+
+
+    i_theta = 0
+    i_step = -1
+    row = dict()
+
+    for operation in operations:
+        n_theta = operation.num_params
+        theta = [thetas[i] for i in range(i_theta, i_theta+n_theta)]
+        i_theta += n_theta
+
+
+        if operation.name == 'rotation':
+            i_step += 1
+            assert len(theta)==3
+            row = dict()
+
+            x, y, z = theta
+            norm_ = np.sqrt(x**2 + y**2 + z**2)
+            x, y, z = [val/norm_ for val in theta]
+            theta = norm_
+            n_str_ : str = ""
+            for v in [x, y, z]:
+                n_str_ += f"{v:.5}, "
+            n_str_ = n_str_[:-2]
+            str_ = f"n{i_step}="+n_str_
+            str_ += f"\ntheta{i_step}={theta:.5}"
+            print(str_)
+
+            row["nx"] = x
+            row["ny"] = y
+            row["nz"] = z
+            row["theta"] = theta
+        
+        elif operation.name == 'squeezing':
+            assert len(theta)==2
+            a, b = theta
+            print(f"a{i_step}={a:.5}\nb{i_step}={b:.5}")
+
+            row["a"] = a
+            row["b"] = b
+
+            write_row(row)
+
+        else:
+            raise ValueError("Not a supported print case")
+
+    write_row(row)
 
 
 def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:float) -> np.matrix:
@@ -262,6 +338,8 @@ def plot_all_best_results(
     num_atoms:int = 40
 ):
     for state_type in StateType:
+        print(" ")
+        print(state_type.name)
         plot_result(state_type, create_movie, num_atoms)        
         print(" ")
         
@@ -283,6 +361,8 @@ def plot_result(
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
     movie_config = _get_movie_config(create_movie, num_transition_frames, state_type)    
+
+    print_params_canonical(operations, theta, state_name)    
     
     # create state:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
@@ -302,8 +382,8 @@ def plot_result(
     # save_figure(file_name=state_name+" - Projection")
 
     ## plot bloch:
-    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=400, view_elev=-90)
-    save_figure(file_name=state_name+" - Sphere")
+    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=400, view_elev=-90)
+    # save_figure(file_name=state_name+" - Sphere")
     
     ## plot light:
     # emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
