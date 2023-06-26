@@ -81,7 +81,7 @@ def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:flo
     if saveload.exist(file_name, sub_folder=sub_folder):
         emitted_light_state = saveload.load(file_name, sub_folder=sub_folder)        
     else:
-        emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=500)
+        emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=1000)
         saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
     # Return:
     return emitted_light_state #type: ignore
@@ -302,15 +302,15 @@ def plot_result(
     # save_figure(file_name=state_name+" - Projection")
 
     ## plot bloch:
-    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=400, view_elev=-90)
-    save_figure(file_name=state_name+" - Sphere")
+    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=400, view_elev=-90)
+    # save_figure(file_name=state_name+" - Sphere")
     
     ## plot light:
-    # emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
-    # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
-    # save_figure(file_name=state_name+" - Light - colorbar")
-    # plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False)
-    # save_figure(file_name=state_name+" - Light")
+    emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
+    plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
+    save_figure(file_name=state_name+" - Light - colorbar")
+    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False)
+    save_figure(file_name=state_name+" - Light")
     
     # plt.close("all")
     
