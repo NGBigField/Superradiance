@@ -7,9 +7,9 @@ if __name__ == "__main__":
 from csv import DictWriter
 
 def main(
-    num_seeds:int=20, 
+    num_seeds:int=2, 
     num_variations:int=4,
-    job_type="optimize"  # "movie"\"optimize"\"plot_system_size"
+    job_type="emitted_light"  # "movie"\"optimize"\"plot_system_size"\"emitted_light"
 ):
 
     ## Define paths and names:
@@ -31,21 +31,25 @@ def main(
     for variation in range(num_variations):
         variation = f"{variation}"
 
-        for seed in range(num_seeds):
-            seed = f"{seed}"
+        for resolution in [200, 500, 1000, 2000, 4000]:
+            resolution = f"{resolution}"
 
-            job_params.append( dict(
-                outfile=results_fullpath,
-                variation=variation,
-                seed=seed,
-                job_type=job_type
-            ))
+            for seed in range(num_seeds):
+                seed = f"{seed}"
+
+                job_params.append( dict(
+                    outfile=results_fullpath,
+                    variation=variation,
+                    seed=seed,
+                    resolution=resolution,
+                    job_type=job_type
+                ))
 
     for params in job_params:
         print(params)
 
     ## Prepare output file:
-    fieldnames = ["variation", "seed", "score", "theta"]
+    fieldnames = ["variation", "seed", "score", "theta", "resolution"]
     with open( results_fullpath ,'a') as f:        
         dict_writer = DictWriter(f, fieldnames=fieldnames)
         dict_writer.writerow({field:field for field in fieldnames})
@@ -58,8 +62,8 @@ def main(
         output_files_prefix,
         job_params,
         request_cpus='8',
-        requestMemory='1gb',
-        Arguments='$(outfile) $(seed) $(variation) $(job_type)'
+        requestMemory='16gb',
+        Arguments='$(outfile) $(seed) $(variation) $(job_type) $(resolution)'
     )
 
     print("Called condor successfully")

@@ -5,7 +5,7 @@
 if __name__ == "__main__":
     import sys, pathlib
     sys.path.append(
-        pathlib.Path(__file__).parent.parent.parent.__str__()
+        pathlib.Path(__file__).parent.parent.__str__()
     )
 # For type annotations:
 from typing import Callable

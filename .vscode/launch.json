@@ -14,6 +14,24 @@
             // "env": {
             //     "PYTHONPATH": "${workspaceFolder/../"
             // }
+        },
+        {
+            "name": "Python: Condor Worker",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "res.out",           // $(outfile) 
+                "42",            // $(seed) 
+                "1",             // $(variation) 
+                "emitted_light", // $(job_type) 
+                "50"             // $(resolution)'
+            ]
+            // "env": {
+            //     "PYTHONPATH": "${workspaceFolder/../"
+            // }
         }
     ]
 }
