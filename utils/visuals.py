@@ -130,7 +130,7 @@ def new_axis(is_3d:bool=False):
     return axis
 
 
-def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:Optional[str]=None ) -> None:
+def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:Optional[str]=None, tight:bool=False ) -> None:
     # Figure:
     if fig is None:
         fig = plt.gcf()
@@ -151,7 +151,11 @@ def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:
     fullpath = folder.joinpath(file_name)
     fullpath_str = str(fullpath.resolve())+".png"
     # Save:
-    fig.savefig(fullpath_str)
+    if tight:
+        fig.savefig(fullpath_str, bbox_inches='tight', pad_inches=0.0)
+    else:
+        fig.savefig(fullpath_str)
+
     return 
 
 
@@ -256,6 +260,23 @@ def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:b
         ax.set_title("")
         ax.set_xticklabels([])
         ax.set_yticklabels([])
+
+        plt.tick_params(
+            axis='x',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            bottom=False,      # ticks along the bottom edge are off
+            top=False,         # ticks along the top edge are off
+            labelbottom=False
+        ) #
+
+
+        plt.tick_params(
+            axis='y',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            left=False,      # ticks along the bottom edge are off
+            right=False,         # ticks along the top edge are off
+            labelbottom=False
+        ) #
         
     # Add title:
     if title is not None:

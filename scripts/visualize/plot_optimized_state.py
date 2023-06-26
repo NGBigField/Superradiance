@@ -5,7 +5,7 @@
 if __name__ == "__main__":
     import sys, pathlib
     sys.path.append(
-        pathlib.Path(__file__).parent.parent.__str__()
+        pathlib.Path(__file__).parent.parent.parent.__str__()
     )
 # For type annotations:
 from typing import Callable
@@ -216,10 +216,10 @@ def _get_cost_function(type_:StateType, num_atoms:int) -> Callable[[np.matrix], 
     else:
         raise ValueError(f"Not an option '{type_}'")
 
-def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], float]) -> float:
+def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], float], prefix:str="") -> float:
     cost = cost_function(final_state)
     fidelity = -cost
-    print(f"Fidelity = {fidelity}")
+    print(prefix+f"Fidelity = {fidelity}")
     return fidelity
     
         
@@ -361,20 +361,12 @@ def plot_result(
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
     movie_config = _get_movie_config(create_movie, num_transition_frames, state_type)    
-
-    print_params_canonical(operations, theta, state_name)    
-    
-    # create state:
-    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
-    
-    # Num step:
     num_steps = sum([1 for op in operations if op.name=="squeezing"])
     
-    # print  fidelity:
-    print(f"State: {state_name!r}")
-    print(f"num steps={num_steps}")
-    fidelity = _print_fidelity(final_state, cost_function)
+    # create matter state:
+    matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     
+ 
     ## Naive projection onto plain:
     # plot_plain_wigner(final_state, with_colorbar=True)
     # save_figure(file_name=state_name+" - Projection - colorbar")
@@ -385,15 +377,25 @@ def plot_result(
     # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=400, view_elev=-90)
     # save_figure(file_name=state_name+" - Sphere")
     
-    ## plot light:
-    emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
-    plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
-    save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False)
     save_figure(file_name=state_name+" - Light")
+
+    # print  Data:
+    print(f"State: {state_name!r}")
+    print(f"num steps={num_steps}")
+    fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
+
+    # Print params:
+    # print_params_canonical(operations, theta, state_name)   
+
+    ## plot light:
+    emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
+    # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
+    # save_figure(file_name=state_name+" - Light - colorbar")
+    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False)
+    save_figure(file_name=state_name+" - Light", tight=True)
     
-    # plt.close("all")
-    
+    fidelity = _print_fidelity(emitted_light_state, cost_function, "Emitted light ")
+
     ## # plot complete matter picture:
     # bloch_config = BlochSphereConfig()
     # plot_matter_state(final_state, config=bloch_config)
