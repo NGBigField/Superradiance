@@ -402,6 +402,7 @@ def plot_result(
     # plot_matter_state(final_state, config=bloch_config)
     # save_figure(file_name=state_type.name+" - Matter")
 
+    return fidelity
 
 
 def create_movie(
