@@ -350,8 +350,8 @@ def plot_result(
     state_type:StateType,
     create_movie:bool = False,
     num_atoms:int = 40,
-    num_graphics_points:int = 2000
-)->None:
+    num_graphics_points:int = 1000
+)->float:
     
     # derive:
     num_transition_frames = 20 if create_movie else 0
