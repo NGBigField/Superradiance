@@ -494,7 +494,7 @@ def _test_cat_state(
     print(fock_sum)
     rho = fock_sum.to_density_matrix(num_moments=num_moments)
     # visuals.plot_matter_state(rho)
-    visuals.plot_plain_wigner(rho)
+    visuals.plot_plane_wigner(rho)
     visuals.draw_now()
     print("Printed")
 

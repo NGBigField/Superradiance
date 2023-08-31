@@ -31,7 +31,7 @@ from scripts.optimize.gkp_square import best_sequence_params as gkp_square_param
 from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
 
 # for plotting:
-from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_plain_wigner, ViewingAngles, BlochSphereConfig, save_figure, draw_now
+from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_plane_wigner, ViewingAngles, BlochSphereConfig, save_figure, draw_now
 from utils import assertions, saveload
 import matplotlib.pyplot as plt
 
@@ -286,7 +286,7 @@ def plot_sequence(
         state_i = coherent_control.custom_sequence(state=initial_state, theta=theta_i, operations=operations_i)
     
         # plot light:
-        plot_plain_wigner(state_i)
+        plot_plane_wigner(state_i)
         save_figure(folder=folder, file_name=name+" - Light")        
 
         # plot bloch:
@@ -349,7 +349,8 @@ def plot_all_best_results(
 def plot_result(
     state_type:StateType,
     create_movie:bool = False,
-    num_atoms:int = 40
+    num_atoms:int = 40,
+    num_graphics_points:int = 2000
 )->None:
     
     # derive:
@@ -368,14 +369,14 @@ def plot_result(
     
  
     ## Naive projection onto plain:
-    # plot_plain_wigner(final_state, with_colorbar=True)
+    # plot_plain_wigner(matter_state, with_colorbar=True)
     # save_figure(file_name=state_name+" - Projection - colorbar")
-    # plot_plain_wigner(final_state, with_colorbar=False)
+    # plot_plain_wigner(matter_state, with_colorbar=False)
     # save_figure(file_name=state_name+" - Projection")
 
     ## plot bloch:
-    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=400, view_elev=-90)
-    # save_figure(file_name=state_name+" - Sphere")
+    plot_wigner_bloch_sphere(matter_state, alpha_min=1.0, title="", num_points=num_graphics_points, view_elev=-90)
+    save_figure(file_name=state_name+" - Sphere")
     
     save_figure(file_name=state_name+" - Light")
 
@@ -391,7 +392,7 @@ def plot_result(
     emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
     # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
     # save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False)
+    plot_plane_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=num_graphics_points)
     save_figure(file_name=state_name+" - Light", tight=True)
     
     fidelity = _print_fidelity(emitted_light_state, cost_function, "Emitted light ")
