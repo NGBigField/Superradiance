@@ -19,6 +19,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.axes import Axes
 from matplotlib.transforms import Bbox
 from matplotlib.colors import LightSource
+from matplotlib.colorbar import Colorbar
+from matplotlib.contour import ContourSet
 
 # Everyone needs numpy in their life and other math stuff:
 import numpy as np
@@ -60,6 +62,7 @@ import qutip
 # ==================================================================================== #
 VIDEOS_FOLDER : str = os.getcwd()+os.sep+"videos"+os.sep
 IMAGES_FOLDER : str = os.getcwd()+os.sep+"images"+os.sep
+
 
 # Plot bloch default params:
 DEFAULT_ELEV : Final[float] = -40
@@ -127,7 +130,7 @@ def new_axis(is_3d:bool=False):
     return axis
 
 
-def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:Optional[str]=None ) -> None:
+def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:Optional[str]=None, tight:bool=False ) -> None:
     # Figure:
     if fig is None:
         fig = plt.gcf()
@@ -148,14 +151,26 @@ def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:
     fullpath = folder.joinpath(file_name)
     fullpath_str = str(fullpath.resolve())+".png"
     # Save:
-    fig.savefig(fullpath_str)
+    if tight:
+        fig.savefig(fullpath_str, bbox_inches='tight', pad_inches=0.0)
+    else:
+        fig.savefig(fullpath_str)
+
     return 
 
 
 
-def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
-                cmap=None, alpha_max=7.5, colorbar=False,
-                method='clenshaw', projection='2d'):
+def _plot_wigner(
+    rho, fig=None, ax:plt.Axes|None=None, figsize=(6, 6),
+    cmap=None, alpha_max=7.5, colorbar=False,
+    colorlims:tuple[float, float]|None=None,
+    method='clenshaw', projection='2d'
+)->tuple[
+    Figure,         # fig, 
+    plt.Axes,       # ax, 
+    ContourSet,     # cf, 
+    Colorbar        # cb
+]:
     """_plot_wigner Taken from qutip and slightly changed. 
     qutip are the authors of this function.
     """
@@ -169,6 +184,8 @@ def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
         else:
             raise ValueError('Unexpected value of projection keyword argument')
 
+    assert isinstance(ax, plt.Axes)
+
     if qutip.isket(rho):
         rho = qutip.ket2dm(rho)
 
@@ -177,18 +194,31 @@ def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
 
     W, yvec = W0 if isinstance(W0, tuple) else (W0, xvec)
 
+
+    # Color limits:
+    if colorlims is not None:
+        assert len(colorlims)==2
+        assert isinstance(colorlims, tuple)
+        with np.nditer(W, op_flags=['readwrite']) as it:
+            for x in it:
+                if x<colorlims[0]:
+                    x[...] = colorlims[0]
+                elif x>colorlims[1]:
+                    x[...] = colorlims[1]
+
     wlim = abs(W).max()
+    wlims = (-wlim, wlim)
 
     if cmap is None:
         cmap = cm.get_cmap('RdBu')
 
     if projection == '2d':
         cf = ax.contourf(xvec, yvec, W, 100,
-                         norm=mpl.colors.Normalize(-wlim, wlim), cmap=cmap)
+                         norm=mpl.colors.Normalize(wlims[0], wlims[1]), cmap=cmap)
     elif projection == '3d':
         X, Y = np.meshgrid(xvec, xvec)
         cf = ax.plot_surface(X, Y, W0, rstride=5, cstride=5, linewidth=0.5,
-                             norm=mpl.colors.Normalize(-wlim, wlim), cmap=cmap)
+                             norm=mpl.colors.Normalize(wlims[0], wlims[1]), cmap=cmap)
     else:
         raise ValueError('Unexpected value of projection keyword argument.')
 
@@ -198,6 +228,8 @@ def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
     ax.set_xlabel(r'$\rm{Re}(\alpha)$', fontsize=12)
     ax.set_ylabel(r'$\rm{Im}(\alpha)$', fontsize=12)
 
+
+    # cf.set_clim(colorlim[0], colorlim[1])
     if colorbar:
         cb = fig.colorbar(cf, ax=ax)
     else:
@@ -208,24 +240,44 @@ def _plot_wigner(rho, fig=None, ax=None, figsize=(6, 6),
     return fig, ax, cf, cb
 
 
-def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False, colorbar_lims:tuple[float, float]|None=None)->None:
+def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False, with_axes:bool=True, colorlims:tuple[float, float]|None=None)->None:
     # Inversed color-map:
-    cmap = cm.get_cmap('RdBu')
-    cmap = cmap.reversed()
+    # cmap = cm.get_cmap('RdBu')
+    cmap = cm.get_cmap('bwr')
+    # cmap = cmap.reversed()
     
     # Qutip object:
     qu_state = qutip.Qobj(state)
-    
-    # plot:
-    fig, ax, cf, cb = _plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar )
-    plt.grid(True)
-    
-    if colorbar_lims is not None:
-        assert len(colorbar_lims)==2
-        assert isinstance(colorbar_lims, tuple)
-        cf.set_clim(*colorbar_lims)
 
-    
+    # plot:
+    fig, ax, cf, cb = _plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar, colorlims=colorlims )
+    plt.grid(True)
+
+    # axes
+    if not with_axes:
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+        ax.set_title("")
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+
+        plt.tick_params(
+            axis='x',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            bottom=False,      # ticks along the bottom edge are off
+            top=False,         # ticks along the top edge are off
+            labelbottom=False
+        ) #
+
+
+        plt.tick_params(
+            axis='y',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            left=False,      # ticks along the bottom edge are off
+            right=False,         # ticks along the top edge are off
+            labelbottom=False
+        ) #
+        
     # Add title:
     if title is not None:
         ax.set_title(title)
@@ -249,7 +301,7 @@ def plot_wigner_bloch_sphere(
 
     # Check inputs:
     if ax is None:
-        fig = plt.figure()
+        fig = plt.figure(figsize=(10,8))
         ax : Axes3D = fig.add_subplot(111, projection='3d') # type: ignore
     elif isinstance(ax, Axes3D):     # type: ignore
         fig = ax.figure
@@ -305,8 +357,8 @@ def plot_wigner_bloch_sphere(
     face_colors = cm.bwr(normalized_face_values / 2 + 0.5)
     ## Adjust opacity values:
     alpha_func = lambda normalized_face_value : _face_value_function(normalized_face_value, alpha_min)
-    for i, j in np.ndindex(normalized_face_values.shape):
-        face_colors[i,j,3] = alpha_func(normalized_face_values[i,j])
+    for ind_, j in np.ndindex(normalized_face_values.shape):
+        face_colors[ind_,j,3] = alpha_func(normalized_face_values[ind_,j])
 
     # Light Source:
     lightsource = LightSource(azdeg=view_azim, altdeg=view_elev)
@@ -317,6 +369,9 @@ def plot_wigner_bloch_sphere(
     m.set_array(normalized_face_values)
     m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))
     
+
+    assert isinstance(ax, Axes)
+
     # Set title:
     if title is not None:
         ax.set_title(title, y=1.10)
@@ -334,14 +389,16 @@ def plot_wigner_bloch_sphere(
 
     # xyz axes:
     if with_axes_arrows:
-        for i, str_ in enumerate(['x', 'y', 'z']):
+        for ind_, str_ in enumerate(['x', 'y', 'z']):
             xyz = [0, 0, 0]
-            xyz[i] = 1.5
-            quiver_inputs = [0,0,0]
-            quiver_inputs.extend(xyz)
-            arrow = ax.quiver(*quiver_inputs,  length=1.2, arrow_length_ratio=0.1, zorder=100+i, alpha=0.5)
+            xyz[ind_] = 1.3
+            quiver_inputs = [0,0,0]+xyz
+            arrow = ax.quiver(
+                *quiver_inputs,  length=1.2, arrow_length_ratio=0.1, zorder=100+ind_, alpha=0.5
+            )
+            arrow.set_capstyle
             arrow.set_linewidth(4)
-            xyz[i] = 1.7
+            xyz[ind_] = 1.7
             ax.text(*xyz, str_, font=dict(size=18))
     
 
@@ -598,7 +655,7 @@ def _test_bloch_sphere():
 
     # Constants:
     num_atoms = 6
-    num_points = 60
+    num_points = 20
 
     # State:
     state = cat_state(num_atoms=num_atoms, num_legs=2, alpha=1.0)
@@ -608,7 +665,8 @@ def _test_bloch_sphere():
     draw_now()
     plot_wigner_bloch_sphere(
         state, num_points=num_points,
-        alpha_min=1.0
+        alpha_min=1.0,
+        view_elev=-90
     )
 
     # Finish
@@ -627,16 +685,17 @@ def _test_light_wigner():
 
     # Plot:
     draw_now()
-    plot_plain_wigner(state, "Test", with_colorbar=True, colorbar_lims=(-1, 1))
+    plot_plain_wigner(state, "Test", with_colorbar=True, colorlims=(-1, 1))
     
 
 def tests():
-    # _test_bloch_sphere()
-    _test_light_wigner()
+    _test_bloch_sphere()
+    # _test_light_wigner()
 
     
     print("Done tests.")
 
 if __name__ == "__main__":
+    draw_now()
     tests()
     print("Done.")

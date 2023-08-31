@@ -8,12 +8,13 @@ from sys import argv
 from csv import DictWriter
 
 from scripts.condor.job_plot_system_size import main as job_plot_system_size
-from scripts.condor.job_optimize import main as optimize
-from scripts.condor.job_movie    import main as movie
+from scripts.condor.job_optimize         import main as optimize
+from scripts.condor.job_movie            import main as movie
+from scripts.condor.job_emitted_light    import main as emitted_light
 
 
 
-NUM_EXPECTED_ARGS = 5
+NUM_EXPECTED_ARGS = 6
 
 
 # A main function to parse inputs:
@@ -40,6 +41,9 @@ def main():
     job_type = argv[4]
     print(f"5: job_type={job_type}")
 
+    resolution = int(argv[5])
+    print(f"6: resolution={resolution}")
+
     ## Call job:        # "movie"\"optimize"
     if job_type=="movie":
         res = movie(variation)
@@ -47,6 +51,8 @@ def main():
         res = optimize(variation, seed)
     elif job_type=="plot_system_size":
         res = job_plot_system_size(variation, seed)
+    elif job_type=="emitted_light":
+        res = emitted_light(variation=variation, time_resolution=resolution)
     else: 
         raise ValueError(f"Not an expected job_type={job_type!r}")
             

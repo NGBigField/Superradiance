@@ -47,6 +47,16 @@ from time import sleep
 # For emitted light calculation 
 from physics.emitted_light_approx import main as calc_emitted_light
 
+# For writing results to file:
+from csv import DictWriter
+
+# ==================================================================================== #
+#| Constants:
+# ==================================================================================== #
+
+# DEFAULT_COLORLIM = (-0.1, 0.2)
+DEFAULT_COLORLIM = None
+
 
 # ==================================================================================== #
 #| Helper types:
@@ -64,6 +74,81 @@ class StateType(Enum):
 # ==================================================================================== #
 
 
+def print_params_canonical(operations:list[Operation], thetas:list[float], state_name:str="something")->None:
+
+    ## Write result: =
+    output_file = "Params "+state_name+".csv"
+
+    def get_dict_write(f):
+        return DictWriter(f, fieldnames=["nx", "ny", "nz", "theta", "a", "b"], lineterminator="\n")
+
+    with open(output_file, 'w') as f:
+        row = dict(
+            nx="nx",
+            ny="ny",
+            nz="nz",
+            theta="theta",
+            a="a",
+            b="b"
+        )
+        dict_writer = get_dict_write(f)
+        dict_writer.writerow(row)
+
+    def write_row(row:dict):
+        with open( output_file ,'a') as f:
+            dict_writer = get_dict_write(f)
+            dict_writer.writerow(row)
+            
+
+
+    i_theta = 0
+    i_step = -1
+    row = dict()
+
+    for operation in operations:
+        n_theta = operation.num_params
+        theta = [thetas[i] for i in range(i_theta, i_theta+n_theta)]
+        i_theta += n_theta
+
+
+        if operation.name == 'rotation':
+            i_step += 1
+            assert len(theta)==3
+            row = dict()
+
+            x, y, z = theta
+            norm_ = np.sqrt(x**2 + y**2 + z**2)
+            x, y, z = [val/norm_ for val in theta]
+            theta = norm_
+            n_str_ : str = ""
+            for v in [x, y, z]:
+                n_str_ += f"{v:.5}, "
+            n_str_ = n_str_[:-2]
+            str_ = f"n{i_step}="+n_str_
+            str_ += f"\ntheta{i_step}={theta:.5}"
+            print(str_)
+
+            row["nx"] = x
+            row["ny"] = y
+            row["nz"] = z
+            row["theta"] = theta
+        
+        elif operation.name == 'squeezing':
+            assert len(theta)==2
+            a, b = theta
+            print(f"a{i_step}={a:.5}\nb{i_step}={b:.5}")
+
+            row["a"] = a
+            row["b"] = b
+
+            write_row(row)
+
+        else:
+            raise ValueError("Not a supported print case")
+
+    write_row(row)
+
+
 def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:float) -> np.matrix:
     # Basic info:
     file_name = f"Emitted-Light {state_type.name} fidelity={fidelity}"
@@ -72,7 +157,7 @@ def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:flo
     if saveload.exist(file_name, sub_folder=sub_folder):
         emitted_light_state = saveload.load(file_name, sub_folder=sub_folder)        
     else:
-        emitted_light_state = calc_emitted_light(final_state, time_resolution=300)
+        emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=1000)
         saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
     # Return:
     return emitted_light_state #type: ignore
@@ -131,10 +216,10 @@ def _get_cost_function(type_:StateType, num_atoms:int) -> Callable[[np.matrix], 
     else:
         raise ValueError(f"Not an option '{type_}'")
 
-def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], float]) -> float:
+def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], float], prefix:str="") -> float:
     cost = cost_function(final_state)
     fidelity = -cost
-    print(f"Fidelity = {fidelity}")
+    print(prefix+f"Fidelity = {fidelity}")
     return fidelity
     
         
@@ -212,12 +297,49 @@ def plot_sequence(
         sleep(1)
         plt.close("all")
 
+
+
+
 ## Main:
+def print_all_fidelities(num_atoms=40):
+
+    for state_type in StateType:
+
+        # Basic info
+        coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=0)
+        movie_config = _get_movie_config(create_movie=False, num_transition_frames=0, state_type=state_type)    
+        state_name = state_type.name
+        num_steps = sum([1 for op in operations if op.name=="squeezing"])
+        
+        # print stuff:
+        print("")
+        print(f"===========")
+        print(f"State: {state_name!r}")
+        print(f"num steps={num_steps}")
+
+        # Create final matter state:
+        matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
+        matter_fidelity = -cost_function(matter_state)
+
+        # Get light state:
+        emitted_light_state = _get_emitted_light(state_type, matter_state, matter_fidelity)
+        emitted_light_fidelity = -cost_function(emitted_light_state)
+
+        # print stuff:
+        print(f"Matter Fidelity={matter_fidelity}")
+        print(f"Light Fidelity={emitted_light_fidelity}")
+        print("")
+         
+            
+
+
 def plot_all_best_results(
     create_movie:bool = False,
     num_atoms:int = 40
 ):
     for state_type in StateType:
+        print(" ")
+        print(state_type.name)
         plot_result(state_type, create_movie, num_atoms)        
         print(" ")
         
@@ -239,33 +361,41 @@ def plot_result(
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
     movie_config = _get_movie_config(create_movie, num_transition_frames, state_type)    
-    
-    # create state:
-    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
-    
-    # Num step:
     num_steps = sum([1 for op in operations if op.name=="squeezing"])
     
-    # print  fidelity:
+    # create matter state:
+    matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
+    
+ 
+    ## Naive projection onto plain:
+    # plot_plain_wigner(final_state, with_colorbar=True)
+    # save_figure(file_name=state_name+" - Projection - colorbar")
+    # plot_plain_wigner(final_state, with_colorbar=False)
+    # save_figure(file_name=state_name+" - Projection")
+
+    ## plot bloch:
+    # plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=400, view_elev=-90)
+    # save_figure(file_name=state_name+" - Sphere")
+    
+    save_figure(file_name=state_name+" - Light")
+
+    # print  Data:
     print(f"State: {state_name!r}")
     print(f"num steps={num_steps}")
-    fidelity = _print_fidelity(final_state, cost_function)
+    fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
+
+    # Print params:
+    # print_params_canonical(operations, theta, state_name)   
+
+    ## plot light:
+    emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
+    # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
+    # save_figure(file_name=state_name+" - Light - colorbar")
+    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False)
+    save_figure(file_name=state_name+" - Light", tight=True)
     
-    ## plot bloch:
-    plot_wigner_bloch_sphere(final_state, alpha_min=1.0, title="", num_points=300, view_elev=-90)
-    save_figure(file_name=state_name+" - Sphere")
-    
-    # ## plot light:
-    emitted_light_state = _get_emitted_light(state_type, final_state, fidelity)
-    plot_plain_wigner(emitted_light_state, with_colorbar=True)
-    save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False)
-    save_figure(file_name=state_name+" - Light")
-    plot_plain_wigner(final_state, with_colorbar=False)
-    save_figure(file_name=state_name+" - Projection")
-    
-    # plt.close("all")
-    
+    fidelity = _print_fidelity(emitted_light_state, cost_function, "Emitted light ")
+
     ## # plot complete matter picture:
     # bloch_config = BlochSphereConfig()
     # plot_matter_state(final_state, config=bloch_config)
@@ -299,7 +429,8 @@ def create_movie(
 if __name__ == "__main__":
     # plot_sequence()
     # create_movie()
-    plot_result(StateType.Cat4)
-    # plot_all_best_results()
+    # plot_result(StateType.Cat4)
+    plot_all_best_results()
+    # print_all_fidelities()
     
     print("Done.")

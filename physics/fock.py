@@ -403,7 +403,6 @@ def cat_state(num_atoms:int, alpha:float, num_legs:int, phase:float=0.0)->FockSu
         
         total_coefficient = 0.0
         for leg_index in range(num_legs):
-            leg_number = leg_index + 1
             leg_alpha = alpha * np.exp(1j * 2*np.pi * leg_index / num_legs)
             leg_alpha = numpy_tools.reduce_small_imaginary_to_zero(leg_alpha)
 
