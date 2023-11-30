@@ -151,7 +151,7 @@ def best_sequence_params(
     
 def main(
     num_total_attempts=2000,
-    num_atoms:int=40, 
+    num_atoms:int=10, 
     max_iter_per_attempt=6*int(1e3),
     max_error_per_attempt=1e-17,
     num_free_params:int|None=30,

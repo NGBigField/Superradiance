@@ -349,7 +349,7 @@ def plot_all_best_results(
 def plot_result(
     state_type:StateType,
     create_movie:bool = False,
-    num_atoms:int = 40,
+    num_atoms:int = 10,
     num_graphics_points:int = 1000
 )->float:
     
@@ -359,10 +359,26 @@ def plot_result(
     if num_atoms != 40:
         state_name += f"{num_atoms}"
     
+
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
     movie_config = _get_movie_config(create_movie, num_transition_frames, state_type)    
     num_steps = sum([1 for op in operations if op.name=="squeezing"])
+
+    theta = [ 
+        -0.0009922465795598 , +0.1228071603253906 , +0.7031920727362360 , -0.0242838997175440 , +0.3478657155100751 ,
+        +0.0483281258877051 , +0.5210158098158177 , -1.0604013025049515 , -0.0032538346423241 , +0.2839580188723272 ,
+        +0.0556884914818981 , +0.4139210278073049 , -0.0400790483138470 , -0.0025312971152282 , -0.0650653562305453 ,
+        +2.4291277605808883 , -1.1164201098771234 , -0.2473484613798042 , -0.0416945822443143 , -0.3051721487176447 ,
+        -2.2275748566724554 , +2.2103018277414885 , -1.4957729731358322 , -1.0766839063087406 , -0.2203894399771781 ,
+        +0.1059234945696040 , -2.5959053399626315 , -1.6375425549932319 , +0.0066109814075641 , -0.2696086807028053 ,
+        -0.4796308167152388 , +0.0249296167394968 , +0.0596422337671434 , +0.2680128204867243 , +0.1673248190564804 ,
+        +0.8753621181973439 , -0.3685823894903423 , -0.1090923407146504 , +0.0142972562212801 , +0.1032601534853631 ,
+        +0.6609796074448703 , -0.2252826367905681 , +0.3643363400603860 , +0.0796668374695129 , -0.0410970385795892 ,
+        +0.0574761674453043 , -0.1908477310209591 , +0.0448632734078500 , -0.1101435203525150 , +0.0191419711877058 ,
+        +0.2593271792357967 , -0.3702853123722155 , -0.2040438977283600 , -0.3091240580500623 , +0.9607033635598180 ,
+        +0.0053905805606792 , -0.6180829039488331 , +0.8191027257598846
+    ]
     
     # create matter state:
     matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
@@ -431,8 +447,8 @@ def create_movie(
 if __name__ == "__main__":
     # plot_sequence()
     # create_movie()
-    # plot_result(StateType.Cat4)
-    plot_all_best_results()
+    plot_result(StateType.GKPSquare)
+    # plot_all_best_results()
     # print_all_fidelities()
     
     print("Done.")

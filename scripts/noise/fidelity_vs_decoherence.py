@@ -175,13 +175,16 @@ def main(
     rho = ground  # First time, we start from the ground
 
     ## Iterations for each pulse
-    for t, op_i in zip(thetas, itertools.cycle(range(5))):
-        print(t, op_i)
+    for theta, op_i in zip(thetas, itertools.cycle(range(5))):
+
+        time = theta  #TODO Check if needs change
+
+        print(time, op_i)
         op_hamiltonian = _op_hamiltonian_from_op_index(op_i, N)
 
         # Time is the absolute value of theta, and the hamiltonian is depnadnant on the sign of it:
-        system = Dicke(N, hamiltonian = op_hamiltonian*np.sign(t), emission = 0, dephasing = 0)  #TODO: Add noise
-        tlist = np.linspace(0, np.abs(t), 101)
+        system = Dicke(N, hamiltonian = op_hamiltonian*np.sign(time), emission = 0, dephasing = 0)  #TODO: Add noise
+        tlist = np.linspace(0, np.abs(time), 101)
 
         # solve:
         liouv = system.liouvillian()
