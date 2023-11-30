@@ -31,7 +31,7 @@ from scripts.optimize.gkp_square import best_sequence_params as gkp_square_param
 from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
 
 # for plotting:
-from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_plane_wigner, ViewingAngles, BlochSphereConfig, save_figure, draw_now
+from utils.visuals import plot_matter_state, plot_wigner_bloch_sphere, plot_plain_wigner, ViewingAngles, BlochSphereConfig, save_figure, draw_now
 from utils import assertions, saveload
 import matplotlib.pyplot as plt
 
@@ -257,7 +257,6 @@ DONT_CREATE_MOVIE_CONFIG = _get_movie_config(False, 0, "")
 #| Declared Functions:
 # ==================================================================================== #
 
-
 ## Main:
 def print_all_fidelities(num_atoms=40):
 
@@ -293,40 +292,36 @@ def print_all_fidelities(num_atoms=40):
 def main(
     state_type:StateType = StateType.Cat2,
     num_atoms:int = 40,
-    num_graphics_points:int = 1000
+    num_graphics_points:int = 20
 )->float:
     
     # derive:
-    num_transition_frames = 20 if create_movie else 0
     state_name = state_type.name
     if num_atoms != 40:
         state_name += f"{num_atoms}"
     
     # get
-    coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
-    
+    coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=0)
     num_steps = sum([1 for op in operations if op.name=="squeezing"])
     
     # create matter state:
     matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=DONT_CREATE_MOVIE_CONFIG)
     
+    # print  Data:
+    print(f"State: {state_name!r}")
+    print(f"num steps={num_steps}")
+    fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
  
     ## Naive projection onto plain:
     # plot_plain_wigner(matter_state, with_colorbar=True)
     # save_figure(file_name=state_name+" - Projection - colorbar")
-    # plot_plain_wigner(matter_state, with_colorbar=False)
-    # save_figure(file_name=state_name+" - Projection")
+    plot_plain_wigner(matter_state, with_colorbar=False)
+    save_figure(file_name=state_name+" - Projection")
 
     ## plot bloch:
     plot_wigner_bloch_sphere(matter_state, alpha_min=1.0, title="", num_points=num_graphics_points, view_elev=-90)
     save_figure(file_name=state_name+" - Sphere")
     
-    save_figure(file_name=state_name+" - Light")
-
-    # print  Data:
-    print(f"State: {state_name!r}")
-    print(f"num steps={num_steps}")
-    fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
 
     # Print params:
     # print_params_canonical(operations, theta, state_name)   
@@ -335,7 +330,7 @@ def main(
     emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
     # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
     # save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plane_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=num_graphics_points)
+    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=num_graphics_points)
     save_figure(file_name=state_name+" - Light", tight=True)
     
     fidelity = _print_fidelity(emitted_light_state, cost_function, "Emitted light ")

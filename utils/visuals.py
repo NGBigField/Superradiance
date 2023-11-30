@@ -244,7 +244,7 @@ def _plot_wigner(
     return fig, ax, cf, cb
 
 
-def plot_plane_wigner(
+def plot_plain_wigner(
     state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False, with_axes:bool=True, colorlims:tuple[float, float]|None=None,
     num_points:int=200
 )->None:
@@ -692,7 +692,7 @@ def _test_light_wigner():
 
     # Plot:
     draw_now()
-    plot_plane_wigner(state, "Test", with_colorbar=True, colorlims=(-1, 1))
+    plot_plain_wigner(state, "Test", with_colorbar=True, colorlims=(-1, 1))
     
 
 def tests():
