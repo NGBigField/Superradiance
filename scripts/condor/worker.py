@@ -10,6 +10,7 @@ from csv import DictWriter
 from scripts.condor.job_plot_system_size import main as job_plot_system_size
 from scripts.condor.job_optimize         import main as optimize
 from scripts.condor.job_movie            import main as movie
+from scripts.condor.job_plot_results     import main as plot_results
 from scripts.condor.job_emitted_light    import main as emitted_light
 
 
@@ -47,6 +48,8 @@ def main():
     ## Call job:        # "movie"\"optimize"
     if job_type=="movie":
         res = movie(variation)
+    elif job_type=="plot_results":
+        res = plot_results(variation)
     elif job_type=="optimize":
         res = optimize(variation, seed)
     elif job_type=="plot_system_size":

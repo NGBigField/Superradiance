@@ -9,7 +9,7 @@ from csv import DictWriter
 def main(
     num_seeds:int=2, 
     num_variations:int=4,
-    job_type="emitted_light"  # "movie"\"optimize"\"plot_system_size"\"emitted_light"
+    job_type="plot_results"  # "movie"\"plot_results"\"optimize"\"plot_system_size"\"emitted_light"
 ):
 
     ## Define paths and names:

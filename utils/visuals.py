@@ -130,7 +130,10 @@ def new_axis(is_3d:bool=False):
     return axis
 
 
-def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:Optional[str]=None, tight:bool=False ) -> None:
+def save_figure(
+    fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:Optional[str]=None, tight:bool=False,
+    extension:str="svg"
+) -> None:
     # Figure:
     if fig is None:
         fig = plt.gcf()
@@ -149,7 +152,7 @@ def save_figure(fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:
         os.mkdir(str(folder.resolve()))
     # Full path:
     fullpath = folder.joinpath(file_name)
-    fullpath_str = str(fullpath.resolve())+".png"
+    fullpath_str = str(fullpath.resolve())+"."+extension
     # Save:
     if tight:
         fig.savefig(fullpath_str, bbox_inches='tight', pad_inches=0.0)
@@ -164,7 +167,8 @@ def _plot_wigner(
     rho, fig=None, ax:plt.Axes|None=None, figsize=(6, 6),
     cmap=None, alpha_max=7.5, colorbar=False,
     colorlims:tuple[float, float]|None=None,
-    method='clenshaw', projection='2d'
+    method='clenshaw', projection='2d',
+    num_points:int=1000
 )->tuple[
     Figure,         # fig, 
     plt.Axes,       # ax, 
@@ -189,7 +193,7 @@ def _plot_wigner(
     if qutip.isket(rho):
         rho = qutip.ket2dm(rho)
 
-    xvec = np.linspace(-alpha_max, alpha_max, 200)
+    xvec = np.linspace(-alpha_max, alpha_max, num_points)
     W0 = qutip.wigner(rho, xvec, xvec, method=method)
 
     W, yvec = W0 if isinstance(W0, tuple) else (W0, xvec)
@@ -213,7 +217,7 @@ def _plot_wigner(
         cmap = cm.get_cmap('RdBu')
 
     if projection == '2d':
-        cf = ax.contourf(xvec, yvec, W, 100,
+        cf = ax.contourf(xvec, yvec, W, num_points,
                          norm=mpl.colors.Normalize(wlims[0], wlims[1]), cmap=cmap)
     elif projection == '3d':
         X, Y = np.meshgrid(xvec, xvec)
@@ -240,7 +244,10 @@ def _plot_wigner(
     return fig, ax, cf, cb
 
 
-def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False, with_axes:bool=True, colorlims:tuple[float, float]|None=None)->None:
+def plot_plane_wigner(
+    state:np.matrix, title:Optional[str]=None, with_colorbar:bool=False, with_axes:bool=True, colorlims:tuple[float, float]|None=None,
+    num_points:int=200
+)->None:
     # Inversed color-map:
     # cmap = cm.get_cmap('RdBu')
     cmap = cm.get_cmap('bwr')
@@ -250,7 +257,7 @@ def plot_plain_wigner(state:np.matrix, title:Optional[str]=None, with_colorbar:b
     qu_state = qutip.Qobj(state)
 
     # plot:
-    fig, ax, cf, cb = _plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar, colorlims=colorlims )
+    fig, ax, cf, cb = _plot_wigner( qu_state, cmap=cmap, colorbar=with_colorbar, colorlims=colorlims, num_points=num_points )
     plt.grid(True)
 
     # axes
@@ -685,7 +692,7 @@ def _test_light_wigner():
 
     # Plot:
     draw_now()
-    plot_plain_wigner(state, "Test", with_colorbar=True, colorlims=(-1, 1))
+    plot_plane_wigner(state, "Test", with_colorbar=True, colorlims=(-1, 1))
     
 
 def tests():

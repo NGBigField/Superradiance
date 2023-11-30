@@ -159,3 +159,4 @@ cython_debug/
 *.mp4
 *.npy
 *.csv
+*.svg
