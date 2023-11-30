@@ -50,17 +50,15 @@ from physics.emitted_light_approx import main as calc_emitted_light
 # For writing results to file:
 from csv import DictWriter
 
-# ==================================================================================== #
-#| Constants:
-# ==================================================================================== #
+import itertools
+import functools
 
-# DEFAULT_COLORLIM = (-0.1, 0.2)
-DEFAULT_COLORLIM = None
+# Qutip stuff
+from qutip.piqs import Dicke, dicke, jspin, dicke_blocks
+from qutip import steadystate, Qobj, mesolve
 
 
-# ==================================================================================== #
-#| Helper types:
-# ==================================================================================== #
+
 
 class StateType(Enum):
     GKPHex = auto()
@@ -69,160 +67,6 @@ class StateType(Enum):
     Cat4 = auto()
 
 
-# ==================================================================================== #
-#| Inner Functions:
-# ==================================================================================== #
-
-
-def print_params_canonical(operations:list[Operation], thetas:list[float], state_name:str="something")->None:
-
-    ## Write result: =
-    output_file = "Params "+state_name+".csv"
-
-    def get_dict_write(f):
-        return DictWriter(f, fieldnames=["nx", "ny", "nz", "theta", "a", "b"], lineterminator="\n")
-
-    with open(output_file, 'w') as f:
-        row = dict(
-            nx="nx",
-            ny="ny",
-            nz="nz",
-            theta="theta",
-            a="a",
-            b="b"
-        )
-        dict_writer = get_dict_write(f)
-        dict_writer.writerow(row)
-
-    def write_row(row:dict):
-        with open( output_file ,'a') as f:
-            dict_writer = get_dict_write(f)
-            dict_writer.writerow(row)
-            
-
-    i_theta = 0
-    i_step = -1
-    row = dict()
-
-    for operation in operations:
-        n_theta = operation.num_params
-        theta = [thetas[i] for i in range(i_theta, i_theta+n_theta)]
-        i_theta += n_theta
-
-
-        if operation.name == 'rotation':
-            i_step += 1
-            assert len(theta)==3
-            row = dict()
-
-            x, y, z = theta
-            norm_ = np.sqrt(x**2 + y**2 + z**2)
-            x, y, z = [val/norm_ for val in theta]
-            theta = norm_
-            n_str_ : str = ""
-            for v in [x, y, z]:
-                n_str_ += f"{v:.5}, "
-            n_str_ = n_str_[:-2]
-            str_ = f"n{i_step}="+n_str_
-            str_ += f"\ntheta{i_step}={theta:.5}"
-            print(str_)
-
-            row["nx"] = x
-            row["ny"] = y
-            row["nz"] = z
-            row["theta"] = theta
-        
-        elif operation.name == 'squeezing':
-            assert len(theta)==2
-            a, b = theta
-            print(f"a{i_step}={a:.5}\nb{i_step}={b:.5}")
-
-            row["a"] = a
-            row["b"] = b
-
-            write_row(row)
-
-        else:
-            raise ValueError("Not a supported print case")
-
-    write_row(row)
-
-
-def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:float) -> np.matrix:
-    # Basic info:
-    file_name = f"Emitted-Light {state_type.name} fidelity={fidelity}"
-    sub_folder = "Emitted-Light"
-    # Get or calc:
-    if saveload.exist(file_name, sub_folder=sub_folder):
-        emitted_light_state = saveload.load(file_name, sub_folder=sub_folder)        
-    else:
-        emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=1000)
-        saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
-    # Return:
-    return emitted_light_state #type: ignore
-
-
-def _get_best_params(
-    type_:StateType, 
-    num_atoms:int,
-    num_intermediate_states:int
-) -> tuple[
-    list[BaseParamType],
-    list[Operation]
-]:
-    if type_ is StateType.GKPHex:
-        return gkp_hex_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    elif type_ is StateType.GKPSquare:
-        return gkp_square_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    elif type_ is StateType.Cat4:
-        return cat4_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    elif type_ is StateType.Cat2:
-        return cat2_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    else:
-        raise ValueError(f"Not an option '{type_}'")
-
-
-def _get_type_inputs(
-    state_type:StateType, num_atoms:int, num_intermediate_states:int
-) -> tuple[
-    CoherentControl,
-    np.matrix,
-    list[float],
-    list[Operation],
-    Callable[[np.matrix], float]
-]:
-    # Get all needed data:
-    params, operations = _get_best_params(state_type, num_atoms, num_intermediate_states)
-    initial_state = ground_state(num_atoms=num_atoms)
-    coherent_control = CoherentControl(num_atoms=num_atoms)
-    cost_function = _get_cost_function(type_=state_type, num_atoms=num_atoms)
-    
-    # derive theta:
-    theta = [param.get_value() for param in params]
-    
-    return coherent_control, initial_state, theta, operations, cost_function
-
-   
-def _get_cost_function(type_:StateType, num_atoms:int) -> Callable[[np.matrix], float]:
-    if type_ is StateType.GKPHex:
-        return fidelity_to_gkp(num_atoms=num_atoms, gkp_form="hex")
-    elif type_ is StateType.GKPSquare:
-        return fidelity_to_gkp(num_atoms=num_atoms, gkp_form="square")        
-    elif type_ is StateType.Cat4:
-        return fidelity_to_cat(num_atoms=num_atoms, num_legs=4, phase=np.pi/4)
-    elif type_ is StateType.Cat2:
-        return fidelity_to_cat(num_atoms=num_atoms, num_legs=2, phase=np.pi/2)        
-    else:
-        raise ValueError(f"Not an option '{type_}'")
-
-
-def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], float], prefix:str="") -> float:
-    cost = cost_function(final_state)
-    fidelity = -cost
-    print(prefix+f"Fidelity = {fidelity}")
-    return fidelity
-    
-        
 def _get_movie_config(
     create_movie:bool, num_transition_frames:int, temp_dir_name:str
 ) -> CoherentControl.MovieConfig:
@@ -253,98 +97,115 @@ def _get_movie_config(
 
 DONT_CREATE_MOVIE_CONFIG = _get_movie_config(False, 0, "")                
 
-# ==================================================================================== #
-#| Declared Functions:
-# ==================================================================================== #
 
-## Main:
-def print_all_fidelities(num_atoms=40):
+def _get_best_params(
+    type_:StateType, 
+    num_atoms:int,
+    num_intermediate_states:int
+) -> tuple[
+    list[BaseParamType],
+    list[Operation]
+]:
+    if type_ is StateType.GKPHex:
+        return gkp_hex_params(num_atoms, num_intermediate_states=num_intermediate_states)
+    elif type_ is StateType.GKPSquare:
+        return gkp_square_params(num_atoms, num_intermediate_states=num_intermediate_states)
+    elif type_ is StateType.Cat4:
+        return cat4_params(num_atoms, num_intermediate_states=num_intermediate_states)
+    elif type_ is StateType.Cat2:
+        return cat2_params(num_atoms, num_intermediate_states=num_intermediate_states)
+    else:
+        raise ValueError(f"Not an option '{type_}'")
 
-    for state_type in StateType:
 
-        # Basic info
-        coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=0)
-        movie_config = _get_movie_config(create_movie=False, num_transition_frames=0, temp_dir_name=state_type.name)    
-        state_name = state_type.name
-        num_steps = sum([1 for op in operations if op.name=="squeezing"])
-        
-        # print stuff:
-        print("")
-        print(f"===========")
-        print(f"State: {state_name!r}")
-        print(f"num steps={num_steps}")
+def _get_cost_function(type_:StateType, num_atoms:int) -> Callable[[np.matrix], float]:
+    if type_ is StateType.GKPHex:
+        return fidelity_to_gkp(num_atoms=num_atoms, gkp_form="hex")
+    elif type_ is StateType.GKPSquare:
+        return fidelity_to_gkp(num_atoms=num_atoms, gkp_form="square")        
+    elif type_ is StateType.Cat4:
+        return fidelity_to_cat(num_atoms=num_atoms, num_legs=4, phase=np.pi/4)
+    elif type_ is StateType.Cat2:
+        return fidelity_to_cat(num_atoms=num_atoms, num_legs=2, phase=np.pi/2)        
+    else:
+        raise ValueError(f"Not an option '{type_}'")
 
-        # Create final matter state:
-        matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
-        matter_fidelity = -cost_function(matter_state)
 
-        # Get light state:
-        emitted_light_state = _get_emitted_light(state_type, matter_state, matter_fidelity)
-        emitted_light_fidelity = -cost_function(emitted_light_state)
-
-        # print stuff:
-        print(f"Matter Fidelity={matter_fidelity}")
-        print(f"Light Fidelity={emitted_light_fidelity}")
-        print("")
-        
-
+def _get_type_inputs(
+    state_type:StateType, num_atoms:int, num_intermediate_states:int
+) -> tuple[
+    CoherentControl,
+    np.matrix,
+    list[float],
+    list[Operation],
+    Callable[[np.matrix], float]
+]:
+    # Get all needed data:
+    params, operations = _get_best_params(state_type, num_atoms, num_intermediate_states)
+    initial_state = ground_state(num_atoms=num_atoms)
+    coherent_control = CoherentControl(num_atoms=num_atoms)
+    cost_function = _get_cost_function(type_=state_type, num_atoms=num_atoms)
     
+    # derive theta:
+    theta = [param.get_value() for param in params]
+    
+    return coherent_control, initial_state, theta, operations, cost_function
+
+@functools.cache
+def _op_hamiltonian_from_op_index(op_i:int, N:int):
+    [jx, jy, jz] = jspin(N)
+    jx2 = jx*jx
+    jy2 = jy*jy
+    ops_in_order = [jx, jy, jz, jx2, jy2]
+    return ops_in_order[op_i]
+
+
 def main(
-    state_type:StateType = StateType.Cat2,
-    num_atoms:int = 40,
-    num_graphics_points:int = 20
-)->float:
-    
-    # derive:
-    state_name = state_type.name
-    if num_atoms != 40:
-        state_name += f"{num_atoms}"
-    
-    # get
-    coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=0)
-    num_steps = sum([1 for op in operations if op.name=="squeezing"])
-    
-    # create matter state:
-    matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=DONT_CREATE_MOVIE_CONFIG)
-    
-    # print  Data:
-    print(f"State: {state_name!r}")
-    print(f"num steps={num_steps}")
-    fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
- 
-    ## Naive projection onto plain:
-    # plot_plain_wigner(matter_state, with_colorbar=True)
-    # save_figure(file_name=state_name+" - Projection - colorbar")
-    plot_plain_wigner(matter_state, with_colorbar=False)
-    save_figure(file_name=state_name+" - Projection")
+    N:int = 40,
+    state_type:StateType = StateType.Cat4
+):
 
-    ## plot bloch:
-    plot_wigner_bloch_sphere(matter_state, alpha_min=1.0, title="", num_points=num_graphics_points, view_elev=-90)
-    save_figure(file_name=state_name+" - Sphere")
-    
+    ## get
+    coherent_control, initial_state, thetas, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=N, num_intermediate_states=0)
+    # num_steps = sum([1 for op in operations if op.name=="squeezing"])    
+    # matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=DONT_CREATE_MOVIE_CONFIG)
 
-    # Print params:
-    # print_params_canonical(operations, theta, state_name)   
+    ## Global:
+    ground = dicke(N, N/2, -N/2)
+    rho = ground  # First time, we start from the ground
 
-    ## plot light:
-    emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
-    # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
-    # save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=num_graphics_points)
-    save_figure(file_name=state_name+" - Light", tight=True)
-    
-    fidelity = _print_fidelity(emitted_light_state, cost_function, "Emitted light ")
+    ## Iterations for each pulse
+    for t, op_i in zip(thetas, itertools.cycle(range(5))):
+        print(t, op_i)
+        op_hamiltonian = _op_hamiltonian_from_op_index(op_i, N)
 
-    ## # plot complete matter picture:
-    # bloch_config = BlochSphereConfig()
-    # plot_matter_state(final_state, config=bloch_config)
-    # save_figure(file_name=state_type.name+" - Matter")
+        # Time is the absolute value of theta, and the hamiltonian is depnadnant on the sign of it:
+        system = Dicke(N, hamiltonian = op_hamiltonian*np.sign(t), emission = 0, dephasing = 0)  #TODO: Add noise
+        tlist = np.linspace(0, np.abs(t), 101)
 
-    return fidelity
+        # solve:
+        liouv = system.liouvillian()
+        res = mesolve(liouv, rho, tlist=tlist)
+
+        # Get the new state
+        rho = res.states[-1]
+
+    blocks = dicke_blocks(rho)
+    block0 = blocks[0]
+
+    plot_plain_wigner(block0)
+
+    print("Done.")
+
+
 
 
 
 
 if __name__ == "__main__":
-    main()    
-    print("Done.")
+    main()
+
+
+
+
+
