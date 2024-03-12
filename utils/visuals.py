@@ -299,7 +299,7 @@ def plot_wigner_bloch_sphere(
     title:str=None, 
     with_colorbar:bool=True,
     with_axes_arrows:bool=True,
-    with_light_sourch:bool=True,
+    with_light_source:bool=True,
     alpha_min:float=0.2,
     view_elev:float=DEFAULT_ELEV,
     view_azim:float=DEFAULT_AZIM,
@@ -369,7 +369,7 @@ def plot_wigner_bloch_sphere(
     for ind_, j in np.ndindex(normalized_face_values.shape):
         face_colors[ind_,j,3] = alpha_func(normalized_face_values[ind_,j])
 
-    if with_light_sourch:
+    if with_light_source:
         # Light Source:
         lightsource = LightSource(azdeg=view_azim, altdeg=view_elev)
 
