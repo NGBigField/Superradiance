@@ -294,9 +294,10 @@ def plot_wigner_bloch_sphere(
     rho:np.matrix, 
     num_points:int=100, 
     ax:Axes3D=None,  # type: ignore
-    colorbar_ax:Axes=None, 
+    colorbar_ax:Axes|None=None, 
     warn_imaginary_part:bool=False, 
     title:str=None, 
+    with_colorbar:bool=True,
     with_axes_arrows:bool=True,
     alpha_min:float=0.2,
     view_elev:float=DEFAULT_ELEV,
@@ -389,10 +390,11 @@ def plot_wigner_bloch_sphere(
     ax.view_init(elev=view_elev, azim=view_azim, roll=view_roll)   
 
     # Color bar:
-    if colorbar_ax is None:
-        colorbar = plt.colorbar(mappable=m, shrink=0.5, ax=ax)
-    else:
-        colorbar = plt.colorbar(m, ax=ax, cax=colorbar_ax, shrink=0.5)        
+    if with_colorbar:
+        if colorbar_ax is None:
+            colorbar = plt.colorbar(mappable=m, shrink=0.5, ax=ax)
+        else:
+            colorbar = plt.colorbar(m, ax=ax, cax=colorbar_ax, shrink=0.5)        
 
     # xyz axes:
     if with_axes_arrows:
