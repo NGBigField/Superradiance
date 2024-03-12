@@ -299,6 +299,7 @@ def plot_wigner_bloch_sphere(
     title:str=None, 
     with_colorbar:bool=True,
     with_axes_arrows:bool=True,
+    with_light_sourch:bool=True,
     alpha_min:float=0.2,
     view_elev:float=DEFAULT_ELEV,
     view_azim:float=DEFAULT_AZIM,
@@ -368,11 +369,16 @@ def plot_wigner_bloch_sphere(
     for ind_, j in np.ndindex(normalized_face_values.shape):
         face_colors[ind_,j,3] = alpha_func(normalized_face_values[ind_,j])
 
-    # Light Source:
-    lightsource = LightSource(azdeg=view_azim, altdeg=view_elev)
+    if with_light_sourch:
+        # Light Source:
+        lightsource = LightSource(azdeg=view_azim, altdeg=view_elev)
 
-    # Set the aspect ratio to 1 so our sphere looks spherical
-    surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=face_colors, lightsource=lightsource)
+        # Set the aspect ratio to 1 so our sphere looks spherical
+        surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=face_colors, lightsource=lightsource)
+    else:
+        # Set the aspect ratio to 1 so our sphere looks spherical
+        surface_plot = ax.plot_surface(X, Y, Z, rstride=1, cstride=1, facecolors=face_colors)
+
     m = cm.ScalarMappable(cmap=cm.bwr)
     m.set_array(normalized_face_values)
     m.set_clim(-min(np.max(np.abs(W)),2), min(np.max(np.abs(W)),2))

@@ -350,7 +350,7 @@ def plot_result(
     state_type:StateType,
     create_movie:bool = False,
     num_atoms:int = 40,
-    num_graphics_points:int = 600,
+    num_graphics_points:int = 500,
     clean_plot:bool = True
 ):
     
@@ -377,10 +377,10 @@ def plot_result(
 
     ## plot bloch:
     alpha_min = 0.2
-    plot_plain_wigner(matter_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
+    # plot_plain_wigner(matter_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
     plot_wigner_bloch_sphere(matter_state, alpha_min=alpha_min, title="", num_points=num_graphics_points, view_elev=-90, with_axes_arrows = not clean_plot, with_colorbar = not clean_plot)
+    save_figure(file_name=state_name+" - Sphere")
     plt.show()
-    #save_figure(file_name=state_name+" - Sphere")
     
     #save_figure(file_name=state_name+" - Light")
 
