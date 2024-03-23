@@ -1,8 +1,5 @@
 A code for the simulation of spin squeezing and coherent rotation for the universal control of symmetric states
 
-# Paper
-[Manuscript.pdf](https://github.com/NGBigField/Superradiance/files/13928319/Manuscript.pdf)
-
 # Results
 
 ## Optimization
