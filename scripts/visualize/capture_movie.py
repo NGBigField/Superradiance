@@ -57,17 +57,18 @@ def _get_movie_config(
     fps=30
     
     bloch_sphere_config = BlochSphereConfig(
-        alpha_min=0.2,
-        resolution=250,
+        alpha_min=0.1,
+        resolution=150,
         viewing_angles=ViewingAngles(
             elev=+10,
+            azim=+45
         )
     )
     
     # Movie config:
     movie_config=CoherentControl.MovieConfig(
         active=create_movie,
-        show_now=True,
+        show_now=False,
         num_freeze_frames=fps//2,
         fps=fps,
         bloch_sphere_config=bloch_sphere_config,
@@ -79,8 +80,8 @@ def _get_movie_config(
 
 
 def create_movie(
-    num_atoms:int = 20,
-    num_transition_frames = 100
+    num_atoms:int = 10,
+    num_transition_frames = 50
 ):
     # Start:
     print(f"Creating Movie...")
@@ -92,11 +93,16 @@ def create_movie(
     ## Sequence:
     initial_state = ground_state(num_atoms)
     # Operations:
+    y1 = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(1, [1])
+    z2 = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(2, [2])
     operations : list[Operation] = []
-    operations.append( coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(1, [1]) )
-    operations.append( coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(2, [2]) )
+    operations.append( y1 )
+    operations.append( y1 )
+    operations.append( y1 )
+    operations.append( y1 )
+
     # Theta:
-    theta = [-pi/2, pi]
+    theta = [-pi/2, -pi/2, -pi/2, -pi/2]
     
     # create state:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
