@@ -80,7 +80,7 @@ def _get_movie_config(
 
 
 def create_movie(
-    num_atoms:int = 10,
+    num_atoms:int = 40,
     num_transition_frames = 50
 ):
     # Start:
@@ -95,17 +95,30 @@ def create_movie(
     # Operations:
     y1 = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(1, [1])
     z2 = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(2, [2])
+    x2 = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(2, [0])
     operations : list[Operation] = []
-    operations.append( y1 )
-    operations.append( y1 )
-    operations.append( y1 )
-    operations.append( y1 )
+    operations.append( x2 )
+
+    standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
+    rotation  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
+    squeezing = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
+
+    theta = [
+        +0.8937567499106599 , +3.2085033698137830 , -2.3242661423839071 , +0.0036751816770657 , -0.7836001773757240 , 
+        +2.6065083924231915 , +2.2505047554207338 , -2.4740789195081394        
+    ] # 1 step - 96 fidelity
+
+    operations  = [
+        rotation, squeezing, rotation
+    ]
+
 
     # Theta:
-    theta = [-pi/2, -pi/2, -pi/2, -pi/2]
+    # theta = [pi/2]
     
     # create state:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
+    # plot_matter_state(final_state)
     
     # Finish
     print("Done with movie.")
