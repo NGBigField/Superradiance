@@ -166,16 +166,11 @@ def create_movie(
             draw_now() 
 
     ## Iterate resutlts by result
-    i = 0
     prog_bar = strings.ProgressBar(len(file_names), print_prefix="Capturing optimization movie:  ")
     for file_name in file_names:
-        i += 1
         prog_bar.next()
         state, theta, score = _get_results(file_name)
         _update_plot(state, score)
-
-        if i>15:
-            break
     prog_bar.clear()
 
     video_recorder.write_video(name="optimization_movie "+_run_time_stamp)
