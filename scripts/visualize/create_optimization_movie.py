@@ -109,7 +109,7 @@ def _unpack_files_results(
     
 
 def create_movie(
-    num_atoms:int = 4,
+    num_atoms:int = 20,
     subfolder:str = "intermediate_results 2024.03.27_14.49.38",
     plot_target:bool = False,
     show_now:bool = False
@@ -161,14 +161,22 @@ def create_movie(
     def _update_plot(state, score)->None:
         title = f"fidelity={score:.5f}"
         figure_object.update(state, title=title)
-        video_recorder.capture(fig=figure_object.figure)   
+        video_recorder.capture(fig=figure_object.figure, duration=5)   
         if show_now:
             draw_now() 
 
-
+    ## Iterate resutlts by result
+    i = 0
+    prog_bar = strings.ProgressBar(len(file_names), print_prefix="Capturing optimization movie:  ")
     for file_name in file_names:
+        i += 1
+        prog_bar.next()
         state, theta, score = _get_results(file_name)
         _update_plot(state, score)
+
+        if i>15:
+            break
+    prog_bar.clear()
 
     video_recorder.write_video(name="optimization_movie "+_run_time_stamp)
 
