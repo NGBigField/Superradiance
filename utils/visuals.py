@@ -599,6 +599,7 @@ class MatterStatePlot():
         # Return:
         return fig, ax_bloch_sphe, ax_color_bar, ax_block_city
 
+
 class VideoRecorder():
     def __init__(self, fps:float=10.0, temp_dir_name:str="") -> None:
         self.fps = fps

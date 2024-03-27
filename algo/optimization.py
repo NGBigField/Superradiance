@@ -536,12 +536,16 @@ def learn_custom_operation(
     initial_guess : Optional[np.ndarray] = None,
     parameters_config : Optional[List[BaseParamType]] = None,
     save_results : bool = True,
+    save_intermediate_results : bool = True,
     print_interval : int = 20
 ) -> LearnedResults:
 
     ## Basic data:
     assert initial_state.shape[0]==initial_state.shape[1]
     num_moments : int = initial_state.shape[0]-1
+
+    if save_intermediate_results:
+        intermediate_results_subfolder = "intermediate_results "+strings.time_stamp()
 
     num_operation_params = sum([op.num_params for op in operations])
     positive_indices = _positive_indices_from_operations(operations)
@@ -565,6 +569,11 @@ def learn_custom_operation(
         extra_str = f"cost = {cost}"+"\n"+f"{_params_str(operation_params)}"
         prog_bar.next(increment=print_interval, extra_str=extra_str)
         finish : bool = False
+
+        if save_intermediate_results:
+            data_dict = dict(cost=cost, theta=xk, operation_params=operation_params)
+            saveload.save(data_dict, "intermediate_result "+strings.time_stamp()+f" cost={cost:.5f}", sub_folder=intermediate_results_subfolder)
+
         return finish
 
     ## Optimization Config:
