@@ -104,14 +104,17 @@ def _unpack_files_results(
     data = _load_data(file_name=file_name, subfolder=subfolder)
     score = -data["cost"]
     theta = data["theta"]
-    final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations)
-    return final_state, theta, score
+    if "state" in data:
+        state = data["state"]
+    else:
+        state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations)
+    return state, theta, score
     
 
 def create_movie(
     num_atoms:int = 20,
-    subfolder:str = "intermediate_results 2024.03.27_14.49.38",
-    plot_target:bool = False,
+    subfolder:str = "intermediate_results 2024.03.28_11.27.32",
+    plot_target:bool = True,
     show_now:bool = False
 ):
     
@@ -125,13 +128,16 @@ def create_movie(
 
     # config:
     bloch_config = BlochSphereConfig(
-        alpha_min=0.1,
-        resolution=150,
+        alpha_min=1, # no opacity
+        resolution=200,
         viewing_angles=ViewingAngles(
-            elev=-45,
+            elev=-90,
             azim=+45
         )
     )
+
+    def _create_matter_figure(state)->MatterStatePlot:
+        return MatterStatePlot(initial_state=state, bloch_sphere_config=bloch_config, horizontal=False)   
 
     # General variables:
     coherent_control = CoherentControl(num_atoms)
@@ -141,11 +147,10 @@ def create_movie(
 
     if plot_target:
         target = gkp_state(num_atoms, "square")
-        target_plot = MatterStatePlot(
-            initial_state=target,
-            bloch_sphere_config=bloch_config
-        )   
+        target_plot = _create_matter_figure(target)
+        target_plot.set_title("Target state")
         save_figure(target_plot.figure, file_name="optimization_target "+_run_time_stamp)
+        save_figure(target_plot.figure, file_name="optimization_target "+_run_time_stamp, extension="png")
 
     def _get_results(filename): 
         return _unpack_files_results(
@@ -155,13 +160,13 @@ def create_movie(
     state, _, _ = _get_results(file_names[0])
     
     ## Animation elements:
-    figure_object = MatterStatePlot(initial_state=state, bloch_sphere_config=bloch_config) 
+    figure_object = _create_matter_figure(state) 
     video_recorder = VideoRecorder(fps=30, temp_dir_name="optimization_frames "+_run_time_stamp)
 
     def _update_plot(state, score)->None:
         title = f"fidelity={score:.5f}"
         figure_object.update(state, title=title)
-        video_recorder.capture(fig=figure_object.figure, duration=5)   
+        video_recorder.capture(fig=figure_object.figure, duration=2)   
         if show_now:
             draw_now() 
 

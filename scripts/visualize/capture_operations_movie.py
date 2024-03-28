@@ -80,15 +80,32 @@ def _get_movie_config(
 
 
 def create_movie(
-    num_atoms:int = 40,
-    num_transition_frames = 50
+    movie_settings = "cat4"
 ):
     # Start:
-    print(f"Creating Movie...")
+    print(f"Creating Movie for movie_settings {movie_settings!r}")
+
+    match movie_settings:
+        case "cat4":
+            num_atoms = 40
+            num_transition_frames = 150
+        case "ghz":
+            num_atoms = 20
+            num_transition_frames = 50
+        case "x2":
+            num_atoms = 20
+            num_transition_frames = 100
+        case _:
+            raise ValueError("Choose a state that has an implementation")
+    assert isinstance(num_atoms, int), "Choose a state that has an implementation"
 
     # General variables:
     coherent_control = CoherentControl(num_atoms)
     movie_config = _get_movie_config(True, num_transition_frames)
+
+    if movie_settings=="cat4":
+        movie_config.bloch_sphere_config.viewing_angles.azim = -45
+        movie_config.bloch_sphere_config.resolution = 200
 
     ## Sequence:
     initial_state = ground_state(num_atoms)
@@ -103,18 +120,23 @@ def create_movie(
     rotation  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
     squeezing = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
 
-    theta = [
-        +0.8937567499106599 , +3.2085033698137830 , -2.3242661423839071 , +0.0036751816770657 , -0.7836001773757240 , 
-        +2.6065083924231915 , +2.2505047554207338 , -2.4740789195081394        
-    ] # 1 step - 96 fidelity
+    match movie_settings:
+        case "cat4":
+            operations  = [rotation, squeezing, rotation]
+            theta = [
+                +0.8937567499106599 , +3.2085033698137830 , -2.3242661423839071 , +0.0036751816770657 , -0.7836001773757240 , 
+                +2.6065083924231915 , +2.2505047554207338 , -2.4740789195081394        
+            ] 
 
-    operations  = [
-        rotation, squeezing, rotation
-    ]
+        case "ghz":
+            operations = [ y1  , z2  , z2  ,  y1   ] 
+            theta      = [-pi/2, pi/2, pi/2, -pi/2 ] 
 
+        case "x2":
+            operations = [x2  , x2  ] 
+            theta      = [pi/2, pi/2] 
 
-    # Theta:
-    # theta = [pi/2]
+    
     
     # create state:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)

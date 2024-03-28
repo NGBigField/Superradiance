@@ -456,7 +456,8 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
     else:
         fig = ax.figure
 
-    ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors)
+    ## Plot:
+    plot = ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors)
 
     if title is not None:
         ax.set_title(title, y=0.95)
@@ -484,15 +485,30 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
     plt.xticks( pos_range, [ f"|{m}>" for m in m_range] )
     plt.yticks( pos_range, [ f"<{m}|" for m in m_range] )
 
-    # Colorbar:
-    left, bottom, width, height = 0.95, 0.1, 0.02, 0.8
+    ## Colorbar:
+    left, bottom, width, height = 0.87, 0.1, 0.04, 0.8
+    
+    # get relative place of ax within figure:
+    # [[xmin, ymin], [xmax, ymax]]   
+    bbox = ax.get_position()
+    w = bbox.x1 - bbox.x0
+    h = bbox.y1 - bbox.y0
+    y0 = bbox.y0
+    x0 = bbox.x0
+    x1 = bbox.x1
+
+    width  *= w
+    height *= h
+    left    = left + x0
+    bottom  = bottom*h + y0
+
     cax = plt.axes([left, bottom, width, height])
     mappable = ScalarMappable(norm=norm, cmap=cmap)
     clr_bar = plt.colorbar(ax=ax, cax=cax, mappable=mappable )
     clr_bar.set_ticks([-pi, -pi/2, 0, pi/2, pi])
     clr_bar.set_ticklabels( [r'$-\pi$', r'$-\pi/2$', 0, r'$\pi/2$', r'$\pi$'] )
     
-    return fig, ax
+    return fig, ax, plot
 
 def plot_superradiance_evolution(times, energies, intensities):
     # Plot:
@@ -528,14 +544,16 @@ class MatterStatePlot():
         self, 
         bloch_sphere_config:BlochSphereConfig=BlochSphereConfig(), 
         initial_state:Optional[np.matrix]=None, 
+        horizontal:bool=True,
         show_now:bool=False, 
     ) -> None:
-        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure()
+        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure(horizontal=horizontal)
         self.axis_bloch_sphere : Axes3D = ax1
         self.axis_bloch_sphere_colorbar : Axes = ax2
         self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
         self.bloch_sphere_config : BlochSphereConfig = bloch_sphere_config
+        self.horizontal : bool = horizontal
         if initial_state is not None:
             self.update(initial_state, title="Initial-State", show_now=show_now)
     
@@ -549,7 +567,7 @@ class MatterStatePlot():
     ) -> None:
         assertions.density_matrix(state, robust_check=False)
         self.refresh_figure()
-        plot_city(state, ax=self.axis_block_city)
+        _, city_axes ,city_plot = plot_city(state, ax=self.axis_block_city)
         plot_wigner_bloch_sphere(
             state, ax=self.axis_bloch_sphere, 
             num_points=self.bloch_sphere_config.resolution, 
@@ -560,42 +578,63 @@ class MatterStatePlot():
             view_roll=self.bloch_sphere_config.viewing_angles.roll, 
             title=""
         )
+        city_axes.set_zorder(2)
         if title is not None:
-            self.figure.suptitle(title, fontsize=fontsize)
+            self.set_title(title, fontsize=fontsize)            
         if show_now:
             draw_now()
         if score_str is not None:
             self.axis_bloch_sphere.text(x=-0.5 ,y=-0.5, z=-2, s=score_str, fontsize=12)
     
+    def set_title(self, title:str, /, *, fontsize:int=16)->None:
+        self.figure.suptitle(title, fontsize=fontsize)
+
     def close(self) -> None:
         plt.close(self.figure)
             
     def refresh_figure(self) -> None :
         plt.figure(self.figure.number)
         plt.clf()
-        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure(self.figure)
+        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure(self.figure, horizontal=self.horizontal)
         self.axis_bloch_sphere : Axes3D = ax1
         self.axis_bloch_sphere_colorbar : Axes = ax2
         self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
         
     @staticmethod
-    def _init_figure(fig:Optional[Figure]=None):
+    def _init_figure(fig:Optional[Figure]=None, horizontal:bool=True):
         # Control
         separate_colorbar_axis : bool = MatterStatePlot._separate_colorbar_axis
         # fig:
         if fig is None:
-            fig = plt.figure(figsize=(11,6))
+            if horizontal:
+                fig = plt.figure(figsize=(10,5))
+            else:
+                fig = plt.figure(figsize=(5 ,9))
         # Create axes:
         ax_block_city = _axes3D(fig)
-        ax_bloch_sphe = fig.add_subplot(1,2,1, projection='3d')        
+        if horizontal:
+            ax_bloch_sphe = fig.add_subplot(1,2,1, projection='3d')        
+        else:
+            ax_bloch_sphe = fig.add_subplot(2,1,1, projection='3d')        
+
         if separate_colorbar_axis:
-            ax_color_bar = fig.add_axes([0.0, 0.1, 0.02, 0.8])
+            if horizontal:
+                                          # [left, bottom, width, height]
+                ax_color_bar = fig.add_axes([0.00, 0.10,  0.04, 0.8])
+            else:
+                ax_color_bar = fig.add_axes([0.88, 0.55,  0.03, 0.4])
         else:
             ax_color_bar = None
+            
         # set dims:
-        ax_bloch_sphe.set_position(Bbox([[0.00, 0.0], [0.45, 1.0]])) 
-        ax_block_city.set_position(Bbox([[0.45, 0.0], [0.95, 0.9]]))  
+        if horizontal:
+                                          # [[ xmin, ymin], [xmax, ymax]]   
+            ax_bloch_sphe.set_position(Bbox([[ 0.00, 0.00], [0.45, 1.00]])) 
+            ax_block_city.set_position(Bbox([[ 0.45, 0.00], [0.95, 0.90]]))  
+        else:
+            ax_bloch_sphe.set_position(Bbox([[-0.15, 0.40], [1.00, 1.00]])) 
+            ax_block_city.set_position(Bbox([[ 0.00, 0.00], [0.78, 0.50]]))  
         # Return:
         return fig, ax_bloch_sphe, ax_color_bar, ax_block_city
 

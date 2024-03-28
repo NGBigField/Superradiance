@@ -141,13 +141,9 @@ def best_sequence_params(
     
     
 def main(
-    num_total_attempts=100,
     num_atoms:int=20, 
-    max_iter_per_attempt=6*int(1e3),
-    max_error_per_attempt=1e-17,
-    num_free_params:int|None=33,
-    sigma=0.0003,
-    initial_sigma:float=0.001
+    max_iter_per_attempt=1*int(1e5),
+    tolerance=1e-17,
 ) -> LearnedResults:
         
     # Similar to previous method:
@@ -155,14 +151,14 @@ def main(
     initial_state = Fock.ground_state_density_matrix(num_atoms=num_atoms)
     
     # Params and operations:
-    param_config, operations = best_sequence_params(num_atoms)
+    _, operations = best_sequence_params(num_atoms)
 
     results = learn_custom_operation(
         initial_state=initial_state, 
         cost_function=cost_function, 
         operations=operations, 
         max_iter=max_iter_per_attempt, 
-        tolerance=max_error_per_attempt,
+        tolerance=tolerance,
         parameters_config=None,
         opt_method=DEFAULT_OPT_METHOD
     )

@@ -547,6 +547,10 @@ def learn_custom_operation(
     if save_intermediate_results:
         intermediate_results_subfolder = "intermediate_results "+strings.time_stamp()
 
+        @decorators.sparse_execution(skip_num=10, default_results=None)
+        def _save_intermediate_results(data_dict:dict, cost:float):
+            saveload.save(data_dict, "intermediate_result "+strings.time_stamp()+f" cost={cost:.5f}", sub_folder=intermediate_results_subfolder)
+
     num_operation_params = sum([op.num_params for op in operations])
     positive_indices = _positive_indices_from_operations(operations)
     param_config : OptimizationParams = _deal_params_config(num_operation_params, positive_indices, parameters_config)
@@ -562,6 +566,9 @@ def learn_custom_operation(
         print_interval = 1
         max_iter *= 10000
     prog_bar = strings.ProgressBar(progbar_max_iter, "Minimizing: ", print_length=100)    
+
+
+
     @decorators.sparse_execution(skip_num=print_interval, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
         cost = _total_cost_function(xk)
@@ -570,9 +577,6 @@ def learn_custom_operation(
         prog_bar.next(increment=print_interval, extra_str=extra_str)
         finish : bool = False
 
-        if save_intermediate_results:
-            data_dict = dict(cost=cost, theta=xk, operation_params=operation_params)
-            saveload.save(data_dict, "intermediate_result "+strings.time_stamp()+f" cost={cost:.5f}", sub_folder=intermediate_results_subfolder)
 
         return finish
 
@@ -583,6 +587,11 @@ def learn_custom_operation(
         operation_params = param_config.optimization_theta_to_operations_params(theta)
         final_state = coherent_control.custom_sequence(initial_state, theta=operation_params, operations=operations )
         cost = cost_function(final_state)
+
+        if save_intermediate_results:
+            data_dict = dict(cost=cost, theta=theta, operation_params=operation_params, state=final_state)
+            _save_intermediate_results(data_dict, cost)
+
         return cost
 
     options = dict(maxiter = max_iter)   
