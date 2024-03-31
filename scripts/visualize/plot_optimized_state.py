@@ -259,7 +259,7 @@ def _get_movie_config(
 def plot_sequence(
     state_type:StateType = StateType.GKPSquare,
     num_atoms:int = 40,
-    resolution:int = 400,
+    resolution:int = 600,
     subfolder:str|None = "GKP-Sequence"
 ):
     # constants:
@@ -353,7 +353,7 @@ def plot_result(
     state_type:StateType,
     create_movie:bool = False,
     num_atoms:int = 40,
-    resolution:int = 400,
+    resolution:int = 600,
     clean_plot:bool = True
 ):
     
@@ -387,9 +387,9 @@ def plot_result(
     emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
     # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
     # save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=resolution)
-    save_figure(file_name=state_name+" - Light - png", subfolder=state_name, tight=True, extension="png")
-    save_figure(file_name=state_name+" - Light - tif", subfolder=state_name, tight=True, extension="tif")
+    # plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=resolution)
+    # save_figure(file_name=state_name+" - Light - png", subfolder=state_name, tight=True, extension="png")
+    # save_figure(file_name=state_name+" - Light - tif", subfolder=state_name, tight=True, extension="tif")
     # save_figure(file_name=state_name+" - Light - svg", tight=True, extension="svg")
 
     ## plot bloch:
@@ -399,8 +399,8 @@ def plot_result(
     plot_wigner_bloch_sphere(matter_state, alpha_min=alpha_min, title="", 
                              num_points=resolution, view_elev=-90, with_axes_arrows=with_additions, with_colorbar=with_additions,
                              with_light_source=with_light_source)
-    save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=True)
-    save_figure(file_name=state_name+" - Sphere - tif", subfolder=state_name, extension="tif", transparent=True)
+    save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=clean_plot)
+    save_figure(file_name=state_name+" - Sphere - tif", subfolder=state_name, extension="tif", transparent=clean_plot)
     # save_figure(file_name=state_name+" - Sphere - svg", extension="svg", transparent=True)
     # plt.show()
     
