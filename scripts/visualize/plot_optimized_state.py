@@ -384,7 +384,7 @@ def plot_result(
     fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
 
     ## plot light:
-    emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
+    # emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
     # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
     # save_figure(file_name=state_name+" - Light - colorbar")
     # plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=resolution)
