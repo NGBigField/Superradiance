@@ -80,7 +80,7 @@ def _get_movie_config(
     return movie_config
 
 
-def create_movie(
+def main(
     what_movie = "rot"
 ):
     # Start:
@@ -94,13 +94,13 @@ def create_movie(
             num_transition_frames = 150
         case "rot":
             num_atoms = 10
-            num_transition_frames = 100
+            num_transition_frames = 70
             horizontal_movie = False
-        case "rot-squeeze_rot":
+        case "rot_squeeze_rot":
             num_atoms = 10
             num_transition_frames = 100
             horizontal_movie = False
-        case "x2":
+        case "squeeze_x2":
             num_atoms = 10
             num_transition_frames = 100
             horizontal_movie = False
@@ -143,17 +143,17 @@ def create_movie(
             operations = [ y1  ]*4 
             theta      = [-pi/2]*4 
 
-        case "rot-squeeze_rot":
+        case "rot_squeeze_rot":
             operations = [ y1  , z2  , z2  ,  y1   ] 
             theta      = [-pi/2, pi/2, pi/2, -pi/2 ] 
 
-        case "x2":
+        case "squeeze_x2":
             operations = [x2  ]*4 
             theta      = [pi/2]*4 
 
         case "test":
             operations = [y1  ] 
-            theta      = [pi  ] 
+            theta      = [-pi ] 
 
     
     # create state:
@@ -166,6 +166,6 @@ def create_movie(
 
 
 if __name__ == "__main__":
-    create_movie()
+    main()
     
     print("Done.")
