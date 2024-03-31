@@ -129,7 +129,7 @@ def new_axis(is_3d:bool=False):
 
 
 def save_figure(
-    fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:Optional[str]=None, tight:bool=False,
+    fig:Optional[Figure]=None, folder:Optional[str]=None, subfolder:Optional[str]=None, file_name:Optional[str]=None, tight:bool=False, transparent:bool|None=None,
     extension:str="svg"
 ) -> None:
     # Figure:
@@ -144,18 +144,27 @@ def save_figure(
     if folder is None:
         folder = IMAGES_FOLDER
     assert isinstance(folder, str)
+
     
+    # Full path:
     folder = Path(folder)
     if not folder.is_dir():
         os.mkdir(str(folder.resolve()))
-    # Full path:
+        
+    if subfolder is not None:
+        folder = folder.joinpath(subfolder)
+
+    if not folder.is_dir():
+        os.mkdir(str(folder.resolve()))
+
+    
     fullpath = folder.joinpath(file_name)
     fullpath_str = str(fullpath.resolve())+"."+extension
     # Save:
     if tight:
-        fig.savefig(fullpath_str, bbox_inches='tight', pad_inches=0.0)
+        fig.savefig(fullpath_str, bbox_inches='tight', pad_inches=0.0, transparent=transparent)
     else:
-        fig.savefig(fullpath_str)
+        fig.savefig(fullpath_str, transparent=transparent)
 
     return 
 

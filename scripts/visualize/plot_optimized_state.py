@@ -259,7 +259,8 @@ def _get_movie_config(
 def plot_sequence(
     state_type:StateType = StateType.GKPSquare,
     num_atoms:int = 40,
-    folder:str|None = None
+    resolution:int = 400,
+    subfolder:str|None = "GKP-Sequence"
 ):
     # constants:
 
@@ -286,16 +287,18 @@ def plot_sequence(
         state_i = coherent_control.custom_sequence(state=initial_state, theta=theta_i, operations=operations_i)
     
         # plot light:
-        plot_plain_wigner(state_i)
-        save_figure(folder=folder, file_name=name+" - Light")        
+        # plot_plain_wigner(state_i)
+        # save_figure(folder=folder, file_name=name+" - Light")        
 
         # plot bloch:
-        plot_wigner_bloch_sphere(state_i, view_elev=-90, alpha_min=1, title="", num_points=200)
-        save_figure(folder=folder, file_name=name+" - Sphere")
+        plot = plot_wigner_bloch_sphere(state_i, view_elev=-90, alpha_min=1, title="", num_points=resolution, with_colorbar=False)
+        save_figure(fig=plot.axes.figure, subfolder=subfolder, file_name=name+" - Sphere - png", extension="png", transparent=True)
+        save_figure(fig=plot.axes.figure, subfolder=subfolder, file_name=name+" - Sphere - tif", extension="tif", transparent=True)
+        # save_figure(subfolder=subfolder, file_name=name+" - Sphere - svg", extension="svg", transparent=True)
         
         # Sleep and close open figures:
         sleep(1)
-        plt.close("all")
+        # plt.close("all")
 
 
 
@@ -350,7 +353,7 @@ def plot_result(
     state_type:StateType,
     create_movie:bool = False,
     num_atoms:int = 40,
-    num_graphics_points:int = 800,
+    resolution:int = 400,
     clean_plot:bool = True
 ):
     
@@ -375,33 +378,36 @@ def plot_result(
     # plot_plain_wigner(matter_state, with_colorbar=False)
     # save_figure(file_name=state_name+" - Projection")
 
+    # print  Data:
+    print(f"State: {state_name!r}")
+    print(f"num steps={num_steps}")
+    fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
+
+    ## plot light:
+    emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
+    # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
+    # save_figure(file_name=state_name+" - Light - colorbar")
+    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=resolution)
+    save_figure(file_name=state_name+" - Light - png", subfolder=state_name, tight=True, extension="png")
+    save_figure(file_name=state_name+" - Light - tif", subfolder=state_name, tight=True, extension="tif")
+    # save_figure(file_name=state_name+" - Light - svg", tight=True, extension="svg")
+
     ## plot bloch:
-    alpha_min = 0.2
+    alpha_min = 1.0
     with_light_source = False
     with_additions = not clean_plot
-    # plot_plain_wigner(matter_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
     plot_wigner_bloch_sphere(matter_state, alpha_min=alpha_min, title="", 
-                             num_points=num_graphics_points, view_elev=-90, with_axes_arrows=with_additions, with_colorbar=with_additions,
+                             num_points=resolution, view_elev=-90, with_axes_arrows=with_additions, with_colorbar=with_additions,
                              with_light_source=with_light_source)
-    save_figure(file_name=state_name+" - Sphere")
-    plt.show()
+    save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=True)
+    save_figure(file_name=state_name+" - Sphere - tif", subfolder=state_name, extension="tif", transparent=True)
+    # save_figure(file_name=state_name+" - Sphere - svg", extension="svg", transparent=True)
+    # plt.show()
     
-    #save_figure(file_name=state_name+" - Light")
-
-    # print  Data:
-    #print(f"State: {state_name!r}")
-    #print(f"num steps={num_steps}")
-    #fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
 
     # Print params:
     # print_params_canonical(operations, theta, state_name)   
 
-    ## plot light:
-    #emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
-    # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
-    # save_figure(file_name=state_name+" - Light - colorbar")
-    #plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=num_graphics_points)
-    #save_figure(file_name=state_name+" - Light", tight=True)
     
     #fidelity = _print_fidelity(emitted_light_state, cost_function, "Emitted light ")
 
@@ -438,9 +444,9 @@ def create_movie(
 
 if __name__ == "__main__":
     # plot_sequence()
+    plot_all_best_results()
     # create_movie()
-    plot_result(StateType.GKPSquare)
-    # plot_all_best_results()
+    # plot_result(StateType.GKPSquare)
     # print_all_fidelities()
     
     print("Done.")

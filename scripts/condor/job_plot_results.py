@@ -36,7 +36,7 @@ def main(variation:int=0, num_grahpic_points=2000) -> dict[str, Any]:
     sleep(variation)
 
     ## Create movie:
-    score = plot_result(state_type=state_type, create_movie=False, num_graphics_points=num_grahpic_points)
+    score = plot_result(state_type=state_type, create_movie=False, resolution=num_grahpic_points)
 
     return dict(
         variation = name,
