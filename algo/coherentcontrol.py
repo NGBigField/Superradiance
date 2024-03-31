@@ -182,7 +182,14 @@ def _Sz_mat(N:int) -> np.matrix :
         M = _M(m, J)
         Sz[m,m] = M
     return Sz
-  
+
+def _float_to_str_except_zeros(x:float|int, num_decimals:int|None=None)->str:
+    if num_decimals is None:
+        return f"{num_decimals}"
+    if x==0:
+        return f"0"
+    return f"{x:.{num_decimals}f}"
+
 def _deal_costum_params(
     operations: List[Operation],
     theta: Optional[Union[List[float], np.ndarray]]=None
@@ -365,6 +372,7 @@ class SequenceMovieRecorder():
         fps : int = 5
         num_transition_frames : int = 10
         num_freeze_frames : int = 5
+        horizontal_figure : bool = True
         bloch_sphere_config : visuals.BlochSphereConfig = field( default_factory=visuals.BlochSphereConfig )
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
         temp_dir_name : str = ""
@@ -380,7 +388,8 @@ class SequenceMovieRecorder():
         if self.config.active:
             self.figure_object : visuals.MatterStatePlot = visuals.MatterStatePlot(
                 initial_state=initial_state,
-                bloch_sphere_config=self.config.bloch_sphere_config
+                bloch_sphere_config=self.config.bloch_sphere_config,
+                horizontal=self.config.horizontal_figure
             )            
             self.video_recorder : visuals.VideoRecorder = visuals.VideoRecorder(fps=self.config.fps, temp_dir_name=self.config.temp_dir_name)
         else:
@@ -400,7 +409,8 @@ class SequenceMovieRecorder():
         title : Optional[str]=None
     ) -> None:
         score_str = self._derive_score_str(state)
-        self.figure_object.update(state, title=title, show_now=self.config.show_now, score_str=score_str)
+        fontsize = 16 if self.config.horizontal_figure else 12
+        self.figure_object.update(state, title=title, show_now=self.config.show_now, score_str=score_str, fontsize=fontsize)
         self.video_recorder.capture(fig=self.figure_object.figure, duration=duration)
 
     def _derive_score_str(self, state:_DensityMatrixType) -> Union[str, None]:
@@ -565,9 +575,10 @@ class CoherentControl():
                 out[ind] = val
             return out
 
-        def _power_pulse_string_func(self, theta:List[float], indices:List[int], power:int):
+        def _power_pulse_string_func(self, theta:List[float], indices:List[int], power:int, num_decimals:int=6):
             values = self._deal_values_to_indices(values=theta, indices=indices)
-            return f"Power-{power} pulse: [{values[0]}, {values[1]}, {values[2]}]"
+            _s = lambda x: _float_to_str_except_zeros(x, num_decimals)
+            return f"Power-{power} pulse: [{_s(values[0])}, {_s(values[1])}, {_s(values[2])}]"
 
         def _power_pulse_func(self, rho:_DensityMatrixType, theta:List[float], indices:List[float], power:int) -> _DensityMatrixType:
             values = self._deal_values_to_indices(values=theta, indices=indices)

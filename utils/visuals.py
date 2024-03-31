@@ -420,6 +420,30 @@ def plot_wigner_bloch_sphere(
 
     return surface_plot
 
+
+def _derive_city_colorbar_position(ax:Axes)->tuple[float,...]:
+
+    # Pre-decided relative position
+    left0, bottom0, width0, height0 = 1.05, 0.1, 0.04, 0.8
+    
+    # get relative place of ax within figure:
+    # [[xmin, ymin], [xmax, ymax]]   
+    bbox = ax.get_position()
+    x0 = bbox.x0
+    x1 = bbox.x1
+    y0 = bbox.y0
+    y1 = bbox.y1    
+    w  = x1 - x0
+    h  = y1 - y0
+
+    width  = width0*w
+    height = height0*h
+    left   = left0*w + x0
+    bottom = bottom0*h + y0
+
+    return left, bottom, width, height
+
+
 def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=None):
     # Check input type:
     if isinstance(mat, np.matrix):
@@ -486,27 +510,12 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
     plt.yticks( pos_range, [ f"<{m}|" for m in m_range] )
 
     ## Colorbar:
-    left, bottom, width, height = 0.87, 0.1, 0.04, 0.8
-    
-    # get relative place of ax within figure:
-    # [[xmin, ymin], [xmax, ymax]]   
-    bbox = ax.get_position()
-    w = bbox.x1 - bbox.x0
-    h = bbox.y1 - bbox.y0
-    y0 = bbox.y0
-    x0 = bbox.x0
-    x1 = bbox.x1
-
-    width  *= w
-    height *= h
-    left    = left + x0
-    bottom  = bottom*h + y0
-
+    left, bottom, width, height = _derive_city_colorbar_position(ax)    
     cax = plt.axes([left, bottom, width, height])
     mappable = ScalarMappable(norm=norm, cmap=cmap)
     clr_bar = plt.colorbar(ax=ax, cax=cax, mappable=mappable )
     clr_bar.set_ticks([-pi, -pi/2, 0, pi/2, pi])
-    clr_bar.set_ticklabels( [r'$-\pi$', r'$-\pi/2$', 0, r'$\pi/2$', r'$\pi$'] )
+    clr_bar.set_ticklabels( [r"$-\pi$", r"$-\dfrac{\pi}{2}$", 0, r"$\dfrac{\pi}{2}$", r'$\pi$'] )
     
     return fig, ax, plot
 
@@ -619,22 +628,20 @@ class MatterStatePlot():
             ax_bloch_sphe = fig.add_subplot(2,1,1, projection='3d')        
 
         if separate_colorbar_axis:
-            if horizontal:
-                                          # [left, bottom, width, height]
-                ax_color_bar = fig.add_axes([0.00, 0.10,  0.04, 0.8])
+            if horizontal:                # [left, bottom, width, height]
+                ax_color_bar = fig.add_axes([0.00, 0.10,  0.02, 0.7])
             else:
                 ax_color_bar = fig.add_axes([0.88, 0.55,  0.03, 0.4])
         else:
             ax_color_bar = None
             
         # set dims:
-        if horizontal:
-                                          # [[ xmin, ymin], [xmax, ymax]]   
-            ax_bloch_sphe.set_position(Bbox([[ 0.00, 0.00], [0.45, 1.00]])) 
-            ax_block_city.set_position(Bbox([[ 0.45, 0.00], [0.95, 0.90]]))  
+        if horizontal:                    # [[ xmin, ymin], [xmax, ymax]]   
+            ax_bloch_sphe.set_position(Bbox([[ 0.00,-0.20], [0.55, 1.10]])) 
+            ax_block_city.set_position(Bbox([[ 0.45, 0.00], [0.93, 0.90]]))  
         else:
             ax_bloch_sphe.set_position(Bbox([[-0.15, 0.40], [1.00, 1.00]])) 
-            ax_block_city.set_position(Bbox([[ 0.00, 0.00], [0.78, 0.50]]))  
+            ax_block_city.set_position(Bbox([[ 0.00, 0.00], [0.84, 0.55]]))  
         # Return:
         return fig, ax_bloch_sphe, ax_color_bar, ax_block_city
 
@@ -739,11 +746,36 @@ def _test_light_wigner():
     # Plot:
     draw_now()
     plot_plain_wigner(state, "Test", with_colorbar=True, colorlims=(-1, 1))
+
+
+def _test_matter_state(horizontal:bool=False):
+    # Specific imports:
+    from physics.famous_density_matrices import gkp_state, cat_state
+
+    # Constants:
+    num_atoms = 10
+
+    # State:
+    state = cat_state(num_atoms=num_atoms, num_legs=2, alpha=1.0)
+
+    # Config:
+    bloch_sphere_config = BlochSphereConfig(resolution=40)
+
+    # Plot:
+    draw_now()
+    MatterStatePlot(bloch_sphere_config=bloch_sphere_config, initial_state=state, horizontal=horizontal)
+    draw_now()
+
+    # done:
+    print("Done.")
+
     
 
 def tests():
-    _test_bloch_sphere()
+    # _test_bloch_sphere()
     # _test_light_wigner()
+    _test_matter_state()
+
 
     
     print("Done tests.")
