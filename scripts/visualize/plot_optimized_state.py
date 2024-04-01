@@ -157,11 +157,13 @@ def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:flo
     if saveload.exist(file_name, sub_folder=sub_folder):
         emitted_light_state = saveload.load(file_name, sub_folder=sub_folder)        
     else:
-        for time_res in [1000, 600, 400, 200]:
+        for time_res in [400, 200, 100]:
             try:
                 emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=time_res)
             except Exception as e:
+                print(f"Couldn't compute emitted light for time resulotion of {time_res}")
                 print(str(e))
+                continue
             else:
                 break
         saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
@@ -351,13 +353,11 @@ def print_all_fidelities(num_atoms=40):
 
 
 def plot_all_best_results(
-    create_movie:bool = False,
-    num_atoms:int = 40
+    create_movie:bool = False
 ):
     for state_type in StateType:
-        print(" ")
-        print(state_type.name)
-        plot_result(state_type, create_movie, num_atoms)        
+        print("\n"+state_type.name)
+        plot_result(state_type, create_movie)        
         print(" ")
         
     print("Done.")
@@ -367,7 +367,7 @@ def plot_result(
     state_type:StateType,
     create_movie:bool = False,
     num_atoms:int = 40,
-    resolution:int = 400,
+    resolution:int = 600,
     clean_plot:bool = True
 ):
     
@@ -398,13 +398,13 @@ def plot_result(
     fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
 
     ## plot light:
-    emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
-    # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
-    # save_figure(file_name=state_name+" - Light - colorbar")
-    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=resolution)
-    save_figure(file_name=state_name+" - Light", subfolder="Best-results", tight=True, extension="tif")
-    # save_figure(file_name=state_name+" - Light - png", subfolder=state_name, tight=True, extension="png")
-    # save_figure(file_name=state_name+" - Light - svg", tight=True, extension="svg")
+    # emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
+    # # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
+    # # save_figure(file_name=state_name+" - Light - colorbar")
+    # plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=resolution)
+    # save_figure(file_name=state_name+" - Light", subfolder="Best-results", tight=True, extension="tif")
+    # # save_figure(file_name=state_name+" - Light - png", subfolder=state_name, tight=True, extension="png")
+    # # save_figure(file_name=state_name+" - Light - svg", tight=True, extension="svg")
 
     ## plot bloch:
     alpha_min = 1.0
