@@ -157,7 +157,13 @@ def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:flo
     if saveload.exist(file_name, sub_folder=sub_folder):
         emitted_light_state = saveload.load(file_name, sub_folder=sub_folder)        
     else:
-        emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=1000)
+        for time_res in [1000, 600, 400, 200]:
+            try:
+                emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=time_res)
+            except Exception as e:
+                print(str(e))
+            else:
+                break
         saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
     # Return:
     return emitted_light_state #type: ignore
@@ -260,7 +266,8 @@ def plot_sequence(
     state_type:StateType = StateType.GKPSquare,
     num_atoms:int = 40,
     resolution:int = 600,
-    subfolder:str|None = "GKP-Sequence"
+    subfolder:str|None = "GKP-Sequence",
+    single_i:int|None = 11
 ):
     # constants:
 
@@ -270,8 +277,15 @@ def plot_sequence(
     # derive:
     n = assertions.integer( (len(operations)-1)/2 )
     
-    # iterate: 
-    for i in range(n+1):
+    ## iterate: 
+    if single_i is None:
+        i_vals = range(n+1)
+    elif isinstance(single_i, int):
+        i_vals = [single_i]
+    else:
+        raise TypeError(f"Not a supported input of type {type(single_i)!r}")
+
+    for i in i_vals:
         print(strings.num_out_of_num(i, n))
 
         # derive params for this iteration:
@@ -353,7 +367,7 @@ def plot_result(
     state_type:StateType,
     create_movie:bool = False,
     num_atoms:int = 40,
-    resolution:int = 600,
+    resolution:int = 400,
     clean_plot:bool = True
 ):
     
@@ -384,23 +398,23 @@ def plot_result(
     fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
 
     ## plot light:
-    # emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
+    emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
     # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
     # save_figure(file_name=state_name+" - Light - colorbar")
-    # plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=resolution)
+    plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=resolution)
+    save_figure(file_name=state_name+" - Light", subfolder="Best-results", tight=True, extension="tif")
     # save_figure(file_name=state_name+" - Light - png", subfolder=state_name, tight=True, extension="png")
-    # save_figure(file_name=state_name+" - Light - tif", subfolder=state_name, tight=True, extension="tif")
     # save_figure(file_name=state_name+" - Light - svg", tight=True, extension="svg")
 
     ## plot bloch:
     alpha_min = 1.0
-    with_light_source = False
+    with_light_source = True
     with_additions = not clean_plot
     plot_wigner_bloch_sphere(matter_state, alpha_min=alpha_min, title="", 
-                             num_points=resolution, view_elev=-90, with_axes_arrows=with_additions, with_colorbar=with_additions,
+                             num_points=resolution, view_elev=-90, with_axes_arrows=True, with_colorbar=with_additions,
                              with_light_source=with_light_source)
-    save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=clean_plot)
-    save_figure(file_name=state_name+" - Sphere - tif", subfolder=state_name, extension="tif", transparent=clean_plot)
+    # save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=clean_plot)
+    save_figure(file_name=state_name+" - Sphere", subfolder="Best-results", extension="tif", transparent=clean_plot)
     # save_figure(file_name=state_name+" - Sphere - svg", extension="svg", transparent=True)
     # plt.show()
     
