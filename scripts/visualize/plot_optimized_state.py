@@ -190,6 +190,8 @@ def _get_best_params(
                 return gkp_square_params(num_atoms, num_intermediate_states=num_intermediate_states)
             elif num_atoms==20:
                 return gkp_square_20_params(num_atoms, num_intermediate_states=num_intermediate_states)
+            else:
+                raise ValueError(f"Not an option {type_!r} and num_atoms={num_atoms}")
 
         case StateType.Cat4:
             return cat4_params(num_atoms, num_intermediate_states=num_intermediate_states)

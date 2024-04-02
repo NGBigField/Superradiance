@@ -547,7 +547,7 @@ def learn_custom_operation(
     if save_intermediate_results:
         intermediate_results_subfolder = "intermediate_results "+strings.time_stamp()
 
-        @decorators.sparse_execution(skip_num=10, default_results=None)
+        @decorators.sparse_execution(skip_num=5, default_results=None)
         def _save_intermediate_results(data_dict:dict, cost:float):
             saveload.save(data_dict, "intermediate_result "+strings.time_stamp()+f" cost={cost:.5f}", sub_folder=intermediate_results_subfolder)
 

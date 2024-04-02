@@ -113,7 +113,7 @@ def _unpack_files_results(
 
 def create_movie(
     num_atoms:int = 20,
-    subfolder:str = "intermediate_results 2024.03.28_11.27.32",
+    subfolder:str = "intermediate_results 2024.04.02_11.26.44",
     plot_target:bool = True,
     show_now:bool = False
 ):
@@ -149,8 +149,8 @@ def create_movie(
         target = gkp_state(num_atoms, "square")
         target_plot = _create_matter_figure(target)
         target_plot.set_title("Target state")
-        save_figure(target_plot.figure, file_name="optimization_target "+_run_time_stamp)
         save_figure(target_plot.figure, file_name="optimization_target "+_run_time_stamp, extension="png")
+        save_figure(target_plot.figure, file_name="optimization_target "+_run_time_stamp, extension="tif")
 
     def _get_results(filename): 
         return _unpack_files_results(
@@ -161,7 +161,7 @@ def create_movie(
     
     ## Animation elements:
     figure_object = _create_matter_figure(state) 
-    video_recorder = VideoRecorder(fps=30, temp_dir_name="optimization_frames "+_run_time_stamp)
+    video_recorder = VideoRecorder(fps=60, temp_dir_name="optimization_frames "+_run_time_stamp)
 
     def _update_plot(state, score)->None:
         title = f"fidelity={score:.5f}"
@@ -171,11 +171,24 @@ def create_movie(
             draw_now() 
 
     ## Iterate resutlts by result
+    plot_every : int = 1
+    plot_count : int = 0
+
     prog_bar = strings.ProgressBar(len(file_names), print_prefix="Capturing optimization movie:  ")
     for file_name in file_names:
         prog_bar.next()
         state, theta, score = _get_results(file_name)
-        _update_plot(state, score)
+
+        if score > 0.90:
+            plot_every = 10
+        elif score > 0.95:
+            plot_every = 100
+
+        plot_count += 1
+        if plot_count >= plot_every:
+            _update_plot(state, score)
+            plot_count = 0
+
     prog_bar.clear()
 
     video_recorder.write_video(name="optimization_movie "+_run_time_stamp)
