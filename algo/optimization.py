@@ -536,7 +536,7 @@ def learn_custom_operation(
     initial_guess : Optional[np.ndarray] = None,
     parameters_config : Optional[List[BaseParamType]] = None,
     save_results : bool = True,
-    save_intermediate_results : bool = True,
+    save_intermediate_results : bool = False,
     print_interval : int = 20
 ) -> LearnedResults:
 
@@ -547,9 +547,25 @@ def learn_custom_operation(
     if save_intermediate_results:
         intermediate_results_subfolder = "intermediate_results "+strings.time_stamp()
 
-        @decorators.sparse_execution(skip_num=5, default_results=None)
+        _run_counter : int = 0
+        # @decorators.sparse_execution(skip_num=5, default_results=None)
         def _save_intermediate_results(data_dict:dict, cost:float):
-            saveload.save(data_dict, "intermediate_result "+strings.time_stamp()+f" cost={cost:.5f}", sub_folder=intermediate_results_subfolder)
+            nonlocal _run_counter
+
+            _run_counter = _run_counter + 1
+            _skip_num = 1
+            if -cost > 0.30:
+                _skip_num = 5
+            if -cost > 0.90:
+                _skip_num = 50
+            if -cost > 0.95: 
+                _skip_num = 200
+            if -cost > 0.99: 
+                _skip_num = 1
+
+            if _run_counter >= _skip_num:                
+                saveload.save(data_dict, "intermediate_result "+strings.time_stamp()+f" cost={cost:.5f}", sub_folder=intermediate_results_subfolder)
+                _run_counter = 0
 
     num_operation_params = sum([op.num_params for op in operations])
     positive_indices = _positive_indices_from_operations(operations)

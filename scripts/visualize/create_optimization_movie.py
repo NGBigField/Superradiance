@@ -112,8 +112,8 @@ def _unpack_files_results(
     
 
 def create_movie(
+    subfolder:str = "intermediate_results 2024.04.02_13.31.16",
     num_atoms:int = 20,
-    subfolder:str = "intermediate_results 2024.04.02_11.26.44",
     plot_target:bool = True,
     show_now:bool = False
 ):
@@ -129,7 +129,7 @@ def create_movie(
     # config:
     bloch_config = BlochSphereConfig(
         alpha_min=1, # no opacity
-        resolution=200,
+        resolution=150,
         viewing_angles=ViewingAngles(
             elev=-90,
             azim=+45
@@ -178,11 +178,6 @@ def create_movie(
     for file_name in file_names:
         prog_bar.next()
         state, theta, score = _get_results(file_name)
-
-        if score > 0.90:
-            plot_every = 10
-        elif score > 0.95:
-            plot_every = 100
 
         plot_count += 1
         if plot_count >= plot_every:

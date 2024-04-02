@@ -242,14 +242,14 @@ def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], f
     
         
 def _get_movie_config(
-    create_movie:bool, num_transition_frames:int, state_type:StateType
+    create_movie:bool, num_transition_frames:int, state_type:StateType, resolution:int=250, horizontal:bool=False
 ) -> CoherentControl.MovieConfig:
     # Basic data:
     fps=30
     
     bloch_sphere_config = BlochSphereConfig(
         alpha_min=0.2,
-        resolution=250,
+        resolution=resolution,
         viewing_angles=ViewingAngles(
             elev=-45
         )
@@ -262,8 +262,9 @@ def _get_movie_config(
         num_freeze_frames=fps//2,
         fps=fps,
         bloch_sphere_config=bloch_sphere_config,
+        horizontal_figure=horizontal,
         num_transition_frames=num_transition_frames,
-        temp_dir_name=state_type.name     
+        temp_dir_name=state_type.name
     )
     
     return movie_config
@@ -375,14 +376,14 @@ def plot_all_best_results(
 
 def plot_result(
     state_type:StateType,
-    create_movie:bool = False,
+    create_movie:bool = True,
     num_atoms:int = 40,
-    resolution:int = 600,
+    resolution:int = 200,
     clean_plot:bool = True
 ):
     
     # derive:
-    num_transition_frames = 20 if create_movie else 0
+    num_transition_frames = 60 if create_movie else 0
     state_name = state_type.name
     if num_atoms != 40:
         state_name += f"{num_atoms}"
@@ -390,7 +391,7 @@ def plot_result(
 
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
-    movie_config = _get_movie_config(create_movie, num_transition_frames, state_type)    
+    movie_config = _get_movie_config(create_movie, num_transition_frames, state_type, resolution=resolution)    
     num_steps = sum([1 for op in operations if op.name=="squeezing"])
 
     # create matter state:
@@ -417,14 +418,14 @@ def plot_result(
     # # save_figure(file_name=state_name+" - Light - svg", tight=True, extension="svg")
 
     ## plot bloch:
-    alpha_min = 1.0
-    with_light_source = True
-    with_additions = not clean_plot
-    plot_wigner_bloch_sphere(matter_state, alpha_min=alpha_min, title="", 
-                             num_points=resolution, view_elev=-90, with_axes_arrows=True, with_colorbar=with_additions,
-                             with_light_source=with_light_source)
-    # save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=clean_plot)
-    save_figure(file_name=state_name+" - Sphere", subfolder="Best-results", extension="tif", transparent=clean_plot)
+    # alpha_min = 1.0
+    # with_light_source = True
+    # with_additions = not clean_plot
+    # plot_wigner_bloch_sphere(matter_state, alpha_min=alpha_min, title="", 
+    #                          num_points=resolution, view_elev=-90, with_axes_arrows=True, with_colorbar=with_additions,
+    #                          with_light_source=with_light_source)
+    # # save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=clean_plot)
+    # save_figure(file_name=state_name+" - Sphere", subfolder="Best-results", extension="tif", transparent=clean_plot)
     # save_figure(file_name=state_name+" - Sphere - svg", extension="svg", transparent=True)
     # plt.show()
     
@@ -469,8 +470,8 @@ def create_movie(
 if __name__ == "__main__":
     # plot_sequence()
     # plot_all_best_results()
-    create_movie()
-    # plot_result(StateType.GKPSquare)
+    # create_movie()
+    plot_result(StateType.GKPSquare, num_atoms=20)
     # print_all_fidelities()
     
     print("Done.")
