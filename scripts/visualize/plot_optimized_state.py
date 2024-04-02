@@ -22,10 +22,11 @@ from physics.famous_density_matrices import ground_state
 import numpy as np
 
 # Our best optimized results:    
-from scripts.optimize.cat4_i     import best_sequence_params as cat4_params
-from scripts.optimize.cat2_i     import best_sequence_params as cat2_params
-from scripts.optimize.gkp_hex    import best_sequence_params as gkp_hex_params
-from scripts.optimize.gkp_square import best_sequence_params as gkp_square_params
+from scripts.optimize.cat4_i        import best_sequence_params as cat4_params
+from scripts.optimize.cat2_i        import best_sequence_params as cat2_params
+from scripts.optimize.gkp_hex       import best_sequence_params as gkp_hex_params
+from scripts.optimize.gkp_square    import best_sequence_params as gkp_square_params
+from scripts.optimize.gkp_square_20 import best_sequence_params as gkp_square_20_params
 
 # Cost function:
 from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
@@ -179,16 +180,23 @@ def _get_best_params(
     list[BaseParamType],
     list[Operation]
 ]:
-    if type_ is StateType.GKPHex:
-        return gkp_hex_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    elif type_ is StateType.GKPSquare:
-        return gkp_square_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    elif type_ is StateType.Cat4:
-        return cat4_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    elif type_ is StateType.Cat2:
-        return cat2_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    else:
-        raise ValueError(f"Not an option '{type_}'")
+    
+    match type_:
+        case StateType.GKPHex:
+            return gkp_hex_params(num_atoms, num_intermediate_states=num_intermediate_states)
+        case StateType.GKPSquare:
+
+            if num_atoms==40:
+                return gkp_square_params(num_atoms, num_intermediate_states=num_intermediate_states)
+            elif num_atoms==20:
+                return gkp_square_20_params(num_atoms, num_intermediate_states=num_intermediate_states)
+
+        case StateType.Cat4:
+            return cat4_params(num_atoms, num_intermediate_states=num_intermediate_states)
+        case StateType.Cat2:
+            return cat2_params(num_atoms, num_intermediate_states=num_intermediate_states)
+        case _:
+            raise ValueError(f"Not an option '{type_}'")
 
 
 def _get_type_inputs(
@@ -434,9 +442,9 @@ def plot_result(
 
 
 def create_movie(
-    state_type:StateType = StateType.GKPHex,
-    num_atoms:int = 40,
-    num_transition_frames = 40
+    state_type:StateType = StateType.GKPSquare,
+    num_atoms:int = 20,
+    num_transition_frames = 10
 ):
     # derive:
     
@@ -458,8 +466,8 @@ def create_movie(
 
 if __name__ == "__main__":
     # plot_sequence()
-    plot_all_best_results()
-    # create_movie()
+    # plot_all_best_results()
+    create_movie()
     # plot_result(StateType.GKPSquare)
     # print_all_fidelities()
     
