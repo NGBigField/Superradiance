@@ -5,6 +5,9 @@ A code for the simulation of spin squeezing and coherent rotation for the univer
 ## Optimization
 Finding the best sequence for the creation of a desired state
 
+## PAPER
+https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.132.153601
+
 ## Movie
 Showing how the matter state looks like in both 'bloch-sphere wigner function' and in the the values of the density matrix.
 
