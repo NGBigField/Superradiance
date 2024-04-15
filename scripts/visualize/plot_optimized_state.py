@@ -190,6 +190,8 @@ def _get_best_params(
                 return gkp_square_params(num_atoms, num_intermediate_states=num_intermediate_states)
             elif num_atoms==20:
                 return gkp_square_20_params(num_atoms, num_intermediate_states=num_intermediate_states)
+            elif num_atoms==10:
+                return gkp_square_20_params(num_atoms, num_intermediate_states=num_intermediate_states) #TODO: DEBUG, delete
             else:
                 raise ValueError(f"Not an option {type_!r} and num_atoms={num_atoms}")
 
@@ -242,7 +244,7 @@ def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], f
     
         
 def _get_movie_config(
-    create_movie:bool, num_transition_frames:int, state_type:StateType, resolution:int=250, horizontal:bool=False
+    create_movie:bool, num_transition_frames:int|tuple[int,int], state_type:StateType, resolution:int=250, horizontal:bool=False
 ) -> CoherentControl.MovieConfig:
     # Basic data:
     fps=30
@@ -378,17 +380,17 @@ def plot_result(
     state_type:StateType,
     create_movie:bool = True,
     num_atoms:int = 40,
-    resolution:int = 200,
+    resolution:int = 30,
+    num_transition_frames:int = 5,
     clean_plot:bool = True
 ):
     
     # derive:
-    num_transition_frames = 60 if create_movie else 0
+    num_transition_frames = num_transition_frames if create_movie else 0
     state_name = state_type.name
     if num_atoms != 40:
         state_name += f"{num_atoms}"
     
-
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
     movie_config = _get_movie_config(create_movie, num_transition_frames, state_type, resolution=resolution)    
@@ -446,8 +448,9 @@ def plot_result(
 
 def create_movie(
     state_type:StateType = StateType.GKPSquare,
-    num_atoms:int = 20,
-    num_transition_frames = 10
+    num_atoms:int = 10,
+    num_transition_frames:int|tuple[int,int] = (1, 10),
+    resolution:int = 10
 ):
     # derive:
     
@@ -456,7 +459,8 @@ def create_movie(
 
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
-    movie_config = _get_movie_config(True, num_transition_frames, state_type)
+    movie_config = _get_movie_config(True, num_transition_frames, state_type, resolution=resolution)
+    movie_config.bloch_sphere_config.viewing_angles.elev = -90
     
     # create state:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
@@ -470,8 +474,8 @@ def create_movie(
 if __name__ == "__main__":
     # plot_sequence()
     # plot_all_best_results()
-    # create_movie()
-    plot_result(StateType.GKPSquare, num_atoms=20)
+    create_movie()
+    # plot_result(StateType.GKPSquare, num_atoms=20)
     # print_all_fidelities()
     
     print("Done.")

@@ -38,6 +38,7 @@ from utils import (
     strings,
     decorators,
     lists,
+    maths
 )
 
 # For measuring time:
@@ -104,7 +105,7 @@ class Operation():
         _DensityMatrixType,
         List[_DensityMatrixType]
     ]:
-        op_output = self.function(in_state, *params)                
+        op_output = self.function(in_state, *params, num_intermediate=num_intermediate)                
         if isinstance(op_output, list):
             out_state = op_output[-1]
             transition_states = op_output
@@ -370,12 +371,26 @@ class SequenceMovieRecorder():
         active : bool = False
         show_now : bool = True
         fps : int = 5
-        num_transition_frames : int = 10
+        num_transition_frames : int|tuple[int, int] = 10
         num_freeze_frames : int = 5
         horizontal_figure : bool = True
         bloch_sphere_config : visuals.BlochSphereConfig = field( default_factory=visuals.BlochSphereConfig )
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
         temp_dir_name : str = ""
+
+        def get_num_transition_frames_based_on_operation(self, params:list[float], operation:Operation)->int:
+            if not self.active:
+                return 1
+            elif isinstance(self.num_transition_frames, int):
+                return self.num_transition_frames 
+            elif isinstance(self.num_transition_frames, tuple):
+                if operation.name == "rotation":
+                    return self.num_transition_frames[0]
+                elif operation.name == "squeezing":
+                    l2 = np.sqrt(sum([val**2 for val in params]))
+                    return _squeezing_num_transition_based_on_strength(strength=l2, requested_range=self.num_transition_frames)
+            
+            raise TypeError("Not an expected type") 
 
     
     def __init__(
@@ -580,10 +595,14 @@ class CoherentControl():
             _s = lambda x: _float_to_str_except_zeros(x, num_decimals)
             return f"Power-{power} pulse: [{_s(values[0])}, {_s(values[1])}, {_s(values[2])}]"
 
-        def _power_pulse_func(self, rho:_DensityMatrixType, theta:List[float], indices:List[float], power:int) -> _DensityMatrixType:
+        def _power_pulse_func(self, rho:_DensityMatrixType, theta:List[float], indices:List[float], power:int, num_intermediate:int|None=None) -> _DensityMatrixType:
             values = self._deal_values_to_indices(values=theta, indices=indices)
+
+            if num_intermediate is None:
+                num_intermediate = self.num_intermediate
+
             return self.coherent_control.pulse_on_state_with_intermediate_states(
-                rho, x=values[0], y=values[1], z=values[2], power=power, num_intermediate_states=self.num_intermediate_states
+                rho, x=values[0], y=values[1], z=values[2], power=power, num_intermediate=num_intermediate
             )
             
         def power_pulse(self, power:int) -> Operation:
@@ -591,9 +610,12 @@ class CoherentControl():
             return self.power_pulse_on_specific_directions(power=power, indices=indices)
 
         def power_pulse_on_specific_directions(self, power:int, indices:List[int] = [0,1,2]) -> Operation:
+            def _function(rho, *theta, num_intermediate:int|None=None): 
+                return self._power_pulse_func(rho, power=power, theta=theta, indices=indices, num_intermediate=num_intermediate)
+            
             op = Operation(
                 num_params = len(indices),
-                function = lambda rho, *theta: self._power_pulse_func(rho, power=power, theta=theta, indices=indices),
+                function = _function,
                 string_func = lambda *theta: self._power_pulse_string_func(theta=theta, indices=indices, power=power )
             )
             if power==1:
@@ -778,17 +800,17 @@ class CoherentControl():
         return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)
 
     def pulse_on_state(self, state:_DensityMatrixType, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> _DensityMatrixType: 
-        return self.pulse_on_state_with_intermediate_states(state=state, num_intermediate_states=0, x=x, y=y, z=z, power=power)[-1]
+        return self.pulse_on_state_with_intermediate_states(state=state, num_intermediate=0, x=x, y=y, z=z, power=power)[-1]
 
-    def pulse_on_state_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate_states:int=0, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> List[_DensityMatrixType]: 
+    def pulse_on_state_with_intermediate_states(self, state:_DensityMatrixType, num_intermediate:int=0, x:float=0.0, y:float=0.0, z:float=0.0, power:int=1) -> List[_DensityMatrixType]: 
         # Check input:
-        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate_states)
+        num_divides = _num_divisions_from_num_intermediate_states(num_intermediate)
         # Divide requested pulse into fragments
         frac_x = x / num_divides
         frac_y = y / num_divides
         frac_z = z / num_divides
         p = self._pulse(frac_x, frac_y, frac_z, power=power)
-        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate_states)  
+        return _list_of_intermediate_pulsed_states(state=state, p=p, num_divides=num_divides, num_intermediate_states=num_intermediate)  
 
     def state_decay(self, state:_DensityMatrixType, time:float, time_steps_resolution:int=10001) -> _DensityMatrixType: 
         return self.state_decay_with_intermediate_states(state=state, time=time, num_intermediate_states=0, time_steps_resolution=time_steps_resolution)[-1]        
@@ -891,6 +913,7 @@ class CoherentControl():
         all_params = _deal_costum_params(operations, theta)
         crnt_state = deepcopy(state)
         movie_config = arguments.default_value(movie_config, default_factory=CoherentControl.MovieConfig)
+        assert isinstance(movie_config, CoherentControl.MovieConfig)
 
         # For sequence recording:
         sequence_recorder = SequenceMovieRecorder(config=movie_config)
@@ -907,7 +930,7 @@ class CoherentControl():
             # Check params:
             assert operation.num_params == len(params)
             # Apply operation:
-            num_intermediate : int = movie_config.num_transition_frames if movie_config.active else 1
+            num_intermediate = movie_config.get_num_transition_frames_based_on_operation(params, operation)
             crnt_state, transition_states = operation.get_outputs(crnt_state, params, num_intermediate)
             # Get title:
             title = operation.get_string(params)
@@ -967,7 +990,7 @@ class CoherentControl():
             t = pulse_params.pause
             # Apply pulse and delay:
             if x != 0 or y != 0 or z != 0:
-                transition_states = self.pulse_on_state_with_intermediate_states(state=crnt_state, x=x, y=y, z=z, num_intermediate_states=num_intermediate_states)
+                transition_states = self.pulse_on_state_with_intermediate_states(state=crnt_state, x=x, y=y, z=z, num_intermediate=num_intermediate_states)
                 sequence_recorder.record_transition(transition_states, f"Pulse = [{num2str(x)}, {num2str(y)}, {num2str(z)}]")
                 crnt_state = transition_states[-1]
             if t != 0:
@@ -995,6 +1018,15 @@ class CoherentControl():
     @property
     def density_matrix_size(self) -> int:
         return self.num_moments + 1
+
+
+# ==================================================================================== #
+# |                           more inner functions                                   | #
+# ==================================================================================== #
+def _squeezing_num_transition_based_on_strength(strength:float, requested_range:tuple[int,int])->int:
+    linear_interpolation = maths.linear_interpolation_by_range(x=strength, x_range=(0.0, 2*pi), y_range=requested_range)    
+    return int(linear_interpolation)
+
 
 # ==================================================================================== #
 # |                                   main                                           | #
@@ -1030,7 +1062,7 @@ def _test_pulse_in_steps():
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
     coherent_control = CoherentControl(num_atoms=num_moments)
     # Apply pulse:
-    all_pulse_states = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps, x=np.pi )
+    all_pulse_states = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate=num_steps, x=np.pi )
     # Apply decay time:
     all_decay_states = coherent_control.state_decay_with_intermediate_states(state=all_pulse_states[-1], num_intermediate_states=num_steps, time=0.5)
     # Movie:
@@ -1061,8 +1093,8 @@ def _test_power_pulse():
     initial_state = Fock(0).to_density_matrix(num_moments=num_moments)
     coherent_control = CoherentControl(num_atoms=num_moments)
     # Apply pulse:
-    pi_half_transition = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate_states=num_steps1, x=np.pi/2, power=1 )
-    sz2_transition     = coherent_control.pulse_on_state_with_intermediate_states(state=pi_half_transition[-1], num_intermediate_states=num_steps2, z=np.pi/8, power=2 )
+    pi_half_transition = coherent_control.pulse_on_state_with_intermediate_states(state=initial_state, num_intermediate=num_steps1, x=np.pi/2, power=1 )
+    sz2_transition     = coherent_control.pulse_on_state_with_intermediate_states(state=pi_half_transition[-1], num_intermediate=num_steps2, z=np.pi/8, power=2 )
     # Prepare Movie:
     state_plot = visuals.MatterStatePlot(block_sphere_resolution=block_sphere_resolution, initial_state=initial_state)
     video_recorder = visuals.VideoRecorder(fps=fps)
