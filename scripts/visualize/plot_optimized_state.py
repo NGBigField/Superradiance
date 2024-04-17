@@ -190,8 +190,6 @@ def _get_best_params(
                 return gkp_square_params(num_atoms, num_intermediate_states=num_intermediate_states)
             elif num_atoms==20:
                 return gkp_square_20_params(num_atoms, num_intermediate_states=num_intermediate_states)
-            elif num_atoms==10:
-                return gkp_square_20_params(num_atoms, num_intermediate_states=num_intermediate_states) #TODO: DEBUG, delete
             else:
                 raise ValueError(f"Not an option {type_!r} and num_atoms={num_atoms}")
 
@@ -244,7 +242,7 @@ def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], f
     
         
 def _get_movie_config(
-    create_movie:bool, num_transition_frames:int|tuple[int,int], state_type:StateType, resolution:int=250, horizontal:bool=False
+    create_movie:bool, num_transition_frames:int|tuple[int,int,int], state_type:StateType, resolution:int=250, horizontal:bool=False
 ) -> CoherentControl.MovieConfig:
     # Basic data:
     fps=30
@@ -448,9 +446,9 @@ def plot_result(
 
 def create_movie(
     state_type:StateType = StateType.GKPSquare,
-    num_atoms:int = 10,
-    num_transition_frames:int|tuple[int,int] = (1, 10),
-    resolution:int = 10
+    num_atoms:int = 20,
+    num_transition_frames:int|tuple[int,int,int] = (40, 80, 340),
+    resolution:int = 250
 ):
     # derive:
     

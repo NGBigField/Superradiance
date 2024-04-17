@@ -371,7 +371,7 @@ class SequenceMovieRecorder():
         active : bool = False
         show_now : bool = True
         fps : int = 5
-        num_transition_frames : int|tuple[int, int] = 10
+        num_transition_frames : int|tuple[int, int, int] = 10
         num_freeze_frames : int = 5
         horizontal_figure : bool = True
         bloch_sphere_config : visuals.BlochSphereConfig = field( default_factory=visuals.BlochSphereConfig )
@@ -388,7 +388,8 @@ class SequenceMovieRecorder():
                     return self.num_transition_frames[0]
                 elif operation.name == "squeezing":
                     l2 = np.sqrt(sum([val**2 for val in params]))
-                    return _squeezing_num_transition_based_on_strength(strength=l2, requested_range=self.num_transition_frames)
+                    _range = (self.num_transition_frames[1], self.num_transition_frames[2])
+                    return _squeezing_num_transition_based_on_strength(strength=l2, requested_range=_range)
             
             raise TypeError("Not an expected type") 
 
@@ -434,7 +435,7 @@ class SequenceMovieRecorder():
         else:
             return self.score_str_func(state)
 
-    def final_state(self, length_multiplier:float=2.0)->None:
+    def final_state(self, length_multiplier:float=5.0)->None:
         if not self.is_active:
             return  # We don't want to record a video
         default_duration = self.video_recorder.frames_duration[-1]
