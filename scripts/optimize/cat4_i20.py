@@ -27,6 +27,7 @@ from algo.coherentcontrol import (
 from algo.optimization import (
     LearnedResults,
     learn_custom_operation,
+    learn_custom_operation_by_partial_repetitions,
     FixedParam, 
     FreeParam,
     BaseParamType,
@@ -74,14 +75,10 @@ def best_sequence_params(
    
     theta = [
         +0.8937567499106599 , +3.2085033698137830 , -2.3242661423839071 , +0.0036751816770657 , -0.7836001773757240 , 
-        +0.8937567499106599 , +3.2085033698137830 , -2.3242661423839071 , +0.0036751816770657 , -0.7836001773757240 , 
-        +0.8937567499106599 , +3.2085033698137830 , -2.3242661423839071 , +0.0036751816770657 , -0.7836001773757240 , 
         +2.6065083924231915 , +2.2505047554207338 , -2.4740789195081394        
     ] 
 
     operations  = [
-        rotation, squeezing, 
-        rotation, squeezing, 
         rotation, squeezing, 
         rotation
     ]
@@ -125,9 +122,10 @@ def best_sequence_params(
     
 def main(
     num_atoms:int=20, 
-    max_iter_per_attempt=1*int(1e5),
-    tolerance=1e-17,
-    save_intermediate_results:bool=True
+    max_iter_per_attempt=1*int(1e4),
+    tolerance=1e-12,
+    save_intermediate_results:bool=True,
+    repetitive_process:bool=True
 ) -> LearnedResults:
     
     # Define target:
@@ -137,16 +135,33 @@ def main(
     # Define operations:
     param_config, operations = best_sequence_params(num_atoms)
 
-    results = learn_custom_operation(
-        initial_state=initial_state, 
-        cost_function=cost_function, 
-        operations=operations, 
-        max_iter=max_iter_per_attempt, 
-        tolerance=tolerance,
-        parameters_config=None,
-        opt_method=DEFAULT_OPT_METHOD,
-        save_intermediate_results=save_intermediate_results
+    if repetitive_process:
+        results = learn_custom_operation_by_partial_repetitions(
+            # Amount:
+            num_attempts=20,
+            # Mandatory Inputs:
+            initial_state=initial_state,
+            cost_function=cost_function,
+            operations=operations,
+            initial_params=param_config,
+            # Huristic Params:
+            max_iter_per_attempt=max_iter_per_attempt,
+            max_error_per_attempt=tolerance,
+            num_free_params=None,
+            log_name="Cat4-i20-"+strings.time_stamp(),
+            save_intermediate_results=save_intermediate_results
     )
+    else:
+        results = learn_custom_operation(
+            initial_state=initial_state, 
+            cost_function=cost_function, 
+            operations=operations, 
+            max_iter=max_iter_per_attempt, 
+            tolerance=tolerance,
+            parameters_config=None,
+            opt_method=DEFAULT_OPT_METHOD,
+            save_intermediate_results=save_intermediate_results
+        )
 
 
     ## Finish:

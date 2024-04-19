@@ -536,7 +536,7 @@ def learn_custom_operation(
     initial_guess : Optional[np.ndarray] = None,
     parameters_config : Optional[List[BaseParamType]] = None,
     save_results : bool = True,
-    save_intermediate_results : bool = False,
+    save_intermediate_results : bool|str = False,
     print_interval : int = 20
 ) -> LearnedResults:
 
@@ -544,8 +544,11 @@ def learn_custom_operation(
     assert initial_state.shape[0]==initial_state.shape[1]
     num_moments : int = initial_state.shape[0]-1
 
-    if save_intermediate_results:
+    if isinstance(save_intermediate_results, bool) and save_intermediate_results==True:
         intermediate_results_subfolder = "intermediate_results "+strings.time_stamp()
+    elif isinstance(save_intermediate_results, str):
+        intermediate_results_subfolder = save_intermediate_results
+        save_intermediate_results=True
 
         _run_counter : int = 0
         # @decorators.sparse_execution(skip_num=5, default_results=None)
@@ -659,8 +662,9 @@ def learn_custom_operation_by_partial_repetitions(
     max_error_per_attempt:Optional[float]=None,
     num_free_params:int|None=20,
     sigma:float = 0.002,
-    initial_sigma:float = 0.2,
-    log_name:str=strings.time_stamp()
+    initial_sigma:float = 0.02,
+    log_name:str=strings.time_stamp(),
+    save_intermediate_results : bool = False  #type: ignore
 )-> LearnedResults:
     
     ## Set logging:
@@ -669,6 +673,10 @@ def learn_custom_operation_by_partial_repetitions(
     ## Check inputs:
     num_operation_params = sum([op.num_params for op in operations])    
     assert len(initial_params)==num_operation_params
+
+    ## If save results is on, save them in same folder:
+    if save_intermediate_results:
+        save_intermediate_results : str = "intermediate_results "+strings.time_stamp()
 
     ## Initital params:
     initial_params = add_noise_to_free_params(initial_params, initial_sigma)
@@ -705,7 +713,8 @@ def learn_custom_operation_by_partial_repetitions(
                 max_iter=max_iter_per_attempt, 
                 tolerance=max_error_per_attempt,
                 parameters_config=params,
-                opt_method=opt_method
+                opt_method=opt_method,
+                save_intermediate_results=save_intermediate_results
             )
         except Exception as e:
             s = errors.get_traceback(e)
