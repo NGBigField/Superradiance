@@ -18,7 +18,7 @@ from algo.coherentcontrol import Operation
 from algo.coherentcontrol import CoherentControl
 
 # Physical states:
-from physics.famous_density_matrices import ground_state
+from physics.famous_density_matrices import ground_state, cat_state
 from physics.gkp import gkp_state
 
 # for numerics:
@@ -33,17 +33,10 @@ import matplotlib.pyplot as plt
 # for printing progress:
 from utils import strings
 
-# for enums:
-from enum import Enum, auto
-
-# for sleeping:
-from time import sleep
-
-# For writing results to file:
-from csv import DictWriter
-
 # For listing files in folder and navigating data:
 import os
+
+from scripts.visualize.plot_optimized_state import StateType, _get_type_inputs
 
 # ==================================================================================== #
 #| Constants:
@@ -82,6 +75,15 @@ def _get_movie_config(
     return movie_config
 
 
+def _get_target_state(num_atoms:int, state_type:StateType):
+    match state_type:
+        case StateType.GKPHex:
+            return gkp_state(num_atoms, "square")
+        case StateType.Cat2:
+            return cat_state(num_atoms, num_legs=2)
+        case StateType.Cat4:
+            return cat_state(num_atoms, num_legs=4)
+
 def _get_operations(coherent_control:CoherentControl):
 
     standard_operations : CoherentControl.StandardOperations = coherent_control.standard_operations(num_intermediate_states=0)    
@@ -112,15 +114,18 @@ def _unpack_files_results(
     
 
 def create_movie(
-    subfolder:str = "intermediate_results 2024.04.02_13.31.16",
-    num_atoms:int = 20,
-    plot_target:bool = True,
+    state_type:StateType = StateType.Cat4,
+    subfolder:str = "intermediate_results 2024.04.19_19.19.35 - good",
+    num_atoms:int = 24,
+    plot_target:bool = False,
     show_now:bool = False
 ):
     
     # Start:
     print(f"Creating Movie...")
     _run_time_stamp=strings.time_stamp()
+
+    coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=0)
 
     ## File search:
     folder_full_path = saveload.DATA_FOLDER + os.sep + subfolder
@@ -138,19 +143,14 @@ def create_movie(
 
     def _create_matter_figure(state)->MatterStatePlot:
         return MatterStatePlot(initial_state=state, bloch_sphere_config=bloch_config, horizontal=False)   
-
-    # General variables:
-    coherent_control = CoherentControl(num_atoms)
-    operations = _get_operations(coherent_control)
-    initial_state = ground_state(num_atoms)
     
 
     if plot_target:
-        target = gkp_state(num_atoms, "square")
+        target = _get_target_state(num_atoms, state_type)
         target_plot = _create_matter_figure(target)
         target_plot.set_title("Target state")
-        save_figure(target_plot.figure, file_name="optimization_target "+_run_time_stamp, extension="png")
-        save_figure(target_plot.figure, file_name="optimization_target "+_run_time_stamp, extension="tif")
+        for ext in ["png", "tif"]:
+            save_figure(target_plot.figure, file_name="optimization_target "+_run_time_stamp, extension=ext)
 
     def _get_results(filename): 
         return _unpack_files_results(

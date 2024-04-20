@@ -27,6 +27,7 @@ from scripts.optimize.cat2_i        import best_sequence_params as cat2_params
 from scripts.optimize.gkp_hex       import best_sequence_params as gkp_hex_params
 from scripts.optimize.gkp_square    import best_sequence_params as gkp_square_params
 from scripts.optimize.gkp_square_20 import best_sequence_params as gkp_square_20_params
+from scripts.optimize.cat4_i24      import best_sequence_params as cat4_24_params
 
 # Cost function:
 from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
@@ -40,7 +41,7 @@ import matplotlib.pyplot as plt
 from utils import strings
 
 # for enums:
-from enum import Enum, auto
+from enum import Enum, auto, unique
 
 # for sleeping:
 from time import sleep
@@ -63,6 +64,7 @@ DEFAULT_COLORLIM = None
 #| Helper types:
 # ==================================================================================== #
 
+@unique
 class StateType(Enum):
     GKPHex = auto()
     GKPSquare = auto()
@@ -194,7 +196,14 @@ def _get_best_params(
                 raise ValueError(f"Not an option {type_!r} and num_atoms={num_atoms}")
 
         case StateType.Cat4:
-            return cat4_params(num_atoms, num_intermediate_states=num_intermediate_states)
+
+            if num_atoms==40:
+                return cat4_params(num_atoms, num_intermediate_states=num_intermediate_states)
+            elif num_atoms==24:
+                return cat4_24_params(num_atoms, num_intermediate_states=num_intermediate_states)
+            else:
+                raise ValueError(f"Not an option {type_!r} and num_atoms={num_atoms}")
+        
         case StateType.Cat2:
             return cat2_params(num_atoms, num_intermediate_states=num_intermediate_states)
         case _:
@@ -364,11 +373,10 @@ def print_all_fidelities(num_atoms=40):
 
 
 def plot_all_best_results(
-    create_movie:bool = False
 ):
     for state_type in StateType:
         print("\n"+state_type.name)
-        plot_result(state_type, create_movie)        
+        plot_result(state_type)        
         print(" ")
         
     print("Done.")
@@ -376,8 +384,8 @@ def plot_all_best_results(
 
 def plot_result(
     state_type:StateType,
-    create_movie:bool = True,
-    num_atoms:int = 40,
+    create_movie:bool = False,
+    num_atoms:int = 20,
     resolution:int = 30,
     num_transition_frames:int = 5,
     clean_plot:bool = True
@@ -397,9 +405,9 @@ def plot_result(
     # create matter state:
     matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
  
-    ## Naive projection onto plain:
-    # plot_plain_wigner(matter_state, with_colorbar=True)
-    # save_figure(file_name=state_name+" - Projection - colorbar")
+    # Naive projection onto plain:
+    plot_plain_wigner(matter_state, with_colorbar=True)
+    save_figure(file_name=state_name+" - Projection - colorbar")
     # plot_plain_wigner(matter_state, with_colorbar=False)
     # save_figure(file_name=state_name+" - Projection")
 
@@ -417,17 +425,16 @@ def plot_result(
     # # save_figure(file_name=state_name+" - Light - png", subfolder=state_name, tight=True, extension="png")
     # # save_figure(file_name=state_name+" - Light - svg", tight=True, extension="svg")
 
-    ## plot bloch:
-    # alpha_min = 1.0
-    # with_light_source = True
-    # with_additions = not clean_plot
-    # plot_wigner_bloch_sphere(matter_state, alpha_min=alpha_min, title="", 
-    #                          num_points=resolution, view_elev=-90, with_axes_arrows=True, with_colorbar=with_additions,
-    #                          with_light_source=with_light_source)
-    # # save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=clean_plot)
-    # save_figure(file_name=state_name+" - Sphere", subfolder="Best-results", extension="tif", transparent=clean_plot)
-    # save_figure(file_name=state_name+" - Sphere - svg", extension="svg", transparent=True)
-    # plt.show()
+    # plot bloch:
+    alpha_min = 1.0
+    with_light_source = True
+    with_additions = not clean_plot
+    plot_wigner_bloch_sphere(matter_state, alpha_min=alpha_min, title="", 
+                             num_points=resolution, view_elev=-90, with_axes_arrows=True, with_colorbar=with_additions,
+                             with_light_source=with_light_source)
+    # save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=clean_plot)
+    save_figure(file_name=state_name+" - Sphere", subfolder="Best-results", extension="tif", transparent=clean_plot)
+    plt.show()
     
 
     # Print params:
@@ -472,8 +479,8 @@ def create_movie(
 if __name__ == "__main__":
     # plot_sequence()
     # plot_all_best_results()
-    create_movie()
-    # plot_result(StateType.GKPSquare, num_atoms=20)
+    # create_movie()
+    plot_result(StateType.Cat4, num_atoms=24)
     # print_all_fidelities()
     
     print("Done.")

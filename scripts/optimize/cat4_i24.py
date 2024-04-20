@@ -15,7 +15,7 @@ from numpy import pi
 from typing import Optional, Tuple, List, Final
 
 # import our helper modules
-from utils import sounds, strings
+from utils import sounds, strings, saveload
 
 # For coherent control
 from algo.coherentcontrol import (
@@ -72,10 +72,14 @@ def best_sequence_params(
     
     _rot_lock   = lambda n : [False]*n 
     _p2_lock    = lambda n : [False]*n
-   
+
     theta = [
-        +0.8937567499106599 , +3.2085033698137830 , -2.3242661423839071 , +0.0036751816770657 , -0.7836001773757240 , 
-        +2.6065083924231915 , +2.2505047554207338 , -2.4740789195081394        
+        1.62358210e+00,  3.24159265e+00, -1.65269001e+00,  3.06540111e-03,   
+       -7.85136630e-01,  3.24159265e+00,  1.91330550e+00, -2.25811318e+00
+    ] 
+    theta = [
+        0.62358210e+00,  0.14159265e+00, -0.65269001e+00,  0.06540111e-03,   
+       -7.85136630e-01,  3.24159265e+00,  1.91330550e+00, -2.25811318e+00
     ] 
 
     operations  = [
@@ -121,24 +125,29 @@ def best_sequence_params(
 
     
 def main(
-    num_atoms:int=20, 
-    max_iter_per_attempt=1*int(1e4),
-    tolerance=1e-12,
+    num_atoms:int=24, 
+    num_attempts:int=10,
+    max_iter_per_attempt=2*int(1e3),
+    tolerance=1e-6,
+    num_free_params=8,
     save_intermediate_results:bool=True,
-    repetitive_process:bool=True
+    repetitive_process:bool=True,
+    initial_sigma:float=0.0028,
+    sigma:        float=0.0044
 ) -> LearnedResults:
     
     # Define target:
     initial_state = ground_state(num_atoms=num_atoms)    
     cost_function = fidelity_to_cat(num_atoms=num_atoms, num_legs=4, phase=np.pi/4)
     
+
     # Define operations:
     param_config, operations = best_sequence_params(num_atoms)
 
     if repetitive_process:
         results = learn_custom_operation_by_partial_repetitions(
             # Amount:
-            num_attempts=20,
+            num_attempts=num_attempts,
             # Mandatory Inputs:
             initial_state=initial_state,
             cost_function=cost_function,
@@ -147,9 +156,11 @@ def main(
             # Huristic Params:
             max_iter_per_attempt=max_iter_per_attempt,
             max_error_per_attempt=tolerance,
-            num_free_params=None,
+            num_free_params=num_free_params,
             log_name="Cat4-i20-"+strings.time_stamp(),
-            save_intermediate_results=save_intermediate_results
+            save_intermediate_results=save_intermediate_results,
+            initial_sigma=initial_sigma,
+            sigma=sigma
     )
     else:
         results = learn_custom_operation(

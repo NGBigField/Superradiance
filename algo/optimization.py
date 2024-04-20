@@ -70,7 +70,8 @@ from copy import deepcopy
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead']
+# POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead']
+POSSIBLE_OPE_METHODS = ['Nelder-Mead']
 DEFAULT_OPT_METHOD : Final[str] = "Nelder-Mead" 
 NUM_PULSE_PARAMS : Final = 4  
 
@@ -544,25 +545,27 @@ def learn_custom_operation(
     assert initial_state.shape[0]==initial_state.shape[1]
     num_moments : int = initial_state.shape[0]-1
 
+    ## Resolve `save_intermediate_results`
     if isinstance(save_intermediate_results, bool) and save_intermediate_results==True:
         intermediate_results_subfolder = "intermediate_results "+strings.time_stamp()
     elif isinstance(save_intermediate_results, str):
         intermediate_results_subfolder = save_intermediate_results
         save_intermediate_results=True
 
+
+    if save_intermediate_results:
         _run_counter : int = 0
-        # @decorators.sparse_execution(skip_num=5, default_results=None)
         def _save_intermediate_results(data_dict:dict, cost:float):
             nonlocal _run_counter
 
             _run_counter = _run_counter + 1
             _skip_num = 1
             if -cost > 0.30:
-                _skip_num = 5
+                _skip_num = 1 # 5
             if -cost > 0.90:
-                _skip_num = 50
+                _skip_num = 1 #50
             if -cost > 0.95: 
-                _skip_num = 200
+                _skip_num = 1 #200
             if -cost > 0.99: 
                 _skip_num = 1
 
@@ -584,7 +587,7 @@ def learn_custom_operation(
     if opt_method=="SLSQP":
         print_interval = 1
         max_iter *= 10000
-    prog_bar = strings.ProgressBar(progbar_max_iter, "Minimizing: ", print_length=100)    
+    prog_bar = strings.ProgressBar(progbar_max_iter, "Minimizing: ", print_length=60)    
 
 
 
@@ -664,6 +667,7 @@ def learn_custom_operation_by_partial_repetitions(
     sigma:float = 0.002,
     initial_sigma:float = 0.02,
     log_name:str=strings.time_stamp(),
+    save_results:bool=True,
     save_intermediate_results : bool = False  #type: ignore
 )-> LearnedResults:
     
@@ -714,7 +718,8 @@ def learn_custom_operation_by_partial_repetitions(
                 tolerance=max_error_per_attempt,
                 parameters_config=params,
                 opt_method=opt_method,
-                save_intermediate_results=save_intermediate_results
+                save_intermediate_results=save_intermediate_results,
+                save_results=False
             )
         except Exception as e:
             s = errors.get_traceback(e)
@@ -729,6 +734,10 @@ def learn_custom_operation_by_partial_repetitions(
             logger.info(f"score: {results.score}")
             logger.info(f"theta: \n{_params_str(results.operation_params)}")
             logger.info("\n")
+
+
+    if save_results:
+        saveload.save(best_result, "learned_results "+strings.time_stamp())
         
 
     return best_result
