@@ -74,13 +74,9 @@ def best_sequence_params(
     _p2_lock    = lambda n : [False]*n
 
     theta = [
-        1.62358210e+00,  3.24159265e+00, -1.65269001e+00,  3.06540111e-03,   
-       -7.85136630e-01,  3.24159265e+00,  1.91330550e+00, -2.25811318e+00
-    ] 
-    theta = [
-        0.62358210e+00,  0.14159265e+00, -0.65269001e+00,  0.06540111e-03,   
-       -7.85136630e-01,  3.24159265e+00,  1.91330550e+00, -2.25811318e+00
-    ] 
+        +1.6637823142957995 , +3.1958423865937888 , -1.6703115410327143 , +0.0030590346842708 , -0.7851453198271594 , 
+        +3.2415926535897932 , +1.9133214848466000 , -2.2581234224726172
+    ]  # -0.9539851608611255
 
     operations  = [
         rotation, squeezing, 
@@ -126,14 +122,14 @@ def best_sequence_params(
     
 def main(
     num_atoms:int=24, 
-    num_attempts:int=10,
+    num_attempts:int=int(1e5),
     max_iter_per_attempt=2*int(1e3),
-    tolerance=1e-6,
+    tolerance=1e-8,
     num_free_params=8,
-    save_intermediate_results:bool=True,
+    save_intermediate_results:bool=False,
     repetitive_process:bool=True,
-    initial_sigma:float=0.0028,
-    sigma:        float=0.0044
+    initial_sigma:float=0.2458,
+    sigma:        float=0.11415
 ) -> LearnedResults:
     
     # Define target:

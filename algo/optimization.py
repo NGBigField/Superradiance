@@ -690,11 +690,14 @@ def learn_custom_operation_by_partial_repetitions(
     best_result = _initial_result(initial_state, initial_theta, operations, cost_function)
 
     ## Iterate:
+    prog_bar = strings.ProgressBar(num_attempts, print_prefix="Repeatung : ")
     for attempt_ind in range(num_attempts):
+        prog_bar.next()
+
         ## Use a random optimization method:
         opt_method = lists.random_item(POSSIBLE_OPE_METHODS)
 
-        logger.info(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)} ; Optimization method: {opt_method!r}")
+        logger.debug(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)} ; Optimization method: {opt_method!r}")
         
         ## Lock random params and add noise to free params::
         num_fix_params = 0 if num_free_params is None else num_operation_params-num_free_params
@@ -735,6 +738,8 @@ def learn_custom_operation_by_partial_repetitions(
             logger.info(f"theta: \n{_params_str(results.operation_params)}")
             logger.info("\n")
 
+
+    prog_bar.clear()
 
     if save_results:
         saveload.save(best_result, "learned_results "+strings.time_stamp())
