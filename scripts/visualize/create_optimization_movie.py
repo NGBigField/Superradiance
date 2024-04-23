@@ -115,10 +115,11 @@ def _unpack_files_results(
 
 def create_movie(
     state_type:StateType = StateType.Cat4,
-    subfolder:str = "intermediate_results 2024.04.19_19.19.35 - good",
+    subfolder:str = "intermediate_results 2024.04.22_16.10.35 - good 24",
     num_atoms:int = 24,
+    fps:int = 30,
     plot_target:bool = False,
-    show_now:bool = False
+    show_now:bool = False,
 ):
     
     # Start:
@@ -161,7 +162,7 @@ def create_movie(
     
     ## Animation elements:
     figure_object = _create_matter_figure(state) 
-    video_recorder = VideoRecorder(fps=60, temp_dir_name="optimization_frames "+_run_time_stamp)
+    video_recorder = VideoRecorder(fps=fps, temp_dir_name="optimization_frames "+_run_time_stamp)
 
     def _update_plot(state, score)->None:
         title = f"fidelity={score:.5f}"

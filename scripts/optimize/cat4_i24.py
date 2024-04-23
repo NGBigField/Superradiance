@@ -65,18 +65,22 @@ def best_sequence_params(
     rotation  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
     squeezing = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
         
-    eps = 0.1    
+    eps = 0.5
         
     _rot_bounds   = lambda n : [(-pi-eps, pi+eps)]*n
-    _p2_bounds    = lambda n : _rot_bounds(n) # [(None, None)]*n
+    _p2_bounds    = lambda n : [(-3*pi, +3*pi)]*n
     
     _rot_lock   = lambda n : [False]*n 
     _p2_lock    = lambda n : [False]*n
 
     theta = [
-        +1.6637823142957995 , +3.1958423865937888 , -1.6703115410327143 , +0.0030590346842708 , -0.7851453198271594 , 
-        +3.2415926535897932 , +1.9133214848466000 , -2.2581234224726172
-    ]  # -0.9539851608611255
+        +1.1634502923694394 , +0.7391690305215712 , -3.2224714983636460 , -0.0041129266235580 , -0.7896391684875264 , 
+        +0.9809815207185668 , +2.4048152268109622 , -2.6451848191261678
+    ]  # -0.9569851608611255
+    # theta = [
+    #     -0.1634502923694394 , -0.1391690305215712 , +0.0224714983636460 , -0.0041129266235580 , -0.7896391684875264 , 
+    #     +0.9809815207185668 , +2.4048152268109622 , -2.6451848191261678
+    # ]  # -0.0
 
     operations  = [
         rotation, squeezing, 
@@ -121,15 +125,19 @@ def best_sequence_params(
 
     
 def main(
-    num_atoms:int=24, 
-    num_attempts:int=int(1e5),
-    max_iter_per_attempt=2*int(1e3),
-    tolerance=1e-8,
-    num_free_params=8,
+    # State config:
+    num_atoms:int=24,
+    # For movie:
     save_intermediate_results:bool=False,
+    # Seach config: 
+    max_iter_per_attempt=5*int(1e3),
+    tolerance=1e-8,
+    # Repetitive config:
     repetitive_process:bool=True,
-    initial_sigma:float=0.2458,
-    sigma:        float=0.11415
+    num_attempts:int=int(1e5),
+    num_free_params=8,
+    initial_sigma:float=0.0258,
+    sigma:        float=0.0241
 ) -> LearnedResults:
     
     # Define target:
@@ -165,7 +173,7 @@ def main(
             operations=operations, 
             max_iter=max_iter_per_attempt, 
             tolerance=tolerance,
-            parameters_config=None,
+            parameters_config=param_config,
             opt_method=DEFAULT_OPT_METHOD,
             save_intermediate_results=save_intermediate_results
         )

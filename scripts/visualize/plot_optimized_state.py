@@ -384,10 +384,10 @@ def plot_all_best_results(
 
 def plot_result(
     state_type:StateType,
-    create_movie:bool = False,
-    num_atoms:int = 20,
-    resolution:int = 30,
-    num_transition_frames:int = 5,
+    create_movie:bool = True,
+    num_atoms:int = 24,
+    resolution:int = 250,
+    num_transition_frames:int|tuple[int, int, int] = (60, 180, 240),
     clean_plot:bool = True
 ):
     
