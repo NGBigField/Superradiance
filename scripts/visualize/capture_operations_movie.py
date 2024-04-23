@@ -81,7 +81,8 @@ def _get_movie_config(
 
 
 def main(
-    what_movie = "squeeze_y2"
+    what_movie = "small_rotation",
+    resolution:int = 200
 ):
     # Start:
     print(f"Creating Movie for movie_settings {what_movie!r}")
@@ -108,6 +109,10 @@ def main(
             num_atoms = 10
             num_transition_frames = 100
             horizontal_movie = False
+        case "small_rotation":
+            num_atoms = 10
+            num_transition_frames = 100
+            horizontal_movie = False
         case "test":
             num_atoms = 10
             num_transition_frames = 10
@@ -117,19 +122,21 @@ def main(
 
     # General variables:
     coherent_control = CoherentControl(num_atoms)
+    _pulse_of_power_and_directions = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions
     movie_config = _get_movie_config(True, num_transition_frames, horizontal_movie)
 
     if what_movie=="cat4":
         movie_config.bloch_sphere_config.viewing_angles.azim = -45
-        movie_config.bloch_sphere_config.resolution = 200
+        movie_config.bloch_sphere_config.resolution = resolution
 
     ## Sequence:
     initial_state = ground_state(num_atoms)
     # Operations:
-    y1 = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(1, [1])
-    x2 = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(2, [0])
-    y2 = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(2, [1])
-    z2 = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions(2, [2])
+    y1 = _pulse_of_power_and_directions(1, [1])
+    xy = _pulse_of_power_and_directions(1, [0, 1])
+    x2 = _pulse_of_power_and_directions(2, [0])
+    y2 = _pulse_of_power_and_directions(2, [1])
+    z2 = _pulse_of_power_and_directions(2, [2])
     operations : list[Operation] = []
     operations.append( x2 )
 
@@ -162,6 +169,13 @@ def main(
             # Params:
             operations = [y2 ]*3
             theta      = [+0.25, -0.5, +0.25]
+
+        case "small_rotation":
+            # Another intial state
+            initial_state = coherent_control.custom_sequence(state=initial_state, theta=[-pi/2], operations=[y1], movie_config=None) 
+            # Params:
+            operations = [xy ]
+            theta      = [+1.4*pi, -1.4*pi]
 
         case "test":
             operations = [y1  ] 
