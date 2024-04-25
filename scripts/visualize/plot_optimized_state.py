@@ -260,7 +260,7 @@ def _get_movie_config(
         alpha_min=0.2,
         resolution=resolution,
         viewing_angles=ViewingAngles(
-            elev=-45
+            elev=-40
         )
     )
     
@@ -401,6 +401,10 @@ def plot_result(
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
     movie_config = _get_movie_config(create_movie, num_transition_frames, state_type, resolution=resolution)    
     num_steps = sum([1 for op in operations if op.name=="squeezing"])
+
+
+    if state_type == StateType.Cat4:
+        movie_config.bloch_sphere_config.viewing_angles.azim = -45
 
     # create matter state:
     matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)

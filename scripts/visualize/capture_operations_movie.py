@@ -81,7 +81,7 @@ def _get_movie_config(
 
 
 def main(
-    what_movie = "small_rotation",
+    what_movie = "cat4_i24",
     resolution:int = 200
 ):
     # Start:
@@ -92,6 +92,9 @@ def main(
     match what_movie:
         case "cat4":
             num_atoms = 40
+            num_transition_frames = 150
+        case "cat4_i24":
+            num_atoms = 24
             num_transition_frames = 150
         case "rot":
             num_atoms = 10
@@ -124,10 +127,10 @@ def main(
     coherent_control = CoherentControl(num_atoms)
     _pulse_of_power_and_directions = coherent_control.standard_operations(num_transition_frames).power_pulse_on_specific_directions
     movie_config = _get_movie_config(True, num_transition_frames, horizontal_movie)
+    movie_config.bloch_sphere_config.resolution = resolution
 
-    if what_movie=="cat4":
+    if what_movie in ["cat4", "cat_i24"]:
         movie_config.bloch_sphere_config.viewing_angles.azim = -45
-        movie_config.bloch_sphere_config.resolution = resolution
 
     ## Sequence:
     initial_state = ground_state(num_atoms)
@@ -150,6 +153,12 @@ def main(
             theta = [
                 +0.8937567499106599 , +3.2085033698137830 , -2.3242661423839071 , +0.0036751816770657 , -0.7836001773757240 , 
                 +2.6065083924231915 , +2.2505047554207338 , -2.4740789195081394        
+            ] 
+        case "cat4_i24":
+            operations  = [rotation, squeezing, rotation]
+            theta = [
+                +1.1634502923694394 , +0.7391690305215712 , -3.2224714983636460 , -0.0041129266235580 , -0.7896391684875264 , 
+                +0.9809815207185668 , +2.4048152268109622 , -2.6451848191261678     
             ] 
         case "rot":
             operations = [ y1  ]*4 

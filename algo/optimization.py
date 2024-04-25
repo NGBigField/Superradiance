@@ -65,13 +65,14 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from copy import deepcopy
 
+import os
 
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-# POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead']
-POSSIBLE_OPE_METHODS = ['Nelder-Mead']
+POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead', 'Powell', 'BFGS', 'L-BFGS-B']
+# POSSIBLE_OPE_METHODS = ['Nelder-Mead']
 DEFAULT_OPT_METHOD : Final[str] = "Nelder-Mead" 
 NUM_PULSE_PARAMS : Final = 4  
 
@@ -120,6 +121,30 @@ class LearnedResults():
 class ParamLock(Enum):
     FREE  = auto()
     FIXED = auto()
+
+
+class OptimizationProgressFramesTracker():
+    def __init__(self, foldername:str) -> None:
+        self.folder_fullpath:str = saveload.DATA_FOLDER + saveload.PATH_SEP + foldername
+        saveload.force_folder_exists(self.folder_fullpath)
+        self.legit_num_files = self.crnt_num_files
+
+    def clear_last(self) -> None:
+        for i, file in enumerate(self.list_files()):
+            if i<self.legit_num_files:
+                continue
+            file_fullpath = self.folder_fullpath + saveload.PATH_SEP + file
+            os.remove(file_fullpath)
+
+    def update(self) -> None:
+        self.legit_num_files = self.crnt_num_files
+
+    def list_files(self) -> list[str]:
+        return os.listdir(self.folder_fullpath)
+
+    @property
+    def crnt_num_files(self) -> int:
+        return len(self.list_files())
 
 
 @dataclass
@@ -390,7 +415,6 @@ def _params_str(operation_params:List[float], param_width:int=20) -> str:
     return s
     
         
-
 def add_noise_to_free_params(params:List[BaseParamType], sigma:float)->List[BaseParamType]:
     for i, param in enumerate(params):
         if isinstance(param, FreeParam):
@@ -584,7 +608,7 @@ def learn_custom_operation(
 
     # Progress_bar
     progbar_max_iter = max_iter
-    if opt_method=="SLSQP":
+    if opt_method!="Nelder-Mead":
         print_interval = 1
         max_iter *= 10000
     prog_bar = strings.ProgressBar(progbar_max_iter, "Minimizing: ", print_length=60)    
@@ -681,6 +705,7 @@ def learn_custom_operation_by_partial_repetitions(
     ## If save results is on, save them in same folder:
     if save_intermediate_results:
         save_intermediate_results : str = "intermediate_results "+strings.time_stamp()
+        save_res_tracker = OptimizationProgressFramesTracker(save_intermediate_results)
 
     ## Initital params:
     initial_params = add_noise_to_free_params(initial_params, initial_sigma)
@@ -692,11 +717,9 @@ def learn_custom_operation_by_partial_repetitions(
     ## Iterate:
     prog_bar = strings.ProgressBar(num_attempts, print_prefix="Repeatung : ")
     for attempt_ind in range(num_attempts):
-        prog_bar.next()
-
         ## Use a random optimization method:
         opt_method = lists.random_item(POSSIBLE_OPE_METHODS)
-
+        prog_bar.next(extra_str=f"opt method: {opt_method!r}")
         logger.debug(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)} ; Optimization method: {opt_method!r}")
         
         ## Lock random params and add noise to free params::
@@ -731,12 +754,16 @@ def learn_custom_operation_by_partial_repetitions(
 
         ## Keep the best result:
         if results.score < best_result.score:
+            save_res_tracker.update()
             best_result = deepcopy( results )
             
             logger.info("    *** Best Results: *** ")
             logger.info(f"score: {results.score}")
             logger.info(f"theta: \n{_params_str(results.operation_params)}")
             logger.info("\n")
+
+        else:
+            save_res_tracker.clear_last()
 
 
     prog_bar.clear()
@@ -753,14 +780,9 @@ def learn_custom_operation_by_partial_repetitions(
 
 
 def _test():
-    from main_gkp import optimized_Sx2_pulses_by_partial_repetition
-    results = optimized_Sx2_pulses_by_partial_repetition()
+    from scripts.optimize import cat4_i24
+    cat4_i24.main()
 
 if __name__ == "__main__":
-    l = LearnedResults(operation_params=[-1.0, 2.31, 1241.14, 10.523 , 140.514])
-    s = l.operation_params_str()
-    
-
-
     _test()
     print("Done.")

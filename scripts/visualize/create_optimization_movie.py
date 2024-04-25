@@ -80,9 +80,10 @@ def _get_target_state(num_atoms:int, state_type:StateType):
         case StateType.GKPHex:
             return gkp_state(num_atoms, "square")
         case StateType.Cat2:
-            return cat_state(num_atoms, num_legs=2)
+            return cat_state(num_atoms, num_legs=2, phase=np.pi/4)
         case StateType.Cat4:
-            return cat_state(num_atoms, num_legs=4)
+            return cat_state(num_atoms, num_legs=4, phase=np.pi/4)
+
 
 def _get_operations(coherent_control:CoherentControl):
 
