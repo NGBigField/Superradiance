@@ -65,8 +65,8 @@ def best_sequence_params(
     rotation  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
     squeezing = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
         
-    eps = 3
-    _a = 5
+    eps = 0.1
+    _a = 3
 
     _rot_bounds   = lambda n : [(-pi-eps, pi+eps)]*n
     _p2_bounds    = lambda n : [(-_a*pi, +_a*pi)]*n
@@ -79,10 +79,10 @@ def best_sequence_params(
         +0.9809815207185668 , +2.4048152268109622 , -2.6451848191261678
     ]  # -0.9569851608611255
     #
-    # theta = [
-    #     +0 , +0.0 , -0 , +0.0 , +0.000000 , 
-    #     +0.9809815207185668 , +2.4048152268109622 , -2.6451848191261678
-    # ]  # -0.0
+    theta = [
+        +0 , +0.0 , -0 , +0.0 , +0.000000 , 
+        +0.9809815207185668 , +2.4048152268109622 , -2.6451848191261678
+    ]  # -0.0
 
     operations  = [
         rotation, squeezing, 
@@ -133,7 +133,7 @@ def main(
     save_intermediate_results:bool=True,
     # Seach config: 
     max_iter_per_attempt=1*int(1e4),
-    tolerance=1e-10,
+    tolerance=1e-7,
     # Repetitive config:
     repetitive_process:bool=True,
     num_attempts:int=int(1e5),
@@ -152,11 +152,13 @@ def main(
 
 
     #TODO Check
-    # for i, param in enumerate(param_config):
-    #     if i in [1, 2, 3, 4, 5, 6]:
-    #         continue
-    #     assert isinstance(param, FreeParam)
-    #     param_config[i] = param.fix()
+    for i, param in enumerate(param_config):
+        if i < 5:
+            continue
+        assert isinstance(param, FreeParam)
+        param_config[i] = param.fix()
+
+
 
     if repetitive_process:
         results = learn_custom_operation_by_partial_repetitions(

@@ -55,7 +55,7 @@ from algo.coherentcontrol import (
 )
 
 # for optimization:
-from scipy.optimize import minimize, OptimizeResult
+from scipy.optimize import minimize, OptimizeResult, Bounds
         
 # For measuring time:
 import time
@@ -329,8 +329,14 @@ class OptimizationParams:
         return np.array(initial_guess)
  
     @property
-    def bounds(self) -> List[Tuple[float, float]]:
-        return [free_param.bounds for free_param in self.variable_params() ]
+    def bounds(self) -> Bounds:
+        bounds_list = [free_param.bounds for free_param in self.variable_params() ]
+        lb = [bound[0] for bound in bounds_list]
+        ub = [bound[1] for bound in bounds_list]
+        strictly_bounded=[False for _ in ub]
+        bounds = Bounds(lb=lb, ub=ub, keep_feasible=strictly_bounded) #type: ignore
+        return bounds
+    
 
     @property
     def affiliations(self) -> set:
@@ -640,7 +646,8 @@ def learn_custom_operation(
 
         return cost
 
-    options = dict(maxiter = max_iter)   
+    ## Options:   
+    options = dict(maxiter = max_iter)
     bounds = param_config.bounds
     tolerance = arguments.default_value(tolerance, DEFAULT_TOLERANCE)
 
