@@ -78,11 +78,6 @@ def best_sequence_params(
         +1.1634502923694394 , +0.7391690305215712 , -3.2224714983636460 , -0.0041129266235580 , -0.7896391684875264 , 
         +0.9809815207185668 , +2.4048152268109622 , -2.6451848191261678
     ]  # -0.9569851608611255
-    #
-    theta = [
-        +0 , +0.0 , -0 , +0.0 , +0.000000 , 
-        +0.9809815207185668 , +2.4048152268109622 , -2.6451848191261678
-    ]  # -0.0
 
     operations  = [
         rotation, squeezing, 
@@ -128,18 +123,18 @@ def best_sequence_params(
     
 def main(
     # State config:
-    num_atoms:int=20,
+    num_atoms:int=24,
     # For movie:
     save_intermediate_results:bool=True,
     # Seach config: 
     max_iter_per_attempt=1*int(1e4),
-    tolerance=1e-7,
+    tolerance=1e-4,
     # Repetitive config:
     repetitive_process:bool=True,
     num_attempts:int=int(1e5),
     num_free_params=8,
-    initial_sigma:float=0.000,
-    sigma:        float=0.021
+    initial_sigma:float=2.000,
+    sigma:        float=1.621
 ) -> LearnedResults:
     
     # Define target:
@@ -149,16 +144,6 @@ def main(
     
     # Define operations:
     param_config, operations = best_sequence_params(num_atoms)
-
-
-    #TODO Check
-    for i, param in enumerate(param_config):
-        if i < 5:
-            continue
-        assert isinstance(param, FreeParam)
-        param_config[i] = param.fix()
-
-
 
     if repetitive_process:
         results = learn_custom_operation_by_partial_repetitions(

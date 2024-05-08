@@ -333,7 +333,7 @@ class OptimizationParams:
         bounds_list = [free_param.bounds for free_param in self.variable_params() ]
         lb = [bound[0] for bound in bounds_list]
         ub = [bound[1] for bound in bounds_list]
-        strictly_bounded=[False for _ in ub]
+        strictly_bounded=[True for _ in ub]
         bounds = Bounds(lb=lb, ub=ub, keep_feasible=strictly_bounded) #type: ignore
         return bounds
     
@@ -557,6 +557,29 @@ def fix_random_params(params:List[BaseParamType], amount:int)->List[BaseParamTyp
     return params
 
 
+# _a = 5
+# def _cost_amplification(cost:float) -> float:
+#     return -np.exp2(_a - _a*cost)
+
+
+# def _cost_reverse_amplification(amplified_cost:float) -> float:
+#     return 1 - np.log2(-amplified_cost)/_a
+
+_factor = 1e-9
+def _cost_amplification(cost:float) -> float:
+    return cost/_factor
+
+
+def _cost_reverse_amplification(amplified_cost:float) -> float:
+    return amplified_cost*_factor
+
+# def _cost_amplification(cost:float) -> float:
+#     return -(_a - _a*cost)
+
+
+# def _cost_reverse_amplification(amplified_cost:float) -> float:
+#     return 1 - amplified_cost/_a
+
 def learn_custom_operation(    
     initial_state : _DensityMatrixType,
     operations : List[Operation],
@@ -623,7 +646,8 @@ def learn_custom_operation(
 
     @decorators.sparse_execution(skip_num=print_interval, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
-        cost = _total_cost_function(xk)
+        amplified_cost = _total_cost_function(xk)
+        cost = _cost_reverse_amplification(amplified_cost)
         operation_params = param_config.optimization_theta_to_operations_params(xk)
         extra_str = f"cost = {cost}"+"\n"+f"{_params_str(operation_params)}"
         prog_bar.next(increment=print_interval, extra_str=extra_str)
@@ -644,7 +668,7 @@ def learn_custom_operation(
             data_dict = dict(cost=cost, theta=theta, operation_params=operation_params, state=final_state)
             _save_intermediate_results(data_dict, cost)
 
-        return cost
+        return _cost_amplification(cost)
 
     ## Options:   
     options = dict(maxiter = max_iter)
@@ -672,7 +696,7 @@ def learn_custom_operation(
     learned_results = LearnedResults(
         theta = optimal_theta,
         operation_params = optimal_operation_params,
-        score = opt_res.fun,
+        score = _cost_reverse_amplification(opt_res.fun),
         time = finish_time-start_time,
         initial_state = initial_state,
         final_state = final_state,
