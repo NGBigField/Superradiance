@@ -22,10 +22,12 @@ from physics.famous_density_matrices import ground_state
 import numpy as np
 
 # Our best optimized results:    
-from scripts.optimize.cat4_i     import best_sequence_params as cat4_params
-from scripts.optimize.cat2_i     import best_sequence_params as cat2_params
-from scripts.optimize.gkp_hex    import best_sequence_params as gkp_hex_params
-from scripts.optimize.gkp_square import best_sequence_params as gkp_square_params
+from scripts.optimize.cat4_i        import best_sequence_params as cat4_params
+from scripts.optimize.cat2_i        import best_sequence_params as cat2_params
+from scripts.optimize.gkp_hex       import best_sequence_params as gkp_hex_params
+from scripts.optimize.gkp_square    import best_sequence_params as gkp_square_params
+from scripts.optimize.gkp_square_20 import best_sequence_params as gkp_square_20_params
+from scripts.optimize.cat4_i24      import best_sequence_params as cat4_24_params
 
 # Cost function:
 from algo.common_cost_functions import fidelity_to_cat, fidelity_to_gkp
@@ -39,7 +41,7 @@ import matplotlib.pyplot as plt
 from utils import strings
 
 # for enums:
-from enum import Enum, auto
+from enum import Enum, auto, unique
 
 # for sleeping:
 from time import sleep
@@ -62,6 +64,7 @@ DEFAULT_COLORLIM = None
 #| Helper types:
 # ==================================================================================== #
 
+@unique
 class StateType(Enum):
     GKPHex = auto()
     GKPSquare = auto()
@@ -157,7 +160,15 @@ def _get_emitted_light(state_type:StateType, final_state:np.matrix, fidelity:flo
     if saveload.exist(file_name, sub_folder=sub_folder):
         emitted_light_state = saveload.load(file_name, sub_folder=sub_folder)        
     else:
-        emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=1000)
+        for time_res in [400, 200, 100]:
+            try:
+                emitted_light_state = calc_emitted_light(final_state, t_final=0.1, time_resolution=time_res)
+            except Exception as e:
+                print(f"Couldn't compute emitted light for time resulotion of {time_res}")
+                print(str(e))
+                continue
+            else:
+                break
         saveload.save(emitted_light_state, name=file_name, sub_folder=sub_folder)
     # Return:
     return emitted_light_state #type: ignore
@@ -171,16 +182,32 @@ def _get_best_params(
     list[BaseParamType],
     list[Operation]
 ]:
-    if type_ is StateType.GKPHex:
-        return gkp_hex_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    elif type_ is StateType.GKPSquare:
-        return gkp_square_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    elif type_ is StateType.Cat4:
-        return cat4_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    elif type_ is StateType.Cat2:
-        return cat2_params(num_atoms, num_intermediate_states=num_intermediate_states)
-    else:
-        raise ValueError(f"Not an option '{type_}'")
+    
+    match type_:
+        case StateType.GKPHex:
+            return gkp_hex_params(num_atoms, num_intermediate_states=num_intermediate_states)
+        case StateType.GKPSquare:
+
+            if num_atoms==40:
+                return gkp_square_params(num_atoms, num_intermediate_states=num_intermediate_states)
+            elif num_atoms==20:
+                return gkp_square_20_params(num_atoms, num_intermediate_states=num_intermediate_states)
+            else:
+                raise ValueError(f"Not an option {type_!r} and num_atoms={num_atoms}")
+
+        case StateType.Cat4:
+
+            if num_atoms==40:
+                return cat4_params(num_atoms, num_intermediate_states=num_intermediate_states)
+            elif num_atoms==24:
+                return cat4_24_params(num_atoms, num_intermediate_states=num_intermediate_states)
+            else:
+                raise ValueError(f"Not an option {type_!r} and num_atoms={num_atoms}")
+        
+        case StateType.Cat2:
+            return cat2_params(num_atoms, num_intermediate_states=num_intermediate_states)
+        case _:
+            raise ValueError(f"Not an option '{type_}'")
 
 
 def _get_type_inputs(
@@ -224,16 +251,16 @@ def _print_fidelity(final_state:np.matrix, cost_function:Callable[[np.matrix], f
     
         
 def _get_movie_config(
-    create_movie:bool, num_transition_frames:int, state_type:StateType
+    create_movie:bool, num_transition_frames:int|tuple[int,int,int], state_type:StateType, resolution:int=250, horizontal:bool=False
 ) -> CoherentControl.MovieConfig:
     # Basic data:
     fps=30
     
     bloch_sphere_config = BlochSphereConfig(
         alpha_min=0.2,
-        resolution=250,
+        resolution=resolution,
         viewing_angles=ViewingAngles(
-            elev=-45
+            elev=-40
         )
     )
     
@@ -244,8 +271,9 @@ def _get_movie_config(
         num_freeze_frames=fps//2,
         fps=fps,
         bloch_sphere_config=bloch_sphere_config,
+        horizontal_figure=horizontal,
         num_transition_frames=num_transition_frames,
-        temp_dir_name=state_type.name     
+        temp_dir_name=state_type.name
     )
     
     return movie_config
@@ -259,7 +287,9 @@ def _get_movie_config(
 def plot_sequence(
     state_type:StateType = StateType.GKPSquare,
     num_atoms:int = 40,
-    folder:str|None = None
+    resolution:int = 600,
+    subfolder:str|None = "GKP-Sequence",
+    single_i:int|None = 11
 ):
     # constants:
 
@@ -269,8 +299,15 @@ def plot_sequence(
     # derive:
     n = assertions.integer( (len(operations)-1)/2 )
     
-    # iterate: 
-    for i in range(n+1):
+    ## iterate: 
+    if single_i is None:
+        i_vals = range(n+1)
+    elif isinstance(single_i, int):
+        i_vals = [single_i]
+    else:
+        raise TypeError(f"Not a supported input of type {type(single_i)!r}")
+
+    for i in i_vals:
         print(strings.num_out_of_num(i, n))
 
         # derive params for this iteration:
@@ -286,16 +323,18 @@ def plot_sequence(
         state_i = coherent_control.custom_sequence(state=initial_state, theta=theta_i, operations=operations_i)
     
         # plot light:
-        plot_plain_wigner(state_i)
-        save_figure(folder=folder, file_name=name+" - Light")        
+        # plot_plain_wigner(state_i)
+        # save_figure(folder=folder, file_name=name+" - Light")        
 
         # plot bloch:
-        plot_wigner_bloch_sphere(state_i, view_elev=-90, alpha_min=1, title="", num_points=200)
-        save_figure(folder=folder, file_name=name+" - Sphere")
+        plot = plot_wigner_bloch_sphere(state_i, view_elev=-90, alpha_min=1, title="", num_points=resolution, with_colorbar=False)
+        save_figure(fig=plot.axes.figure, subfolder=subfolder, file_name=name+" - Sphere - png", extension="png", transparent=True)
+        save_figure(fig=plot.axes.figure, subfolder=subfolder, file_name=name+" - Sphere - tif", extension="tif", transparent=True)
+        # save_figure(subfolder=subfolder, file_name=name+" - Sphere - svg", extension="svg", transparent=True)
         
         # Sleep and close open figures:
         sleep(1)
-        plt.close("all")
+        # plt.close("all")
 
 
 
@@ -334,13 +373,10 @@ def print_all_fidelities(num_atoms=40):
 
 
 def plot_all_best_results(
-    create_movie:bool = False,
-    num_atoms:int = 40
 ):
     for state_type in StateType:
-        print(" ")
-        print(state_type.name)
-        plot_result(state_type, create_movie, num_atoms)        
+        print("\n"+state_type.name)
+        plot_result(state_type)        
         print(" ")
         
     print("Done.")
@@ -348,60 +384,66 @@ def plot_all_best_results(
 
 def plot_result(
     state_type:StateType,
-    create_movie:bool = False,
-    num_atoms:int = 40,
-    num_graphics_points:int = 800,
+    create_movie:bool = True,
+    num_atoms:int = 24,
+    resolution:int = 250,
+    num_transition_frames:int|tuple[int, int, int] = (60, 180, 240),
     clean_plot:bool = True
 ):
     
     # derive:
-    num_transition_frames = 20 if create_movie else 0
+    num_transition_frames = num_transition_frames if create_movie else 0
     state_name = state_type.name
     if num_atoms != 40:
         state_name += f"{num_atoms}"
     
-
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
-    movie_config = _get_movie_config(create_movie, num_transition_frames, state_type)    
+    movie_config = _get_movie_config(create_movie, num_transition_frames, state_type, resolution=resolution)    
     num_steps = sum([1 for op in operations if op.name=="squeezing"])
+
+
+    if state_type == StateType.Cat4:
+        movie_config.bloch_sphere_config.viewing_angles.azim = -45
 
     # create matter state:
     matter_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
  
-    ## Naive projection onto plain:
-    # plot_plain_wigner(matter_state, with_colorbar=True)
-    # save_figure(file_name=state_name+" - Projection - colorbar")
+    # Naive projection onto plain:
+    plot_plain_wigner(matter_state, with_colorbar=True)
+    save_figure(file_name=state_name+" - Projection - colorbar")
     # plot_plain_wigner(matter_state, with_colorbar=False)
     # save_figure(file_name=state_name+" - Projection")
 
-    ## plot bloch:
-    alpha_min = 0.2
-    with_light_source = False
+    # print  Data:
+    print(f"State: {state_name!r}")
+    print(f"num steps={num_steps}")
+    fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
+
+    ## plot light:
+    # emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
+    # # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
+    # # save_figure(file_name=state_name+" - Light - colorbar")
+    # plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=resolution)
+    # save_figure(file_name=state_name+" - Light", subfolder="Best-results", tight=True, extension="tif")
+    # # save_figure(file_name=state_name+" - Light - png", subfolder=state_name, tight=True, extension="png")
+    # # save_figure(file_name=state_name+" - Light - svg", tight=True, extension="svg")
+
+    # plot bloch:
+    alpha_min = 1.0
+    with_light_source = True
     with_additions = not clean_plot
-    # plot_plain_wigner(matter_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
     plot_wigner_bloch_sphere(matter_state, alpha_min=alpha_min, title="", 
-                             num_points=num_graphics_points, view_elev=-90, with_axes_arrows=with_additions, with_colorbar=with_additions,
+                             num_points=resolution, view_elev=-90, with_axes_arrows=True, with_colorbar=with_additions,
                              with_light_source=with_light_source)
-    save_figure(file_name=state_name+" - Sphere")
+    # save_figure(file_name=state_name+" - Sphere - png", subfolder=state_name, extension="png", transparent=clean_plot)
+    save_figure(file_name=state_name+" - Sphere", subfolder="Best-results", extension="tif", transparent=clean_plot)
     plt.show()
     
-    #save_figure(file_name=state_name+" - Light")
-
-    # print  Data:
-    #print(f"State: {state_name!r}")
-    #print(f"num steps={num_steps}")
-    #fidelity = _print_fidelity(matter_state, cost_function, "Matter state ")
 
     # Print params:
     # print_params_canonical(operations, theta, state_name)   
 
-    ## plot light:
-    #emitted_light_state = _get_emitted_light(state_type, matter_state, fidelity)
-    # plot_plain_wigner(emitted_light_state, with_colorbar=True, colorlims=DEFAULT_COLORLIM)
-    # save_figure(file_name=state_name+" - Light - colorbar")
-    #plot_plain_wigner(emitted_light_state, with_colorbar=False, colorlims=DEFAULT_COLORLIM, with_axes=False, num_points=num_graphics_points)
-    #save_figure(file_name=state_name+" - Light", tight=True)
     
     #fidelity = _print_fidelity(emitted_light_state, cost_function, "Emitted light ")
 
@@ -414,9 +456,10 @@ def plot_result(
 
 
 def create_movie(
-    state_type:StateType = StateType.GKPHex,
-    num_atoms:int = 40,
-    num_transition_frames = 40
+    state_type:StateType = StateType.GKPSquare,
+    num_atoms:int = 20,
+    num_transition_frames:int|tuple[int,int,int] = (40, 80, 340),
+    resolution:int = 250
 ):
     # derive:
     
@@ -425,7 +468,8 @@ def create_movie(
 
     # get
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(state_type=state_type, num_atoms=num_atoms, num_intermediate_states=num_transition_frames)
-    movie_config = _get_movie_config(True, num_transition_frames, state_type)
+    movie_config = _get_movie_config(True, num_transition_frames, state_type, resolution=resolution)
+    movie_config.bloch_sphere_config.viewing_angles.elev = -90
     
     # create state:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
@@ -438,9 +482,9 @@ def create_movie(
 
 if __name__ == "__main__":
     # plot_sequence()
-    # create_movie()
-    plot_result(StateType.GKPSquare)
     # plot_all_best_results()
+    # create_movie()
+    plot_result(StateType.Cat4, num_atoms=24)
     # print_all_fidelities()
     
     print("Done.")

@@ -55,7 +55,7 @@ from algo.coherentcontrol import (
 )
 
 # for optimization:
-from scipy.optimize import minimize, OptimizeResult
+from scipy.optimize import minimize, OptimizeResult, Bounds
         
 # For measuring time:
 import time
@@ -65,12 +65,14 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from copy import deepcopy
 
+import os
 
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead']
+POSSIBLE_OPE_METHODS = ['SLSQP', 'Nelder-Mead', 'Powell', 'BFGS', 'L-BFGS-B']
+# POSSIBLE_OPE_METHODS = ['Nelder-Mead']
 DEFAULT_OPT_METHOD : Final[str] = "Nelder-Mead" 
 NUM_PULSE_PARAMS : Final = 4  
 
@@ -119,6 +121,30 @@ class LearnedResults():
 class ParamLock(Enum):
     FREE  = auto()
     FIXED = auto()
+
+
+class OptimizationProgressFramesTracker():
+    def __init__(self, foldername:str) -> None:
+        self.folder_fullpath:str = saveload.DATA_FOLDER + saveload.PATH_SEP + foldername
+        saveload.force_folder_exists(self.folder_fullpath)
+        self.legit_num_files = self.crnt_num_files
+
+    def clear_last(self) -> None:
+        for i, file in enumerate(self.list_files()):
+            if i<self.legit_num_files:
+                continue
+            file_fullpath = self.folder_fullpath + saveload.PATH_SEP + file
+            os.remove(file_fullpath)
+
+    def update(self) -> None:
+        self.legit_num_files = self.crnt_num_files
+
+    def list_files(self) -> list[str]:
+        return os.listdir(self.folder_fullpath)
+
+    @property
+    def crnt_num_files(self) -> int:
+        return len(self.list_files())
 
 
 @dataclass
@@ -303,8 +329,14 @@ class OptimizationParams:
         return np.array(initial_guess)
  
     @property
-    def bounds(self) -> List[Tuple[float, float]]:
-        return [free_param.bounds for free_param in self.variable_params() ]
+    def bounds(self) -> Bounds:
+        bounds_list = [free_param.bounds for free_param in self.variable_params() ]
+        lb = [bound[0] for bound in bounds_list]
+        ub = [bound[1] for bound in bounds_list]
+        strictly_bounded=[True for _ in ub]
+        bounds = Bounds(lb=lb, ub=ub, keep_feasible=strictly_bounded) #type: ignore
+        return bounds
+    
 
     @property
     def affiliations(self) -> set:
@@ -389,7 +421,6 @@ def _params_str(operation_params:List[float], param_width:int=20) -> str:
     return s
     
         
-
 def add_noise_to_free_params(params:List[BaseParamType], sigma:float)->List[BaseParamType]:
     for i, param in enumerate(params):
         if isinstance(param, FreeParam):
@@ -526,6 +557,29 @@ def fix_random_params(params:List[BaseParamType], amount:int)->List[BaseParamTyp
     return params
 
 
+# _a = 5
+# def _cost_amplification(cost:float) -> float:
+#     return -np.exp2(_a - _a*cost)
+
+
+# def _cost_reverse_amplification(amplified_cost:float) -> float:
+#     return 1 - np.log2(-amplified_cost)/_a
+
+_factor = 1e-9
+def _cost_amplification(cost:float) -> float:
+    return cost/_factor
+
+
+def _cost_reverse_amplification(amplified_cost:float) -> float:
+    return amplified_cost*_factor
+
+# def _cost_amplification(cost:float) -> float:
+#     return -(_a - _a*cost)
+
+
+# def _cost_reverse_amplification(amplified_cost:float) -> float:
+#     return 1 - amplified_cost/_a
+
 def learn_custom_operation(    
     initial_state : _DensityMatrixType,
     operations : List[Operation],
@@ -536,12 +590,41 @@ def learn_custom_operation(
     initial_guess : Optional[np.ndarray] = None,
     parameters_config : Optional[List[BaseParamType]] = None,
     save_results : bool = True,
+    save_intermediate_results : bool|str = False,
     print_interval : int = 20
 ) -> LearnedResults:
 
     ## Basic data:
     assert initial_state.shape[0]==initial_state.shape[1]
     num_moments : int = initial_state.shape[0]-1
+
+    ## Resolve `save_intermediate_results`
+    if isinstance(save_intermediate_results, bool) and save_intermediate_results==True:
+        intermediate_results_subfolder = "intermediate_results "+strings.time_stamp()
+    elif isinstance(save_intermediate_results, str):
+        intermediate_results_subfolder = save_intermediate_results
+        save_intermediate_results=True
+
+
+    if save_intermediate_results:
+        _run_counter : int = 0
+        def _save_intermediate_results(data_dict:dict, cost:float):
+            nonlocal _run_counter
+
+            _run_counter = _run_counter + 1
+            _skip_num = 1
+            if -cost > 0.30:
+                _skip_num = 1 # 5
+            if -cost > 0.90:
+                _skip_num = 1 #50
+            if -cost > 0.95: 
+                _skip_num = 1 #200
+            if -cost > 0.99: 
+                _skip_num = 1
+
+            if _run_counter >= _skip_num:                
+                saveload.save(data_dict, "intermediate_result "+strings.time_stamp()+f" cost={cost:.5f}", sub_folder=intermediate_results_subfolder)
+                _run_counter = 0
 
     num_operation_params = sum([op.num_params for op in operations])
     positive_indices = _positive_indices_from_operations(operations)
@@ -554,17 +637,23 @@ def learn_custom_operation(
 
     # Progress_bar
     progbar_max_iter = max_iter
-    if opt_method=="SLSQP":
+    if opt_method!="Nelder-Mead":
         print_interval = 1
         max_iter *= 10000
-    prog_bar = strings.ProgressBar(progbar_max_iter, "Minimizing: ", print_length=100)    
+    prog_bar = strings.ProgressBar(progbar_max_iter, "Minimizing: ", print_length=60)    
+
+
+
     @decorators.sparse_execution(skip_num=print_interval, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
-        cost = _total_cost_function(xk)
+        amplified_cost = _total_cost_function(xk)
+        cost = _cost_reverse_amplification(amplified_cost)
         operation_params = param_config.optimization_theta_to_operations_params(xk)
         extra_str = f"cost = {cost}"+"\n"+f"{_params_str(operation_params)}"
         prog_bar.next(increment=print_interval, extra_str=extra_str)
         finish : bool = False
+
+
         return finish
 
     ## Optimization Config:
@@ -574,9 +663,15 @@ def learn_custom_operation(
         operation_params = param_config.optimization_theta_to_operations_params(theta)
         final_state = coherent_control.custom_sequence(initial_state, theta=operation_params, operations=operations )
         cost = cost_function(final_state)
-        return cost
 
-    options = dict(maxiter = max_iter)   
+        if save_intermediate_results:
+            data_dict = dict(cost=cost, theta=theta, operation_params=operation_params, state=final_state)
+            _save_intermediate_results(data_dict, cost)
+
+        return _cost_amplification(cost)
+
+    ## Options:   
+    options = dict(maxiter = max_iter)
     bounds = param_config.bounds
     tolerance = arguments.default_value(tolerance, DEFAULT_TOLERANCE)
 
@@ -601,7 +696,7 @@ def learn_custom_operation(
     learned_results = LearnedResults(
         theta = optimal_theta,
         operation_params = optimal_operation_params,
-        score = opt_res.fun,
+        score = _cost_reverse_amplification(opt_res.fun),
         time = finish_time-start_time,
         initial_state = initial_state,
         final_state = final_state,
@@ -625,8 +720,10 @@ def learn_custom_operation_by_partial_repetitions(
     max_error_per_attempt:Optional[float]=None,
     num_free_params:int|None=20,
     sigma:float = 0.002,
-    initial_sigma:float = 0.2,
-    log_name:str=strings.time_stamp()
+    initial_sigma:float = 0.02,
+    log_name:str=strings.time_stamp(),
+    save_results:bool=True,
+    save_intermediate_results : bool = False  #type: ignore
 )-> LearnedResults:
     
     ## Set logging:
@@ -636,6 +733,11 @@ def learn_custom_operation_by_partial_repetitions(
     num_operation_params = sum([op.num_params for op in operations])    
     assert len(initial_params)==num_operation_params
 
+    ## If save results is on, save them in same folder:
+    if save_intermediate_results:
+        save_intermediate_results : str = "intermediate_results "+strings.time_stamp()
+        save_res_tracker = OptimizationProgressFramesTracker(save_intermediate_results)
+
     ## Initital params:
     initial_params = add_noise_to_free_params(initial_params, initial_sigma)
     initial_theta = [param.get_value() for param in initial_params]
@@ -644,11 +746,12 @@ def learn_custom_operation_by_partial_repetitions(
     best_result = _initial_result(initial_state, initial_theta, operations, cost_function)
 
     ## Iterate:
+    prog_bar = strings.ProgressBar(num_attempts, print_prefix="Repeatung : ")
     for attempt_ind in range(num_attempts):
         ## Use a random optimization method:
         opt_method = lists.random_item(POSSIBLE_OPE_METHODS)
-
-        logger.info(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)} ; Optimization method: {opt_method!r}")
+        prog_bar.next(extra_str=f"opt method: {opt_method!r}")
+        logger.debug(f"Iteration: {strings.num_out_of_num(attempt_ind+1, num_attempts)} ; Optimization method: {opt_method!r}")
         
         ## Lock random params and add noise to free params::
         num_fix_params = 0 if num_free_params is None else num_operation_params-num_free_params
@@ -671,7 +774,9 @@ def learn_custom_operation_by_partial_repetitions(
                 max_iter=max_iter_per_attempt, 
                 tolerance=max_error_per_attempt,
                 parameters_config=params,
-                opt_method=opt_method
+                opt_method=opt_method,
+                save_intermediate_results=save_intermediate_results,
+                save_results=False
             )
         except Exception as e:
             s = errors.get_traceback(e)
@@ -680,12 +785,22 @@ def learn_custom_operation_by_partial_repetitions(
 
         ## Keep the best result:
         if results.score < best_result.score:
+            save_res_tracker.update()
             best_result = deepcopy( results )
             
             logger.info("    *** Best Results: *** ")
             logger.info(f"score: {results.score}")
             logger.info(f"theta: \n{_params_str(results.operation_params)}")
             logger.info("\n")
+
+        else:
+            save_res_tracker.clear_last()
+
+
+    prog_bar.clear()
+
+    if save_results:
+        saveload.save(best_result, "learned_results "+strings.time_stamp())
         
 
     return best_result
@@ -696,14 +811,9 @@ def learn_custom_operation_by_partial_repetitions(
 
 
 def _test():
-    from main_gkp import optimized_Sx2_pulses_by_partial_repetition
-    results = optimized_Sx2_pulses_by_partial_repetition()
+    from scripts.optimize import cat4_i24
+    cat4_i24.main()
 
 if __name__ == "__main__":
-    l = LearnedResults(operation_params=[-1.0, 2.31, 1241.14, 10.523 , 140.514])
-    s = l.operation_params_str()
-    
-
-
     _test()
     print("Done.")

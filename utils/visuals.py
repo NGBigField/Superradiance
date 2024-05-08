@@ -70,8 +70,6 @@ DEFAULT_AZIM : Final[float] = 45
 DEFAULT_ROLL : Final[float] =  0
 
 
-
-
 # ==================================================================================== #
 #|                               Helper Types                                         |#
 # ==================================================================================== #
@@ -131,7 +129,7 @@ def new_axis(is_3d:bool=False):
 
 
 def save_figure(
-    fig:Optional[Figure]=None, folder:Optional[str]=None, file_name:Optional[str]=None, tight:bool=False,
+    fig:Optional[Figure]=None, folder:Optional[str]=None, subfolder:Optional[str]=None, file_name:Optional[str]=None, tight:bool=False, transparent:bool|None=None,
     extension:str="svg"
 ) -> None:
     # Figure:
@@ -146,18 +144,27 @@ def save_figure(
     if folder is None:
         folder = IMAGES_FOLDER
     assert isinstance(folder, str)
+
     
+    # Full path:
     folder = Path(folder)
     if not folder.is_dir():
         os.mkdir(str(folder.resolve()))
-    # Full path:
+        
+    if subfolder is not None:
+        folder = folder.joinpath(subfolder)
+
+    if not folder.is_dir():
+        os.mkdir(str(folder.resolve()))
+
+    
     fullpath = folder.joinpath(file_name)
     fullpath_str = str(fullpath.resolve())+"."+extension
     # Save:
     if tight:
-        fig.savefig(fullpath_str, bbox_inches='tight', pad_inches=0.0)
+        fig.savefig(fullpath_str, bbox_inches='tight', pad_inches=0.0, transparent=transparent)
     else:
-        fig.savefig(fullpath_str)
+        fig.savefig(fullpath_str, transparent=transparent)
 
     return 
 
@@ -422,6 +429,30 @@ def plot_wigner_bloch_sphere(
 
     return surface_plot
 
+
+def _derive_city_colorbar_position(ax:Axes)->tuple[float,...]:
+
+    # Pre-decided relative position
+    left0, bottom0, width0, height0 = 1.05, 0.1, 0.04, 0.8
+    
+    # get relative place of ax within figure:
+    # [[xmin, ymin], [xmax, ymax]]   
+    bbox = ax.get_position()
+    x0 = bbox.x0
+    x1 = bbox.x1
+    y0 = bbox.y0
+    y1 = bbox.y1    
+    w  = x1 - x0
+    h  = y1 - y0
+
+    width  = width0*w
+    height = height0*h
+    left   = left0*w + x0
+    bottom = bottom0*h + y0
+
+    return left, bottom, width, height
+
+
 def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=None):
     # Check input type:
     if isinstance(mat, np.matrix):
@@ -458,7 +489,8 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
     else:
         fig = ax.figure
 
-    ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors)
+    ## Plot:
+    plot = ax.bar3d(xpos, ypos, zpos, dx, dy, dz, color=colors)
 
     if title is not None:
         ax.set_title(title, y=0.95)
@@ -486,15 +518,15 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
     plt.xticks( pos_range, [ f"|{m}>" for m in m_range] )
     plt.yticks( pos_range, [ f"<{m}|" for m in m_range] )
 
-    # Colorbar:
-    left, bottom, width, height = 0.95, 0.1, 0.02, 0.8
+    ## Colorbar:
+    left, bottom, width, height = _derive_city_colorbar_position(ax)    
     cax = plt.axes([left, bottom, width, height])
     mappable = ScalarMappable(norm=norm, cmap=cmap)
     clr_bar = plt.colorbar(ax=ax, cax=cax, mappable=mappable )
     clr_bar.set_ticks([-pi, -pi/2, 0, pi/2, pi])
-    clr_bar.set_ticklabels( [r'$-\pi$', r'$-\pi/2$', 0, r'$\pi/2$', r'$\pi$'] )
+    clr_bar.set_ticklabels( [r"$-\pi$", r"$-\dfrac{\pi}{2}$", 0, r"$\dfrac{\pi}{2}$", r'$\pi$'] )
     
-    return fig, ax
+    return fig, ax, plot
 
 def plot_superradiance_evolution(times, energies, intensities):
     # Plot:
@@ -530,14 +562,16 @@ class MatterStatePlot():
         self, 
         bloch_sphere_config:BlochSphereConfig=BlochSphereConfig(), 
         initial_state:Optional[np.matrix]=None, 
+        horizontal:bool=True,
         show_now:bool=False, 
     ) -> None:
-        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure()
+        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure(horizontal=horizontal)
         self.axis_bloch_sphere : Axes3D = ax1
         self.axis_bloch_sphere_colorbar : Axes = ax2
         self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
         self.bloch_sphere_config : BlochSphereConfig = bloch_sphere_config
+        self.horizontal : bool = horizontal
         if initial_state is not None:
             self.update(initial_state, title="Initial-State", show_now=show_now)
     
@@ -551,7 +585,7 @@ class MatterStatePlot():
     ) -> None:
         assertions.density_matrix(state, robust_check=False)
         self.refresh_figure()
-        plot_city(state, ax=self.axis_block_city)
+        _, city_axes ,city_plot = plot_city(state, ax=self.axis_block_city)
         plot_wigner_bloch_sphere(
             state, ax=self.axis_bloch_sphere, 
             num_points=self.bloch_sphere_config.resolution, 
@@ -562,44 +596,64 @@ class MatterStatePlot():
             view_roll=self.bloch_sphere_config.viewing_angles.roll, 
             title=""
         )
+        city_axes.set_zorder(2)
         if title is not None:
-            self.figure.suptitle(title, fontsize=fontsize)
+            self.set_title(title, fontsize=fontsize)            
         if show_now:
             draw_now()
         if score_str is not None:
             self.axis_bloch_sphere.text(x=-0.5 ,y=-0.5, z=-2, s=score_str, fontsize=12)
     
+    def set_title(self, title:str, /, *, fontsize:int=16)->None:
+        self.figure.suptitle(title, fontsize=fontsize)
+
     def close(self) -> None:
         plt.close(self.figure)
             
     def refresh_figure(self) -> None :
         plt.figure(self.figure.number)
         plt.clf()
-        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure(self.figure)
+        fig, ax1, ax2, ax3 = MatterStatePlot._init_figure(self.figure, horizontal=self.horizontal)
         self.axis_bloch_sphere : Axes3D = ax1
         self.axis_bloch_sphere_colorbar : Axes = ax2
         self.axis_block_city : Axes3D = ax3
         self.figure : Figure = fig
         
     @staticmethod
-    def _init_figure(fig:Optional[Figure]=None):
+    def _init_figure(fig:Optional[Figure]=None, horizontal:bool=True):
         # Control
         separate_colorbar_axis : bool = MatterStatePlot._separate_colorbar_axis
         # fig:
         if fig is None:
-            fig = plt.figure(figsize=(11,6))
+            if horizontal:
+                fig = plt.figure(figsize=(10,5))
+            else:
+                fig = plt.figure(figsize=(5 ,9))
         # Create axes:
         ax_block_city = _axes3D(fig)
-        ax_bloch_sphe = fig.add_subplot(1,2,1, projection='3d')        
+        if horizontal:
+            ax_bloch_sphe = fig.add_subplot(1,2,1, projection='3d')        
+        else:
+            ax_bloch_sphe = fig.add_subplot(2,1,1, projection='3d')        
+
         if separate_colorbar_axis:
-            ax_color_bar = fig.add_axes([0.0, 0.1, 0.02, 0.8])
+            if horizontal:                # [left, bottom, width, height]
+                ax_color_bar = fig.add_axes([0.00, 0.10,  0.02, 0.7])
+            else:
+                ax_color_bar = fig.add_axes([0.88, 0.55,  0.03, 0.4])
         else:
             ax_color_bar = None
+            
         # set dims:
-        ax_bloch_sphe.set_position(Bbox([[0.00, 0.0], [0.45, 1.0]])) 
-        ax_block_city.set_position(Bbox([[0.45, 0.0], [0.95, 0.9]]))  
+        if horizontal:                    # [[ xmin, ymin], [xmax, ymax]]   
+            ax_bloch_sphe.set_position(Bbox([[ 0.00,-0.20], [0.55, 1.10]])) 
+            ax_block_city.set_position(Bbox([[ 0.45, 0.00], [0.93, 0.90]]))  
+        else:
+            ax_bloch_sphe.set_position(Bbox([[-0.15, 0.40], [1.00, 1.00]])) 
+            ax_block_city.set_position(Bbox([[ 0.00, 0.00], [0.84, 0.55]]))  
         # Return:
         return fig, ax_bloch_sphe, ax_color_bar, ax_block_city
+
 
 class VideoRecorder():
     def __init__(self, fps:float=10.0, temp_dir_name:str="") -> None:
@@ -701,11 +755,36 @@ def _test_light_wigner():
     # Plot:
     draw_now()
     plot_plain_wigner(state, "Test", with_colorbar=True, colorlims=(-1, 1))
+
+
+def _test_matter_state(horizontal:bool=False):
+    # Specific imports:
+    from physics.famous_density_matrices import gkp_state, cat_state
+
+    # Constants:
+    num_atoms = 10
+
+    # State:
+    state = cat_state(num_atoms=num_atoms, num_legs=2, alpha=1.0)
+
+    # Config:
+    bloch_sphere_config = BlochSphereConfig(resolution=40)
+
+    # Plot:
+    draw_now()
+    MatterStatePlot(bloch_sphere_config=bloch_sphere_config, initial_state=state, horizontal=horizontal)
+    draw_now()
+
+    # done:
+    print("Done.")
+
     
 
 def tests():
-    _test_bloch_sphere()
+    # _test_bloch_sphere()
     # _test_light_wigner()
+    _test_matter_state()
+
 
     
     print("Done tests.")

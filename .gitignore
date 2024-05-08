@@ -160,3 +160,4 @@ cython_debug/
 *.npy
 *.csv
 *.svg
+*.tif
