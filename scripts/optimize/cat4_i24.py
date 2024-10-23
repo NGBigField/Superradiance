@@ -128,9 +128,9 @@ def main(
     save_intermediate_results:bool=True,
     # Seach config: 
     max_iter_per_attempt=1*int(1e4),
-    tolerance=1e-4,
+    tolerance=1e-12,
     # Repetitive config:
-    repetitive_process:bool=True,
+    repetitive_process:bool=False,
     num_attempts:int=int(1e5),
     num_free_params=8,
     initial_sigma:float=2.000,

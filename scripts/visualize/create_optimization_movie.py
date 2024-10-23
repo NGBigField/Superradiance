@@ -25,13 +25,15 @@ from physics.gkp import gkp_state
 import numpy as np
 
 # for plotting:
-from utils.visuals import ViewingAngles, BlochSphereConfig, save_figure, draw_now, MatterStatePlot, VideoRecorder
+from utils.visuals import ViewingAngles, BlochSphereConfig, save_figure, \
+    draw_now, MatterStatePlot, VideoRecorder, VIDEOS_FOLDER, ImageClip, concatenate_videoclips
+
 from utils import assertions, saveload
 from algo.coherentcontrol import SequenceMovieRecorder
 import matplotlib.pyplot as plt
 
 # for printing progress:
-from utils import strings
+from utils import strings, files
 
 # For listing files in folder and navigating data:
 import os
@@ -116,7 +118,7 @@ def _unpack_files_results(
 
 def create_movie(
     state_type:StateType = StateType.Cat4,
-    subfolder:str = "intermediate_results 2024.04.22_16.10.35 - good 24",
+    subfolder:str = "intermediate_results 2024.05.08_17.34.48",
     num_atoms:int = 24,
     fps:int = 30,
     plot_target:bool = False,
@@ -181,6 +183,12 @@ def create_movie(
         prog_bar.next()
         state, theta, score = _get_results(file_name)
 
+        if score < 0.1:
+            plot_every = 10
+        else:
+            plot_every = 1
+
+
         plot_count += 1
         if plot_count >= plot_every:
             _update_plot(state, score)
@@ -196,7 +204,42 @@ def create_movie(
 
 
 
+def _iter_image_clips(
+    folder_fullpath:str,
+    frame_duration:float
+):
+
+    all_files = [file for file in files.files_in_folder(folder_fullpath)]
+
+    for i, file_fullpath in enumerate(all_files):
+        if i < 100 or i > (len(all_files)-50):
+            continue
+        *_, file_name = file_fullpath.split(os.sep)
+        yield ImageClip(file_fullpath, duration=frame_duration)
+
+
+def recreate_from_folder(
+    folder_name:str = "optimization_frames 2024.05.08_17.40.06-2024.05.08_17.40.36",
+    fps:int = 60,
+    video_name:str = "optimization_movie " + strings.time_stamp()
+) -> None:
+    
+    VideoRecorder
+
+    folder_fullpath = VIDEOS_FOLDER + "temp_frames" + os.sep + folder_name
+    frame_duration = 1/fps
+
+    clips_gen = _iter_image_clips(folder_fullpath=folder_fullpath, frame_duration=frame_duration)
+    video_slides = concatenate_videoclips( list(clips_gen), method='chain' )
+    
+    ## Write video file:
+    fullpath = VIDEOS_FOLDER+video_name+".mp4"
+    video_slides.write_videofile(fullpath, fps=fps)
+
+
+
 if __name__ == "__main__":
-    create_movie()
+    # create_movie()
+    recreate_from_folder()
     
     print("Done.")

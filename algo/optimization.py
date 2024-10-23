@@ -643,7 +643,6 @@ def learn_custom_operation(
     prog_bar = strings.ProgressBar(progbar_max_iter, "Minimizing: ", print_length=60)    
 
 
-
     @decorators.sparse_execution(skip_num=print_interval, default_results=False)
     def _after_each(xk:np.ndarray) -> bool:
         amplified_cost = _total_cost_function(xk)
@@ -656,19 +655,27 @@ def learn_custom_operation(
 
         return finish
 
+    best_theta = initial_guess
+    initial_guess = np.zeros_like(initial_guess)
+
     ## Optimization Config:
     # Define operations:
     coherent_control = CoherentControl(num_moments)
     def _total_cost_function(theta:np.ndarray) -> float : 
         operation_params = param_config.optimization_theta_to_operations_params(theta)
         final_state = coherent_control.custom_sequence(initial_state, theta=operation_params, operations=operations )
-        cost = cost_function(final_state)
+        minus_fidelity = cost_function(final_state)
 
         if save_intermediate_results:
-            data_dict = dict(cost=cost, theta=theta, operation_params=operation_params, state=final_state)
-            _save_intermediate_results(data_dict, cost)
+            data_dict = dict(cost=minus_fidelity, theta=theta, operation_params=operation_params, state=final_state)
+            _save_intermediate_results(data_dict, minus_fidelity)
+
+        cost = np.linalg.norm(theta - best_theta)
+        cost = float(cost) + 0.1*minus_fidelity
 
         return _cost_amplification(cost)
+
+
 
     ## Options:   
     options = dict(maxiter = max_iter)

@@ -81,7 +81,7 @@ def _get_movie_config(
 
 
 def main(
-    what_movie = "cat4_i24",
+    what_movie = "squeeze_to_kitten",
     resolution:int = 200
 ):
     # Start:
@@ -119,6 +119,9 @@ def main(
         case "test":
             num_atoms = 10
             num_transition_frames = 10
+        case "squeeze_to_kitten":
+            num_atoms = 21
+            num_transition_frames = 100
         case _:
             raise ValueError("Choose a state that has an implementation")
     assert isinstance(num_atoms, int), "Choose a state that has an implementation"
@@ -141,7 +144,6 @@ def main(
     y2 = _pulse_of_power_and_directions(2, [1])
     z2 = _pulse_of_power_and_directions(2, [2])
     operations : list[Operation] = []
-    operations.append( x2 )
 
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_transition_frames)
     rotation  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
@@ -186,11 +188,15 @@ def main(
             operations = [xy ]
             theta      = [+1.4*pi, -1.4*pi]
 
+        case "squeeze_to_kitten":
+            operations = [ y1        , z2  ] 
+            theta      = [-pi/2 - 0.6, pi/2] 
+
         case "test":
             operations = [y1  ] 
             theta      = [-pi ] 
 
-    
+
     # create state:
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
     # plot_matter_state(final_state)
