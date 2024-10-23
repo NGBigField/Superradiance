@@ -377,7 +377,7 @@ class SequenceMovieRecorder():
         bloch_sphere_config : visuals.BlochSphereConfig = field( default_factory=visuals.BlochSphereConfig )
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
         temp_dir_name : str = ""
-        final_frame_duration_multiplier : int = 3
+        final_frame_duration_multiplier : int = 5
 
         def get_num_transition_frames_based_on_operation(self, params:list[float], operation:Operation)->int:
             if not self.active:
