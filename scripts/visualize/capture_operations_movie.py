@@ -120,8 +120,8 @@ def main(
             num_atoms = 10
             num_transition_frames = 10
         case "squeeze_to_kitten":
-            num_atoms = 21
-            num_transition_frames = 100
+            num_atoms = 20
+            num_transition_frames = 200
         case _:
             raise ValueError("Choose a state that has an implementation")
     assert isinstance(num_atoms, int), "Choose a state that has an implementation"
@@ -189,8 +189,9 @@ def main(
             theta      = [+1.4*pi, -1.4*pi]
 
         case "squeeze_to_kitten":
-            operations = [ y1        , z2  ] 
-            theta      = [-pi/2 - 0.6, pi/2] 
+            operations = [ y1        , z2  , z2  ] 
+            theta      = [-pi/2 , pi/4, pi/4] 
+            movie_config.bloch_sphere_config.viewing_angles.elev = 60
 
         case "test":
             operations = [y1  ] 

@@ -509,14 +509,14 @@ def plot_city(mat:Union[np.matrix, np.array], title:Optional[str]=None, ax:Axes=
     ax.set_zlim3d([0, 1])  # use min/max
 
     # Labels:
-    M = mat.shape[0]//2
+    M = mat.shape[0]
     step_size = M//5
     if step_size==0: step_size=1
-    m_range = range(-M, M+1, step_size)
+    m_range = range(0, M, step_size)
     pos_range = range(0, mat.shape[0], step_size) 
     plt.sca(ax)
-    plt.xticks( pos_range, [ f"|{m}>" for m in m_range] )
-    plt.yticks( pos_range, [ f"<{m}|" for m in m_range] )
+    plt.xticks( pos_range, [ f"{m}" for m in m_range] )
+    plt.yticks( pos_range, [ f"{m}" for m in m_range] )
 
     ## Colorbar:
     left, bottom, width, height = _derive_city_colorbar_position(ax)    
@@ -689,6 +689,12 @@ class VideoRecorder():
         # Write video file:
         fullpath = VIDEOS_FOLDER+name+".mp4"
         video_slides.write_videofile(fullpath, fps=self.fps)
+
+    def convert_sec_to_frames(self, seconds:float)->int:
+        return int(seconds*self.fps)
+    
+    def convert_frames_to_sec(self, frames:int)->float:
+        return frames/self.fps
 
     @property
     def crnt_frame_path(self) -> str:         

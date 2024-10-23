@@ -124,7 +124,7 @@ class Operation():
 # ==================================================================================== #
 
 def _assert_N(N:int) -> None:
-    assertions.even(N) # N must be even    
+    assertions.index(N) # N must be even    
 
 def _J(N:int) -> int : 
     _assert_N(N)
@@ -377,7 +377,7 @@ class SequenceMovieRecorder():
         bloch_sphere_config : visuals.BlochSphereConfig = field( default_factory=visuals.BlochSphereConfig )
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
         temp_dir_name : str = ""
-        final_frame_duration_multiplier : int = 5
+        final_frame_time : float = 2  # seconds
 
         def get_num_transition_frames_based_on_operation(self, params:list[float], operation:Operation)->int:
             if not self.active:
@@ -439,9 +439,9 @@ class SequenceMovieRecorder():
     def final_state(self)->None:
         if not self.is_active:
             return  # We don't want to record a video
-        length_multiplier = self.config.final_frame_duration_multiplier
-        default_duration = self.video_recorder.frames_duration[-1]
-        new_duration = int(round(default_duration*length_multiplier))
+        # convert seconds to frames:
+        final_frame_multiplier = self.video_recorder.convert_sec_to_frames(self.config.final_frame_time)
+        new_duration = int(round(final_frame_multiplier))
         self.video_recorder.frames_duration[-1] = new_duration
 
     def record_transition(
