@@ -121,7 +121,10 @@ def main(
             num_transition_frames = 10
         case "squeeze_to_kitten":
             num_atoms = 20
-            num_transition_frames = 200
+            num_transition_frames = (50, 100, 200)
+        case "kitten_to_visible_cat":
+            num_atoms = 20
+            num_transition_frames = 100
         case _:
             raise ValueError("Choose a state that has an implementation")
     assert isinstance(num_atoms, int), "Choose a state that has an implementation"
@@ -189,8 +192,19 @@ def main(
             theta      = [+1.4*pi, -1.4*pi]
 
         case "squeeze_to_kitten":
-            operations = [ y1        , z2  , z2  ] 
-            theta      = [-pi/2 , pi/4, pi/4] 
+            # Squeeze 
+            operations = [ y1          , z2  , z2       , z2       ] 
+            theta      = [-pi/2 - pi/4 , pi/4, pi/3-pi/4, pi/2-pi/3] 
+            movie_config.bloch_sphere_config.viewing_angles.elev = 60
+
+        case "kitten_to_visible_cat":
+            # First squeeze to cat:
+            operations = [ y1          , z2  , z2  ] 
+            theta      = [-pi/2 - pi/4 , pi/4, pi/4] 
+            initial_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=None) 
+            # Then, record rotation to GHZ:
+            operations = [ y1  ]
+            theta      = [+pi  ]
             movie_config.bloch_sphere_config.viewing_angles.elev = 60
 
         case "test":
