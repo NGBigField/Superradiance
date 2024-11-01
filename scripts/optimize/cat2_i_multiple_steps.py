@@ -1,21 +1,22 @@
 # ==================================================================================== #
 # |                                   Imports                                        | #
 # ==================================================================================== #
+
 if __name__ == "__main__":
     import pathlib, sys
     sys.path.append(
         pathlib.Path(__file__).parent.parent.parent.__str__()
     )
-    
+
 # Everyone needs numpy:
 import numpy as np
 from numpy import pi
 
 # For typing hints:
-from typing import Optional, Tuple, List, Final
+from typing import Optional, Tuple, List
 
 # import our helper modules
-from utils import sounds, strings, saveload
+from utils import sounds, strings, visuals
 
 # For coherent control
 from algo.coherentcontrol import (
@@ -26,7 +27,6 @@ from algo.coherentcontrol import (
 # Import optimization options and code:
 from algo.optimization import (
     LearnedResults,
-    learn_custom_operation,
     learn_custom_operation_by_partial_repetitions,
     FixedParam, 
     FreeParam,
@@ -35,15 +35,12 @@ from algo.optimization import (
 )
 
 # Common states and cost functions:
-from physics.famous_density_matrices import ground_state
+from physics.famous_density_matrices import cat_state, ground_state
 from algo.common_cost_functions import fidelity_to_cat
-
-
 
 # ==================================================================================== #
 # |                                  Constants                                       | #
 # ==================================================================================== #
-DEFAULT_OPT_METHOD : Final[str] = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 
 # ==================================================================================== #
 # |                                Inner Functions                                   | #
@@ -53,7 +50,7 @@ DEFAULT_OPT_METHOD : Final[str] = "Nelder-Mead" #'SLSQP' # 'Nelder-Mead'
 def best_sequence_params(
     num_atoms:int,
     /,*,
-    num_intermediate_states:int=0
+    num_intermediate_states:int=0    
 )-> Tuple[
     List[BaseParamType],
     List[Operation]
@@ -62,28 +59,45 @@ def best_sequence_params(
     coherent_control = CoherentControl(num_atoms=num_atoms)    
     standard_operations : CoherentControl.StandardOperations  = coherent_control.standard_operations(num_intermediate_states=num_intermediate_states)
     
-    rotation  = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
-    squeezing = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
+    rotation    = standard_operations.power_pulse_on_specific_directions(power=1, indices=[0, 1, 2])
+    p2_pulse    = standard_operations.power_pulse_on_specific_directions(power=2, indices=[0, 1])
+    stark_shift = standard_operations.stark_shift_and_rot()
         
-    eps = 0.1
-    _a = 3
-
+    eps = 0.1    
+        
     _rot_bounds   = lambda n : [(-pi-eps, pi+eps)]*n
-    _p2_bounds    = lambda n : [(-_a*pi, +_a*pi)]*n
+    _p2_bounds    = lambda n : _rot_bounds(n) # [(None, None)]*n
+    _stark_bounds = lambda n : [(None, None)]*n
     
     _rot_lock   = lambda n : [False]*n 
     _p2_lock    = lambda n : [False]*n
+    _stark_lock = lambda n : [False]*n
+   
 
+    # theta = [
+    #     +1.6672585088573388 , +0.7966649375214807 , +3.2415926535897932 , +1.5714319595349933 , +1.5701701865717275 , 
+    #     -0.0000111217866419 , -0.0000015622659345 , +2.3594798466050158
+    # ] # fidelity 0.9918 - 1 step
+    # theta = [
+    #     +1.6672585088573388 , +0.7966649375214807 , +3.2415926535897932 , +1.5714319595349933 , +1.5701701865717275 ,   #1 
+    #     -0.0000111217866419 , -0.0000015622659345 , +2.3594798466050158 , 0.0, 0.0,   #2
+    #     +0.0, +0.0, +0.0, 0.0, 0.0, #3
+    #     +0.0, +0.0, +0.0, 0.0, 0.0, #4
+    #     +0.0, +0.0, +0.0 #4
+    # ] # fidelity 0.9918 - 4 steps
+    #
     theta = [
-        +1.1634502923694394 , +0.7391690305215712 , -3.2224714983636460 , -0.0041129266235580 , -0.7896391684875264 , 
-        +0.9809815207185668 , +2.4048152268109622 , -2.6451848191261678
-    ]  # -0.9569851608611255
-
+        +0.0, +0.0 , +0.0 , +pi/2 , +0 ,   #1 
+        +0.0, +0.0, +pi/2 , 0.0, 0.0,   #2
+        +0.0, +pi/2, +0.0, 0.0, 0.0, #3
+        +0.0, +0.0, +0.0, 0.0, 0.0, #4
+        +0.0, +0.0, +0.0 #4
+    ] # fidelity 0.9918 - 4 steps
+    
+    
     operations  = [
-        rotation, squeezing, 
-        rotation
-    ]
-
+        rotation, p2_pulse
+    ] * 4 + [rotation]
 
     num_operation_params : int = sum([op.num_params for op in operations])
     assert num_operation_params==len(theta)
@@ -95,7 +109,10 @@ def best_sequence_params(
         if op is rotation:
             params_bound += _rot_bounds(n)
             params_lock  += _rot_lock(n)
-        elif op is squeezing:
+        elif op is stark_shift:
+            params_bound += _stark_bounds(n)
+            params_lock  += _stark_lock(n)
+        elif op is p2_pulse:
             params_bound += _p2_bounds(n)
             params_lock  += _p2_lock(n)
         else:
@@ -122,64 +139,42 @@ def best_sequence_params(
 
     
 def main(
-    # State config:
-    num_atoms:int=24,
-    # For movie:
-    save_intermediate_results:bool=True,
-    # Seach config: 
-    max_iter_per_attempt=1*int(1e4),
-    tolerance=1e-12,
-    # Repetitive config:
-    repetitive_process:bool=False,
-    num_attempts:int=int(1e5),
-    num_free_params=8,
-    initial_sigma:float=2.000,
-    sigma:        float=1.621
+    num_atoms:int=20, 
+    num_total_attempts:int=2000, 
+    max_iter_per_attempt:int=2*int(1e3), 
+    max_error_per_attempt:Optional[float]=1e-20,
+    num_free_params:int|None=None,
+    sigma:float=0.000,
+    initial_sigma:float=0.5000
 ) -> LearnedResults:
     
     # Define target:
     initial_state = ground_state(num_atoms=num_atoms)    
-    # cost_function = fidelity_to_cat(num_atoms=num_atoms, num_legs=4, phase=0)
-    cost_function = fidelity_to_cat(num_atoms=num_atoms, num_legs=4, phase=np.pi/4)
+    cost_function = fidelity_to_cat(num_atoms=num_atoms, num_legs=2, phase=np.pi/2)
     
     # Define operations:
     param_config, operations = best_sequence_params(num_atoms)
 
-    if repetitive_process:
-        results = learn_custom_operation_by_partial_repetitions(
-            # Amount:
-            num_attempts=num_attempts,
-            # Mandatory Inputs:
-            initial_state=initial_state,
-            cost_function=cost_function,
-            operations=operations,
-            initial_params=param_config,
-            # Huristic Params:
-            max_iter_per_attempt=max_iter_per_attempt,
-            max_error_per_attempt=tolerance,
-            num_free_params=num_free_params,
-            log_name="Cat4-i20-"+strings.time_stamp(),
-            save_intermediate_results=save_intermediate_results,
-            initial_sigma=initial_sigma,
-            sigma=sigma
+    best_result = learn_custom_operation_by_partial_repetitions(
+        # Mandatory Inputs:
+        initial_state=initial_state,
+        cost_function=cost_function,
+        operations=operations,
+        initial_params=param_config,
+        # Heuristic Params:
+        initial_sigma=initial_sigma,
+        max_iter_per_attempt=max_iter_per_attempt,
+        max_error_per_attempt=max_error_per_attempt,
+        num_free_params=num_free_params,
+        sigma=sigma,
+        num_attempts=num_total_attempts,
+        log_name="2-Cat"+strings.time_stamp()
     )
-    else:
-        results = learn_custom_operation(
-            initial_state=initial_state, 
-            minus_fidelity_function=cost_function, 
-            operations=operations, 
-            max_iter=max_iter_per_attempt, 
-            tolerance=tolerance,
-            parameters_config=param_config,
-            opt_method=DEFAULT_OPT_METHOD,
-            save_intermediate_results=save_intermediate_results
-        )
-
 
     ## Finish:
     sounds.ascend()
-    print(results)
-    return results
+    print(best_result)
+    return best_result
 
 if __name__ == "__main__":
     results = main()

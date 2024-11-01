@@ -89,6 +89,8 @@ class LearnedResults():
     theta               : np.ndarray        = None
     operation_params    : List[float]       = None
     score               : float             = None
+    fidelity            : float             = None
+    squeezing_strength  : float             = None
     initial_state       : np.matrix         = None
     final_state         : np.matrix         = None
     time                : float             = None
@@ -255,7 +257,7 @@ class OptimizationParams:
         self.fixed_params   : List[FixedParam]      = fixed_params
         self.ordered_params : List[BaseParamType] = ordered_list
 
-    def optimization_theta_to_operations_params(self, theta:np.ndarray) -> List[float]:
+    def optimization_theta_to_operations_params(self, theta:np.ndarray) -> np.ndarray:
         # check inputs:
         assert len(theta)==self.num_variables
         assert isinstance(theta, np.ndarray)
@@ -380,6 +382,37 @@ class OptimizationParams:
 # ==================================================================================== #
 # |                                Inner Functions                                   | #
 # ==================================================================================== #
+def _get_squeezing_params(param_config:OptimizationParams, theta:np.ndarray, operations:list[Operation]) -> list[np.ndarray]:
+    # Init output:
+    squeezing_tuples : list[np.ndarray] = []
+
+    # Get data:
+    operation_params = param_config.optimization_theta_to_operations_params(theta)
+
+
+    i = 0
+    for op in operations:
+        # Get indices:
+        indices = list(range(i, i+op.num_params))
+        i += op.num_params
+
+        # Use values?
+        if op.name == "rotation":
+            continue
+
+        elif op.name == "squeezing":
+            values =operation_params[indices]
+            squeezing_tuples.append(values)
+
+
+    return squeezing_tuples
+
+
+def _squeezing_strength(param_config:OptimizationParams, theta:np.ndarray, operations:list[Operation]) -> float:
+    squeezing_params : list[np.ndarray] = _get_squeezing_params(param_config, theta, operations)
+    total_squeezing_strength = sum(np.sqrt(np.sum(np.power(values, 2))) for values in squeezing_params)
+    return total_squeezing_strength
+
 
 def _initial_result(initial_state:_DensityMatrixType, initial_theta:List[float], operations:List[Operation], cost_function:Callable[[_DensityMatrixType], float])->LearnedResults:
     num_moments = initial_state.shape[0]-1
@@ -583,7 +616,7 @@ def _cost_reverse_amplification(amplified_cost:float) -> float:
 def learn_custom_operation(    
     initial_state : _DensityMatrixType,
     operations : List[Operation],
-    cost_function : Callable[[_DensityMatrixType], float],
+    minus_fidelity_function : Callable[[_DensityMatrixType], float],
     max_iter : int=100, 
     tolerance : Optional[float] = None,
     opt_method : str = DEFAULT_OPT_METHOD,
@@ -656,7 +689,7 @@ def learn_custom_operation(
         return finish
 
     best_theta = initial_guess
-    initial_guess = np.zeros_like(initial_guess)
+    # initial_guess = np.zeros_like(initial_guess)
 
     ## Optimization Config:
     # Define operations:
@@ -664,14 +697,19 @@ def learn_custom_operation(
     def _total_cost_function(theta:np.ndarray) -> float : 
         operation_params = param_config.optimization_theta_to_operations_params(theta)
         final_state = coherent_control.custom_sequence(initial_state, theta=operation_params, operations=operations )
-        minus_fidelity = cost_function(final_state)
+        minus_fidelity = minus_fidelity_function(final_state)
+        squeezing_strength = _squeezing_strength(param_config, theta, operations)
+
+        # from utils.visuals import plot_matter_state
+        # plot_matter_state(final_state)
+
 
         if save_intermediate_results:
-            data_dict = dict(cost=minus_fidelity, theta=theta, operation_params=operation_params, state=final_state)
+            data_dict = dict(cost=minus_fidelity, squeezing_strength=squeezing_strength, theta=theta, operation_params=operation_params, state=final_state)
             _save_intermediate_results(data_dict, minus_fidelity)
 
-        cost = np.linalg.norm(theta - best_theta)
-        cost = float(cost) + 0.1*minus_fidelity
+        ## Compute cost:
+        cost = 0.9*minus_fidelity + 0.1*squeezing_strength
 
         return _cost_amplification(cost)
 
@@ -704,6 +742,8 @@ def learn_custom_operation(
         theta = optimal_theta,
         operation_params = optimal_operation_params,
         score = _cost_reverse_amplification(opt_res.fun),
+        fidelity = (-1)*minus_fidelity_function(final_state),
+        squeezing_strength = _squeezing_strength(param_config, optimal_theta, operations),
         time = finish_time-start_time,
         initial_state = initial_state,
         final_state = final_state,
@@ -725,7 +765,7 @@ def learn_custom_operation_by_partial_repetitions(
     num_attempts:int=2000, 
     max_iter_per_attempt:int = 10*int(1e3), 
     max_error_per_attempt:Optional[float]=None,
-    num_free_params:int|None=20,
+    num_free_params:int|None=None,
     sigma:float = 0.002,
     initial_sigma:float = 0.02,
     log_name:str=strings.time_stamp(),
@@ -776,7 +816,7 @@ def learn_custom_operation_by_partial_repetitions(
         try:            
             results = learn_custom_operation(
                 initial_state=initial_state, 
-                cost_function=cost_function, 
+                minus_fidelity_function=cost_function, 
                 operations=operations, 
                 max_iter=max_iter_per_attempt, 
                 tolerance=max_error_per_attempt,
@@ -792,7 +832,8 @@ def learn_custom_operation_by_partial_repetitions(
 
         ## Keep the best result:
         if results.score < best_result.score:
-            save_res_tracker.update()
+            if save_intermediate_results:
+                save_res_tracker.update()
             best_result = deepcopy( results )
             
             logger.info("    *** Best Results: *** ")
@@ -801,7 +842,8 @@ def learn_custom_operation_by_partial_repetitions(
             logger.info("\n")
 
         else:
-            save_res_tracker.clear_last()
+            if save_intermediate_results:
+                save_res_tracker.clear_last()
 
 
     prog_bar.clear()
@@ -818,8 +860,8 @@ def learn_custom_operation_by_partial_repetitions(
 
 
 def _test():
-    from scripts.optimize import cat4_i24
-    cat4_i24.main()
+    from scripts.optimize import cat2_i_multiple_steps 
+    cat2_i_multiple_steps.main()
 
 if __name__ == "__main__":
     _test()

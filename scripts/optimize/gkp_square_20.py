@@ -156,7 +156,7 @@ def main(
 
     results = learn_custom_operation(
         initial_state=initial_state, 
-        cost_function=cost_function, 
+        minus_fidelity_function=cost_function, 
         operations=operations, 
         max_iter=max_iter_per_attempt, 
         tolerance=tolerance,
