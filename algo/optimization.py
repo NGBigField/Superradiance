@@ -82,7 +82,7 @@ MAX_NUM_ITERATION : Final[int] = int(1e5)  # 1e6
 T4_PARAM_INDEX : Final[int] = 5
 
 
-SQUEEZING_COST_FACTOR : Final[float] = 0.80
+SQUEEZING_COST_FACTOR : Final[float] = 0.60
 
 # ==================================================================================== #
 # |                                    Classes                                       | #
