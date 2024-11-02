@@ -76,30 +76,31 @@ def _get_params(
 
     # Get the operations:
     match which:
-        case "low_squeezing":
+        case "high_squeezing":
             theta = [
-                +0.4935717071225814 , +1.7488554910458203 , +2.4081075251579991 , +0.1960856683031602 , +0.0868691825942013 ,
-                +0.7972821358300305 , +0.1037948476124894 , +2.9860069022070066 , -0.1259184534263386 , +0.0416548691243354 ,
-                +0.8792154967902378 , +1.0851850619300669 , +0.3040529641594746 , +0.0574856817405069 , +0.0210535691786186 ,
-                +0.7827130861085472 , -0.3885524067827190 , -0.1380271437296924 , +0.0767853562766987 , -0.1174564141277240 ,
-                +0.4576062201652379 , +1.2726065155223425 , +1.1641048116223858 , +0.0212355775098413 , +0.0844961998343022 ,
-                +0.2787371711063600 , +0.9041926789581701 , +1.7690041530910321 , -0.0250755863494547 , +0.0076069776716833 ,
-                +0.6157074876395792 , +0.6264536407238972 , +0.3242211271688092
-            ]
+                +2.9501274976023235 , +3.2399114064359571 , +0.6711011017455951 , -0.9800698587987760 , +1.9738650123692736 , 
+                +2.3127010356771458 , +0.7945229709481191 , +3.2415341143808769 , -1.2590767381798811 , -0.4016639825148159 , 
+                +1.2599969488800804 , -0.2290788211072962 , +1.1336332129353892 , -0.1862593986082912 , +3.2197074096647107 , 
+                +1.0446454901441966 , +1.0081675551217884 , -0.6398380319328609 , +0.0339691513333506 , +1.9846343164347613 , 
+                +0.3862605688445813 , +0.6948918553266052 , +2.6149161854848124 , -0.0816392408593655 , +2.6528924481384344 , 
+                +1.0352190047584462 , +0.1434425827366452 , +3.1679887515691787 , +0.6467276638480792 , +1.2442019988716795 , 
+                -0.4302027448542042 , +2.6942912321377754 , +0.4213405637758895 
+            ] # fidelity 0.9999000
             operations  = [
                 rotation, p2_pulse
             ] * 6 + [rotation]
 
-        case "high_squeezing":
+        case "low_squeezing":
+            # fidelity = 0.992312306468  squeezing = 0.646951683761
             theta = [
-                -0.0270826178762894 , +0.0420785292642372 , +1.6552895039760658 , +1.5101402120324945 , -0.0008950464974893 ,
-                -0.1450707540879570 , +0.2292109730479739 , +1.5551756612995788 , -0.0233353251592546 , +0.0233642260889000 ,
-                +0.0014409019759466 , +1.1375470015048958 , +0.0108297389140748 , +0.0000000784248237 , +0.0000001242354474 ,
-                +0.1083037282137895 , +0.1067735081262144 , -0.6376625013026994 , +0.0000002425902640 , +0.0000001562681915 ,
-                +0.0460796592248603 , +0.0485811088429098 , +0.0169410436835062 , +0.0000005761451667 , +0.0000004278663367 ,
-                +0.0251369727619576 , +0.1486675404429519 , +0.1559500007126816 , +0.0000001227203463 , +0.0000000310174803 ,
-                +0.0066005859930512 , +0.0805438764732726 , +0.2188462320291897
-            ] # fidelity 0.84 - 6 steps
+                +2.8567573275402358 , +2.3530728677226458 , +2.2439229815723869 , +0.1821548064098444 , +0.0716951667788887 ,
+                +1.1530588927182843 , +0.3038442874073793 , +2.4789842872232315 , -0.0710739128659769 , +0.0560833338984745 ,
+                +0.6579188063783105 , +1.0725239709669492 , -0.1056646686414356 , +0.1015339259605154 , +0.0261682335557583 ,
+                +1.0564150184662844 , -0.5078251013379605 , -0.1469865359536207 , +0.0832787357668058 , -0.1077822220912470 ,
+                +0.5860337832017745 , +1.1728652677937685 , +0.9667368248421768 , +0.0396459094821724 , +0.0880697870480867 ,
+                -0.0244978653355885 , +0.6448744819710170 , +1.3478740653368053 , +0.0136571295627677 , +0.0185285994375842 ,
+                +1.0660199114245268 , +1.0563404413843753 , +0.7897371345515618
+            ]
             operations  = [
                 rotation, p2_pulse
             ] * 6 + [rotation]
@@ -150,12 +151,12 @@ def _get_type_inputs(
 def _get_movie_config(
     active:bool,
     num_transition_frames:int|tuple[int, int, int],
+    fps:int,
     resolution:int,
-    show_now:bool
+    show_now:bool,
+    name:str,
 ) -> CoherentControl.MovieConfig:
     # Basic data:
-    fps=30
-    
     bloch_sphere_config = BlochSphereConfig(
         alpha_min=0.1,
         resolution=resolution,
@@ -173,7 +174,8 @@ def _get_movie_config(
         fps=fps,
         bloch_sphere_config=bloch_sphere_config,
         num_transition_frames=num_transition_frames,
-        temp_dir_name="temp_movie"+strings.time_stamp()    
+        temp_dir_name="temp_movie"+strings.time_stamp(),
+        video_name=name
     )
     
     return movie_config
@@ -186,37 +188,42 @@ def _get_target_state(num_atoms:int):
 
 def create_movie(
     which: _WhichVersionLiteral,
-    plot_target:bool = False,
-    active_movie:bool = False,
-    num_transition_frames:int|tuple[int, int, int] = (60, 180, 240),
-    resolution:int = 200,
+    active_movie:bool = True,
+    plot_target_and_final:bool = False,
+    num_transition_frames:int|tuple[int, int, int] = (60, 100, 200),
+    resolution:int = 150,
     show_now:bool = False,
 ):
 
 
     ## Basic inputs and constants:
-    num_transition_frames = num_transition_frames if create_movie else 0
+    num_transition_frames = num_transition_frames if active_movie else 0
     num_atoms:int = 12
+    fps:int = 30
 
     ## get data:
     coherent_control, initial_state, theta, operations, cost_function = _get_type_inputs(which=which, num_atoms=num_atoms, num_intermediate_states=0)
-    movie_config = _get_movie_config(active_movie, num_transition_frames, resolution, show_now)    
+    movie_config = _get_movie_config(active_movie, num_transition_frames, fps, resolution, show_now, which)    
 
 
 
     def _create_matter_figure(state)->MatterStatePlot:
         return MatterStatePlot(initial_state=state, bloch_sphere_config=movie_config.bloch_sphere_config, horizontal=True)   
     
-    if plot_target:
+    if plot_target_and_final:
         target = _get_target_state(num_atoms)
         target_plot = _create_matter_figure(target)
         target_plot.set_title("Target state")
 
+        final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=None)
+        final_plot = _create_matter_figure(final_state)
+        final_plot.set_title("Final state")
+
+        draw_now()
+
     ## Go:
     print(f"Creating Movie...")
     final_state = coherent_control.custom_sequence(state=initial_state, theta=theta, operations=operations, movie_config=movie_config)
-
-    _create_matter_figure(final_state)
     
     # Finish
     print("Done with movie.")

@@ -679,9 +679,9 @@ class VideoRecorder():
         self.frames_counter += 1
         self.frames_duration.append(duration)
 
-    def write_video(self, name:Optional[str]=None)->None:
+    def write_video(self, name:str="")->None:
         # Complete missing inputs:
-        name = arguments.default_value(name, default_factory=strings.time_stamp )        
+        name += strings.time_stamp()
         # Prepare folder for video:
         saveload.force_folder_exists(VIDEOS_FOLDER)
         clips_gen = self.image_clips()

@@ -82,8 +82,6 @@ MAX_NUM_ITERATION : Final[int] = int(1e5)  # 1e6
 T4_PARAM_INDEX : Final[int] = 5
 
 
-SQUEEZING_COST_FACTOR : Final[float] = 0.60
-
 # ==================================================================================== #
 # |                                    Classes                                       | #
 # ==================================================================================== #
@@ -626,6 +624,7 @@ def learn_custom_operation(
     initial_guess : Optional[np.ndarray] = None,
     parameters_config : Optional[List[BaseParamType]] = None,
     save_results : bool = True,
+    squeezing_cost_factor : float = 0.6,
     save_intermediate_results : bool|str = False,
     print_interval : int = 20
 ) -> LearnedResults:
@@ -714,7 +713,7 @@ def learn_custom_operation(
             _save_intermediate_results(data_dict, minus_fidelity)
 
         ## Compute cost:
-        cost = 1.0*minus_fidelity + SQUEEZING_COST_FACTOR*squeezing_strength
+        cost = 1.0*minus_fidelity + squeezing_cost_factor*squeezing_strength
 
         return _cost_amplification(cost)
 
@@ -774,8 +773,9 @@ def learn_custom_operation_by_partial_repetitions(
     sigma:float = 0.002,
     initial_sigma:float = 0.02,
     log_name:str=strings.time_stamp(),
+    squeezing_cost_factor:float = 0.5,
     save_results:bool=True,
-    save_intermediate_results : bool = False  #type: ignore
+    save_intermediate_results : bool = False,  #type: ignore
 )-> LearnedResults:
     
     ## Set logging:
@@ -828,7 +828,8 @@ def learn_custom_operation_by_partial_repetitions(
                 parameters_config=params,
                 opt_method=opt_method,
                 save_intermediate_results=save_intermediate_results,
-                save_results=False
+                save_results=False,
+                squeezing_cost_factor=squeezing_cost_factor
             )
         except Exception as e:
             s = errors.get_traceback(e)

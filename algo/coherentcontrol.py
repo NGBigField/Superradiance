@@ -378,6 +378,8 @@ class SequenceMovieRecorder():
         score_str_func : Optional[Callable[[_DensityMatrixType], str]] = None
         temp_dir_name : str = ""
         final_frame_time : float = 2  # seconds
+        video_name : str|None = None
+
 
         def get_num_transition_frames_based_on_operation(self, params:list[float], operation:Operation)->int:
             if not self.active:
@@ -473,7 +475,8 @@ class SequenceMovieRecorder():
     def write_video(self) -> None:
         if not self.is_active:
             return
-        self.video_recorder.write_video()
+        name = self.config.video_name
+        self.video_recorder.write_video(name=name)
         self._close()
         
     def _close(self) -> None:
