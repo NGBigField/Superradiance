@@ -81,6 +81,9 @@ MAX_NUM_ITERATION : Final[int] = int(1e5)  # 1e6
 
 T4_PARAM_INDEX : Final[int] = 5
 
+
+SQUEEZING_COST_FACTOR : Final[float] = 0.80
+
 # ==================================================================================== #
 # |                                    Classes                                       | #
 # ==================================================================================== #
@@ -421,7 +424,7 @@ def _initial_result(initial_state:_DensityMatrixType, initial_theta:List[float],
     initial_result = LearnedResults(operation_params=initial_theta, score=cost_function(initial_best_final_state))   
     return initial_result
 
-def _params_str(operation_params:List[float], param_width:int=20) -> str:
+def _params_str(operation_params:np.ndarray, param_width:int=20) -> str:
     # Constants:
     num_params_per_line : int = 5
     extra_space = 4
@@ -677,14 +680,17 @@ def learn_custom_operation(
 
 
     @decorators.sparse_execution(skip_num=print_interval, default_results=False)
-    def _after_each(xk:np.ndarray) -> bool:
-        amplified_cost = _total_cost_function(xk)
-        cost = _cost_reverse_amplification(amplified_cost)
-        operation_params = param_config.optimization_theta_to_operations_params(xk)
-        extra_str = f"cost = {cost}"+"\n"+f"{_params_str(operation_params)}"
+    def _after_each(theta:np.ndarray) -> bool:
+        operation_params = param_config.optimization_theta_to_operations_params(theta)
+        final_state = coherent_control.custom_sequence(initial_state, theta=operation_params, operations=operations )
+        fidelity = (-1)*minus_fidelity_function(final_state)
+        squeezing_strength = _squeezing_strength(param_config, theta, operations)
+
+        extra_str = f"fidelity = {fidelity:.12f}"
+        extra_str += f"  squeezing = {squeezing_strength:.12f}"
+        extra_str += "\n"+f"{_params_str(operation_params)}"
         prog_bar.next(increment=print_interval, extra_str=extra_str)
         finish : bool = False
-
 
         return finish
 
@@ -703,13 +709,12 @@ def learn_custom_operation(
         # from utils.visuals import plot_matter_state
         # plot_matter_state(final_state)
 
-
         if save_intermediate_results:
             data_dict = dict(cost=minus_fidelity, squeezing_strength=squeezing_strength, theta=theta, operation_params=operation_params, state=final_state)
             _save_intermediate_results(data_dict, minus_fidelity)
 
         ## Compute cost:
-        cost = 0.9*minus_fidelity + 0.1*squeezing_strength
+        cost = 1.0*minus_fidelity + SQUEEZING_COST_FACTOR*squeezing_strength
 
         return _cost_amplification(cost)
 
