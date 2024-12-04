@@ -7,6 +7,7 @@ __all__ = [
     "gkp_state",
     "ground_state",
     "fully_excited_state",
+    "dicke_state",
     "cat_state"
 ]
 
@@ -20,4 +21,5 @@ def cat_state(num_atoms:int, num_legs:int, alpha:float=3, phase:float=0.0)->np.m
     ket = cat_state_ket(num_atoms=num_atoms, alpha=alpha, num_legs=num_legs, phase=phase)
     return ket.to_density_matrix(num_moments=num_atoms)
 
+def dicke_state(num_atoms:int, excitation:int)->np.matrix:
     

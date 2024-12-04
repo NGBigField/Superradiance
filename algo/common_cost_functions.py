@@ -3,7 +3,7 @@ import numpy as np
 from algo.coherentcontrol import _DensityMatrixType
 from algo.metrics import fidelity
 from physics import gkp 
-from physics.famous_density_matrices import cat_state
+from physics.famous_density_matrices import cat_state, dicke_state
 from utils import indices
 
 
@@ -11,6 +11,7 @@ __all__ = [
     "fidelity_to_gkp",
     "fidelity_to_cat",
     "fidelity_to_ghz",
+    "fidelity_to_dicke",
     "weighted_ghz"
 ]
 
@@ -36,6 +37,13 @@ def fidelity_to_ghz(initial_state:_DensityMatrixType) -> Callable[[_DensityMatri
         return (-1) * fidelity(final_state, target_state)
 
     return cost_function
+
+
+def fidelity_to_dicke(num_atoms:int, exitations:int) -> Callable[[_DensityMatrixType], float]:
+    target = dicke_state(num_atoms, exitations)
+    def cost_func(rho:np.matrix)->float:
+        return -1*fidelity(rho, target)
+    return cost_func
 
 def weighted_ghz(initial_state:_DensityMatrixType) -> Callable[[_DensityMatrixType], float] :
     # Define cost function
