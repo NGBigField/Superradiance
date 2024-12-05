@@ -35,7 +35,7 @@ from algo.optimization import (
 
 # Common states and cost functions:
 from physics.famous_density_matrices import ground_state
-from algo.common_cost_functions import fidelity_to_cat
+from algo.common_cost_functions import fidelity_to_dicke
 
 
 

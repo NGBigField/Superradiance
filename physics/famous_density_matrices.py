@@ -22,4 +22,4 @@ def cat_state(num_atoms:int, num_legs:int, alpha:float=3, phase:float=0.0)->np.m
     return ket.to_density_matrix(num_moments=num_atoms)
 
 def dicke_state(num_atoms:int, excitation:int)->np.matrix:
-    
+    pass
