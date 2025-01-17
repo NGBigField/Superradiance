@@ -51,7 +51,7 @@ DEFAULT_COLORLIM = None
 
 
 def _get_movie_config(
-    create_movie:bool, num_transition_frames:int, horizontal_movie:bool
+    create_movie:bool, num_transition_frames:int|tuple[int, int, int], horizontal_movie:bool
 ) -> CoherentControl.MovieConfig:
     # Basic data:
     fps=30
@@ -81,7 +81,7 @@ def _get_movie_config(
 
 
 def main(
-    what_movie = "squeeze_to_kitten",
+    what_movie = "dicke1",
     resolution:int = 200
 ):
     # Start:
@@ -125,6 +125,9 @@ def main(
         case "kitten_to_visible_cat":
             num_atoms = 20
             num_transition_frames = 100
+        case "dicke1":
+            num_atoms = 20
+            num_transition_frames = (20, 50, 150)
         case _:
             raise ValueError("Choose a state that has an implementation")
     assert isinstance(num_atoms, int), "Choose a state that has an implementation"
@@ -141,6 +144,7 @@ def main(
     ## Sequence:
     initial_state = ground_state(num_atoms)
     # Operations:
+    x1 = _pulse_of_power_and_directions(1, [0])
     y1 = _pulse_of_power_and_directions(1, [1])
     xy = _pulse_of_power_and_directions(1, [0, 1])
     x2 = _pulse_of_power_and_directions(2, [0])
@@ -210,6 +214,14 @@ def main(
         case "test":
             operations = [y1  ] 
             theta      = [-pi ] 
+
+        case "dicke1":
+            operations = [x1, y1, z2] *2 + [x1, y1]
+            theta      = [
+                -0.2014635983808208 , +0.3785134903984789 , -0.6159775195752483 , 
+                -0.1346998044301378 , +0.1167093543543323 , -0.9983998398411478 ,
+                +2.9985624258163925 , -3.2341243504340280
+             ] 
 
 
     # create state:

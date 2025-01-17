@@ -119,7 +119,7 @@ def _unpack_files_results(
 def create_movie(
     state_type:StateType = StateType.Cat4,
     subfolder:str = "intermediate_results 2024.05.08_17.34.48",
-    num_atoms:int = 24,
+    num_atoms:int = 20,
     fps:int = 30,
     plot_target:bool = False,
     show_now:bool = False,
