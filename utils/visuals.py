@@ -681,6 +681,7 @@ class VideoRecorder():
 
     def write_video(self, name:str="")->None:
         # Complete missing inputs:
+        name = "" if name is None else name
         name += strings.time_stamp()
         # Prepare folder for video:
         saveload.force_folder_exists(VIDEOS_FOLDER)

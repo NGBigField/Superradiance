@@ -216,6 +216,7 @@ def main(
             theta      = [-pi ] 
 
         case "dicke1":
+            movie_config.bloch_sphere_config.viewing_angles.elev = 60
             operations = [x1, y1, z2] *2 + [x1, y1]
             theta      = [
                 -0.2014635983808208 , +0.3785134903984789 , -0.6159775195752483 , 
